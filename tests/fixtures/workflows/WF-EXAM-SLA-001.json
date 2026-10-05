@@ -1,0 +1,238 @@
+{
+  "dataset_id": "WF-EXAM-SLA-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "workflow_scenario_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "variant_id": "EX-SLA-BREACH-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "workflow_definition": {
+    "key": "exam-question-paper-readiness-v1",
+    "version": "1.0.0",
+    "start_trigger": "plan.approved",
+    "approval_model": "PARALLEL_ALL_OF",
+    "terminal_success_state": "READY_FOR_SCHEDULING",
+    "rejection_state": "REWORK_REQUIRED"
+  },
+  "participants": [
+    {
+      "actor_id": "actor-exam-coordinator",
+      "display_label": "Exam Operations Coordinator",
+      "role": "EXAM_OPERATIONS_COORDINATOR"
+    },
+    {
+      "actor_id": "actor-approver-alpha",
+      "display_label": "Department Approver Alpha",
+      "role": "DEPARTMENT_APPROVER"
+    },
+    {
+      "actor_id": "actor-approver-beta",
+      "display_label": "Department Approver Beta",
+      "role": "DEPARTMENT_APPROVER"
+    },
+    {
+      "actor_id": "actor-operations-manager",
+      "display_label": "Operations Manager",
+      "role": "EXAM_OPERATIONS_MANAGER"
+    }
+  ],
+  "sla_policy_fixture": {
+    "policy_id": "sla-fixture-exam-001",
+    "fixture_only": true,
+    "start_trigger": "TASK_CREATED",
+    "business_calendar": {
+      "timezone": "Asia/Kolkata",
+      "working_days": [
+        "MONDAY",
+        "TUESDAY",
+        "WEDNESDAY",
+        "THURSDAY",
+        "FRIDAY"
+      ],
+      "daily_windows": [
+        {
+          "start": "09:00:00",
+          "end": "17:00:00"
+        }
+      ]
+    },
+    "pause_states": [],
+    "warning_after_business_minutes": 120,
+    "breach_after_business_minutes": 240,
+    "breach_action": "EMIT_BREACH_EVENT",
+    "escalation_chain": [
+      {
+        "order": 1,
+        "role": "EXAM_OPERATIONS_MANAGER"
+      }
+    ]
+  },
+  "initial_context": {
+    "plan_id": "plan-synth-exam-003",
+    "plan_state": "APPROVED",
+    "paper_ready": true,
+    "approval_alpha": "PENDING",
+    "approval_beta": "PENDING"
+  },
+  "sla_target": {
+    "task_key": "department-approval-alpha",
+    "created_at": "2026-11-09T09:00:00+05:30",
+    "assigned_role": "DEPARTMENT_APPROVER",
+    "status": "PENDING"
+  },
+  "restart_checkpoint": {
+    "at": "2026-11-09T10:30:00+05:30",
+    "simulated_condition": "APPLICATION_OR_WORKFLOW_RUNTIME_RESTART",
+    "expected_timer_state_preserved": true
+  },
+  "actions": [
+    {
+      "action_id": "wf-action-sla-001",
+      "at": "2026-11-09T09:00:00+05:30",
+      "actor_id": "SYSTEM",
+      "task_key": "department-approval-alpha",
+      "action": "SLA_CLOCK_START",
+      "details": {
+        "policy_id": "sla-fixture-exam-001"
+      }
+    },
+    {
+      "action_id": "wf-action-sla-002",
+      "at": "2026-11-09T10:30:00+05:30",
+      "actor_id": "SYSTEM",
+      "action": "SIMULATED_RESTART_CHECKPOINT",
+      "details": {
+        "condition": "APPLICATION_OR_WORKFLOW_RUNTIME_RESTART",
+        "expected_timer_state_preserved": true
+      }
+    },
+    {
+      "action_id": "wf-action-sla-003",
+      "at": "2026-11-09T11:00:00+05:30",
+      "actor_id": "SYSTEM",
+      "task_key": "department-approval-alpha",
+      "action": "SLA_WARNING_EXPECTED",
+      "details": {
+        "business_minutes_elapsed": 120
+      }
+    },
+    {
+      "action_id": "wf-action-sla-004",
+      "at": "2026-11-09T13:00:00+05:30",
+      "actor_id": "SYSTEM",
+      "task_key": "department-approval-alpha",
+      "action": "SLA_BREACH_EXPECTED",
+      "details": {
+        "business_minutes_elapsed": 240,
+        "breach_action": "EMIT_BREACH_EVENT",
+        "escalation_role": "EXAM_OPERATIONS_MANAGER"
+      }
+    }
+  ],
+  "decision_expectations": [],
+  "expected_events": [
+    {
+      "event_name": "plan.approved",
+      "at": "2026-11-09T08:55:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "aggregate_id": "plan-synth-exam-003"
+    },
+    {
+      "event_name": "workflow.task.created",
+      "at": "2026-11-09T09:00:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "task_key": "department-approval-alpha",
+      "assigned_role": "DEPARTMENT_APPROVER"
+    },
+    {
+      "event_name": "workflow.sla.warning",
+      "at": "2026-11-09T11:00:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "task_key": "department-approval-alpha",
+      "policy_id": "sla-fixture-exam-001",
+      "warning_offset_minutes": 120
+    },
+    {
+      "event_name": "workflow.sla.breached",
+      "at": "2026-11-09T13:00:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "task_key": "department-approval-alpha",
+      "policy_id": "sla-fixture-exam-001",
+      "breached_at": "2026-11-09T13:00:00+05:30",
+      "escalation_role": "EXAM_OPERATIONS_MANAGER"
+    }
+  ],
+  "expected_audit": [
+    {
+      "actor": "SYSTEM",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-09T09:00:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "entity_reference": "department-approval-alpha",
+      "policy_reference": "sla-fixture-exam-001",
+      "action": "START_SLA_TIMER",
+      "transition": "SLA_TIMER_STARTED"
+    },
+    {
+      "actor": "SYSTEM",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-09T10:30:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "entity_reference": "department-approval-alpha",
+      "policy_reference": "sla-fixture-exam-001",
+      "action": "SIMULATED_RESTART_RECOVERY",
+      "transition": "TIMER_STATE_RESTORED_POST_RESTART",
+      "restart_recovery_evidence": {
+        "condition": "APPLICATION_OR_WORKFLOW_RUNTIME_RESTART",
+        "timer_state_preserved": true
+      }
+    },
+    {
+      "actor": "SYSTEM",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-09T11:00:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "entity_reference": "department-approval-alpha",
+      "policy_reference": "sla-fixture-exam-001",
+      "action": "WARNING_THRESHOLD_REACHED",
+      "transition": "SLA_WARNING_EMITTED",
+      "warning": {
+        "event_name": "workflow.sla.warning",
+        "business_minutes_elapsed": 120
+      }
+    },
+    {
+      "actor": "SYSTEM",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-09T13:00:00+05:30",
+      "correlation_id": "corr-wf-exam-sla-001",
+      "entity_reference": "department-approval-alpha",
+      "policy_reference": "sla-fixture-exam-001",
+      "action": "BREACH_THRESHOLD_REACHED",
+      "transition": "SLA_BREACHED",
+      "breach": {
+        "event_name": "workflow.sla.breached",
+        "business_minutes_elapsed": 240,
+        "breach_action": "EMIT_BREACH_EVENT"
+      },
+      "escalation": {
+        "target_role": "EXAM_OPERATIONS_MANAGER"
+      }
+    }
+  ],
+  "expected_properties": {
+    "expected_workflow_state": "RUNNING",
+    "target_task_state": "PENDING",
+    "warning_expected": true,
+    "breach_expected": true,
+    "warning_at": "2026-11-09T11:00:00+05:30",
+    "breach_at": "2026-11-09T13:00:00+05:30",
+    "timer_state_must_survive_restart": true,
+    "no_in_memory_only_timer": true,
+    "configured_breach_action_required": true,
+    "configured_escalation_chain_required": true,
+    "audit_required": true
+  }
+}

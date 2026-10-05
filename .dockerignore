@@ -1,0 +1,64 @@
+# ==============================================================================
+# IR INFOTECH E-7 OPERATIONS ENGINE - DOCKER BUILD CONTEXT IGNORE
+# ==============================================================================
+
+# Version control
+.git
+.gitignore
+
+# Python cache & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Testing & quality caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# IDE & editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets & local env
+.env
+.env.*
+secrets.json
+
+# Local runtime data
+docker_data/
+local_data/
+
+# Documentation & UI (not needed in backend container)
+docs/
+ui/

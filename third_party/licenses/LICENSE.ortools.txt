@@ -1,0 +1,21 @@
+# Google OR-Tools License Provenance & Compliance Evidence
+
+Project: Google Optimization Tools (OR-Tools)
+Component Family: OR-Tools CP-SAT Solver and Python Bindings
+Verified License Identifier: Apache-2.0 (Apache License, Version 2.0)
+Verification Date: 2026-10-05
+Compliance Disposition: ACCEPTABLE (Permissive open source; approved for Phase-4 Generic Scheduling adoption)
+
+## Verified Upstream Sources
+
+1. Google OR-Tools
+   - Package Name: ortools
+   - Official Upstream Repository: https://github.com/google/or-tools
+   - Official LICENSE Location: https://github.com/google/or-tools/blob/stable/LICENSE
+   - License: Apache-2.0 (Copyright 2010-2026 Google LLC)
+   - Phase-4 Role: Primary generic constraint programming (CP-SAT) solver for scheduling optimization, hard constraint enforcement, and conflict explanations.
+
+## Attribution & Usage Policy
+- Import and consume unmodified binary distributions/wheels as versioned package dependencies.
+- Retain official Apache-2.0 license headers and NOTICE files in distribution manifests.
+- Zero proprietary code contamination; mathematical formulation encapsulated behind E-7 adapter boundary.

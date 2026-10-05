@@ -1,0 +1,27 @@
+# Prometheus License Provenance & Compliance Evidence
+
+Project: Prometheus
+Component Family: Prometheus Server
+Verified License Identifier: Apache-2.0 (Apache License, Version 2.0)
+Verification Date: 2026-09-29
+Compliance Disposition: ACCEPTABLE (Permissive open source; approved for Phase-1 Task-1K adoption)
+
+## Verified Upstream Source
+
+1. Prometheus Server
+   - Distribution / Container Image: prom/prometheus
+   - Official Upstream Repository: https://github.com/prometheus/prometheus
+   - Official LICENSE Location: https://github.com/prometheus/prometheus/blob/main/LICENSE
+   - License: Apache-2.0
+   - Phase-1 Role: Standalone time-series metrics server scraping the OpenTelemetry Collector metrics endpoint (:8889) under the optional `observability` Compose profile
+
+## Architectural Boundaries & Isolation
+- Deployed exclusively as a decoupled container service communicating over standard HTTP network protocols.
+- Never imported as a direct in-process runtime library in E-7 application code.
+- Prometheus scrapes the OpenTelemetry Collector; the headless worker has no direct inbound HTTP metrics scrape port.
+- Grafana visualization is NOT part of Phase 1 and remains deferred to Phase 7.
+
+## Attribution & Usage Policy
+- Operate unmodified official container images (`prom/prometheus`).
+- Include standard Apache-2.0 copyright and NOTICE files in external container distribution manifests.
+- Zero source code copying into the IR proprietary application core.

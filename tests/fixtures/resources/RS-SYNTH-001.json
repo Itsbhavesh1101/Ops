@@ -1,0 +1,826 @@
+{
+  "dataset_id": "RS-SYNTH-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "resource_catalog",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "source_scenarios": [
+    "E7-REF-EXAM-001",
+    "E7-REF-MAINT-001"
+  ],
+  "source_freshness_at": "2026-11-08T18:00:00+05:30",
+  "resources": [
+    {
+      "id": "res-inv-001",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Invigilator Alpha",
+      "capacity": 1,
+      "skills": [
+        "INVIGILATION_GENERAL",
+        "SCIENCE"
+      ],
+      "attributes": {
+        "role": "INVIGILATOR"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-INV-001",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-inv-002",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Invigilator Beta",
+      "capacity": 1,
+      "skills": [
+        "INVIGILATION_GENERAL",
+        "MATHEMATICS"
+      ],
+      "attributes": {
+        "role": "INVIGILATOR"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-INV-002",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-inv-003",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Invigilator Gamma",
+      "capacity": 1,
+      "skills": [
+        "INVIGILATION_GENERAL",
+        "LANGUAGE"
+      ],
+      "attributes": {
+        "role": "INVIGILATOR"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-INV-003",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-inv-004",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Invigilator Delta",
+      "capacity": 1,
+      "skills": [
+        "INVIGILATION_GENERAL",
+        "ACCESSIBILITY_SUPPORT"
+      ],
+      "attributes": {
+        "role": "INVIGILATOR"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-INV-004",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-room-001",
+      "tenant_id": "tenant-synth-001",
+      "type": "ROOM",
+      "display_label": "Exam Room Alpha",
+      "capacity": 40,
+      "skills": [],
+      "attributes": {
+        "room_type": "CLASSROOM",
+        "equipment": [
+          "PROJECTOR"
+        ]
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-ROOM-001",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-room-002",
+      "tenant_id": "tenant-synth-001",
+      "type": "ROOM",
+      "display_label": "Exam Room Beta",
+      "capacity": 32,
+      "skills": [],
+      "attributes": {
+        "room_type": "CLASSROOM",
+        "equipment": []
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-ROOM-002",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-room-003",
+      "tenant_id": "tenant-synth-001",
+      "type": "ROOM",
+      "display_label": "Science Lab Alpha",
+      "capacity": 24,
+      "skills": [],
+      "attributes": {
+        "room_type": "SCIENCE_LAB",
+        "equipment": [
+          "LAB_BENCHES",
+          "PROJECTOR"
+        ]
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-ROOM-003",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-tech-001",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Technician Alpha",
+      "capacity": 1,
+      "skills": [
+        "ELECTRICAL",
+        "HVAC"
+      ],
+      "attributes": {
+        "role": "MAINTENANCE_TECHNICIAN"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-TECH-001",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-tech-002",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Technician Beta",
+      "capacity": 1,
+      "skills": [
+        "PLUMBING",
+        "GENERAL_MAINTENANCE"
+      ],
+      "attributes": {
+        "role": "MAINTENANCE_TECHNICIAN"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-TECH-002",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-tech-003",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Technician Gamma",
+      "capacity": 1,
+      "skills": [
+        "HVAC",
+        "MECHANICAL"
+      ],
+      "attributes": {
+        "role": "MAINTENANCE_TECHNICIAN"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-TECH-003",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-tech-004",
+      "tenant_id": "tenant-synth-001",
+      "type": "PERSON",
+      "display_label": "Technician Delta",
+      "capacity": 1,
+      "skills": [
+        "ELECTRICAL",
+        "NETWORK"
+      ],
+      "attributes": {
+        "role": "MAINTENANCE_TECHNICIAN"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-TECH-004",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-eq-001",
+      "tenant_id": "tenant-synth-001",
+      "type": "EQUIPMENT",
+      "display_label": "Mobile Access Lift",
+      "capacity": 1,
+      "skills": [
+        "HEIGHT_ACCESS"
+      ],
+      "attributes": {
+        "equipment_type": "MOBILE_ACCESS_LIFT"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-EQ-001",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-eq-002",
+      "tenant_id": "tenant-synth-001",
+      "type": "EQUIPMENT",
+      "display_label": "Electrical Diagnostic Meter",
+      "capacity": 1,
+      "skills": [
+        "ELECTRICAL_DIAGNOSTIC"
+      ],
+      "attributes": {
+        "equipment_type": "DIAGNOSTIC_METER"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-EQ-002",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    },
+    {
+      "id": "res-eq-003",
+      "tenant_id": "tenant-synth-001",
+      "type": "EQUIPMENT",
+      "display_label": "HVAC Service Gauge Kit",
+      "capacity": 1,
+      "skills": [
+        "HVAC_SERVICE"
+      ],
+      "attributes": {
+        "equipment_type": "HVAC_GAUGE_KIT"
+      },
+      "provider": "synthetic-erp",
+      "external_id": "SYN-ERP-EQ-003",
+      "active": true,
+      "source_freshness_at": "2026-11-08T18:00:00+05:30"
+    }
+  ],
+  "resource_availability": [
+    {
+      "resource_id": "res-inv-001",
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-002",
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-003",
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-004",
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-001",
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-002",
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-003",
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-001",
+      "start_at": "2026-11-10T08:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-002",
+      "start_at": "2026-11-10T08:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-003",
+      "start_at": "2026-11-10T08:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-004",
+      "start_at": "2026-11-10T08:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-001",
+      "start_at": "2026-11-10T08:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-002",
+      "start_at": "2026-11-10T08:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-003",
+      "start_at": "2026-11-10T08:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-001",
+      "start_at": "2026-11-11T08:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-002",
+      "start_at": "2026-11-11T08:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-003",
+      "start_at": "2026-11-11T08:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-004",
+      "start_at": "2026-11-11T08:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-001",
+      "start_at": "2026-11-11T08:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-002",
+      "start_at": "2026-11-11T08:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-003",
+      "start_at": "2026-11-11T08:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-001",
+      "start_at": "2026-11-12T08:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-002",
+      "start_at": "2026-11-12T08:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-003",
+      "start_at": "2026-11-12T08:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-004",
+      "start_at": "2026-11-12T08:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-001",
+      "start_at": "2026-11-12T08:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-002",
+      "start_at": "2026-11-12T08:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-003",
+      "start_at": "2026-11-12T08:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-001",
+      "start_at": "2026-11-13T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-002",
+      "start_at": "2026-11-13T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-003",
+      "start_at": "2026-11-13T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-inv-004",
+      "start_at": "2026-11-13T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-001",
+      "start_at": "2026-11-13T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-002",
+      "start_at": "2026-11-13T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-room-003",
+      "start_at": "2026-11-13T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-001",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-002",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-003",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-004",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-001",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-002",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-003",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-001",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-002",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-003",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-004",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-001",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-002",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-003",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-001",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-002",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-003",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-004",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-001",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-002",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-003",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-001",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-002",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-003",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-004",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-001",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-002",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-003",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-001",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-002",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-003",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-tech-004",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-001",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-002",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    },
+    {
+      "resource_id": "res-eq-003",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30",
+      "availability_type": "AVAILABLE",
+      "source": "synthetic-fixture",
+      "source_version": "RS-SYNTH-001@1.0.0"
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "dataset_id": "TI-GOLD-004",
+  "dataset_version": "1.0.0",
+  "fixture_type": "task_intelligence_gold_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "input_case": {
+    "input_mode": "NATURAL_LANGUAGE",
+    "raw_goal": "Get the Grade 10 semester exams ready soon."
+  },
+  "authorized_context": {
+    "tenant_id": "tenant-synth-001",
+    "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+    "allowed_resource_ids": [
+      "res-inv-001",
+      "res-inv-002",
+      "res-inv-003",
+      "res-inv-004",
+      "res-room-001",
+      "res-room-002",
+      "res-room-003"
+    ],
+    "source_work_categories": [
+      "PLANNING",
+      "QUESTION_PAPER_READINESS",
+      "APPROVALS",
+      "ROOM_PREPARATION",
+      "INVIGILATOR_PREPARATION",
+      "SCHEDULING",
+      "EXAM_EXECUTION",
+      "INCIDENT_HANDLING",
+      "CLOSURE"
+    ],
+    "deliberately_omitted_context": [
+      "TARGET_OR_EXAMINATION_WINDOW",
+      "DEADLINE",
+      "MAJOR_SUBJECT_GAP_POLICY"
+    ]
+  },
+  "expected_plan_properties": {
+    "missing_information_must_be_detected": true,
+    "missing_information": [
+      "TARGET_OR_EXAMINATION_WINDOW",
+      "DEADLINE",
+      "MAJOR_SUBJECT_GAP_POLICY"
+    ],
+    "must_not_invent_deadline": true,
+    "must_not_invent_examination_window": true,
+    "must_not_invent_gap_policy_value": true,
+    "must_not_invent_resource_assignments": true,
+    "explicit_assumptions_if_provisional_draft_created": true,
+    "human_clarification_or_review_required": true
+  },
+  "acceptable_behavior": [
+    "REQUEST_OR_FLAG_MISSING_INFORMATION",
+    "CREATE_PROVISIONAL_STRUCTURAL_DRAFT_WITH_EXPLICIT_ASSUMPTIONS"
+  ],
+  "forbidden_plan_properties": [
+    "fabricated_date",
+    "fabricated_deadline",
+    "fabricated_one_day_gap",
+    "fabricated_resource_assignment",
+    "fabricated_institution_name",
+    "fabricated_external_ids",
+    "claim_that_assumptions_are_authoritative",
+    "direct_activation_without_approval"
+  ],
+  "evaluation_expectations": {
+    "structured_output_validity": true,
+    "missing_information_detection": true,
+    "assumption_transparency": true,
+    "hallucinated_entity_count": 0,
+    "human_correction_required": true,
+    "exact_wording_scored": false
+  },
+  "common_evaluation_note": "Gold evaluation assesses semantic, structural, and dependency properties rather than exact wording or ordering. Different valid task breakdowns or titles are acceptable if they satisfy the required properties and categories. Output must be treated as a non-authoritative proposal requiring human/policy review before canonical activation. Zero model or provider names are encoded; fixture values are regression benchmarks and never production defaults."
+}

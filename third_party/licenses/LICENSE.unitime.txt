@@ -1,0 +1,28 @@
+# UniTime License Provenance & Compliance Evidence
+
+Project: UniTime (Comprehensive Academic Scheduling & Timetabling)
+Component Family: UniTime Academic Course & Examination Timetabling Core & CPSolver
+Verified License Identifier: Apache-2.0 (Apache License, Version 2.0)
+Verification Date: 2026-10-05
+Upstream Release Tag: v4.9.152 (UniTime 4.9 build 152) / org.unitime:cpsolver:1.4.94
+Compliance Disposition: ACCEPTABLE FOR POC & REFERENCE ADAPTER (Permissive open source)
+
+## Verified Upstream Sources
+
+1. UniTime Project
+   - Official Upstream Repository: https://github.com/UniTime/unitime
+   - Official LICENSE Location: https://github.com/UniTime/unitime/blob/master/LICENSE
+   - License: Apache-2.0 (Copyright 2006-2026 UniTime LLC)
+   - Phase-5 Role: Comparative academic course and examination scheduling PoC adapter.
+
+2. UniTime Constraint Solver (CPSolver)
+   - Official Upstream Repository: https://github.com/UniTime/cpsolver
+   - Artifact: org.unitime:cpsolver:1.4.94 (Maven Central)
+   - Core Solver Framework: Iterative Forward Search (IFS) and Examination Timetabling (ExamTT)
+
+## Attribution & Usage Policy
+- UniTime execution operates behind a decoupled E-7 adapter boundary.
+- UniTime source code is strictly prohibited from being copied or embedded into E-7 core.
+- UniTime database must never become the canonical E-7 database.
+- Retain official Apache-2.0 license notice and attribution in distribution registers.
+- All bundled Java dependencies audited prior to any containerized service adoption.

@@ -1,0 +1,216 @@
+{
+  "dataset_id": "WF-EXAM-REJECT-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "workflow_scenario_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "variant_id": "EX-WF-REJECT-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "workflow_definition": {
+    "key": "exam-question-paper-readiness-v1",
+    "version": "1.0.0",
+    "start_trigger": "plan.approved",
+    "approval_model": "PARALLEL_ALL_OF",
+    "terminal_success_state": "READY_FOR_SCHEDULING",
+    "rejection_state": "REWORK_REQUIRED"
+  },
+  "participants": [
+    {
+      "actor_id": "actor-exam-coordinator",
+      "display_label": "Exam Operations Coordinator",
+      "role": "EXAM_OPERATIONS_COORDINATOR"
+    },
+    {
+      "actor_id": "actor-approver-alpha",
+      "display_label": "Department Approver Alpha",
+      "role": "DEPARTMENT_APPROVER"
+    },
+    {
+      "actor_id": "actor-approver-beta",
+      "display_label": "Department Approver Beta",
+      "role": "DEPARTMENT_APPROVER"
+    },
+    {
+      "actor_id": "actor-operations-manager",
+      "display_label": "Operations Manager",
+      "role": "EXAM_OPERATIONS_MANAGER"
+    }
+  ],
+  "initial_context": {
+    "plan_id": "plan-synth-exam-002",
+    "plan_state": "APPROVED",
+    "paper_ready": false,
+    "approval_alpha": "PENDING",
+    "approval_beta": "PENDING"
+  },
+  "actions": [
+    {
+      "action_id": "wf-action-reject-001",
+      "at": "2026-11-10T09:00:00+05:30",
+      "actor_id": "actor-exam-coordinator",
+      "task_key": "paper-readiness",
+      "action": "COMPLETE",
+      "output": {
+        "paper_ready": true
+      }
+    },
+    {
+      "action_id": "wf-action-reject-002",
+      "at": "2026-11-10T10:00:00+05:30",
+      "actor_id": "actor-approver-alpha",
+      "task_key": "department-approval-alpha",
+      "action": "APPROVE",
+      "output": {
+        "approval_alpha": "APPROVED"
+      }
+    },
+    {
+      "action_id": "wf-action-reject-003",
+      "at": "2026-11-10T10:10:00+05:30",
+      "actor_id": "actor-approver-beta",
+      "task_key": "department-approval-beta",
+      "action": "REJECT",
+      "output": {
+        "approval_beta": "REJECTED"
+      },
+      "rejection_reason": "SYNTHETIC_TEST_REWORK_REQUIRED"
+    },
+    {
+      "action_id": "wf-action-reject-004",
+      "at": "2026-11-10T10:11:00+05:30",
+      "actor_id": "SYSTEM",
+      "action": "EVALUATE_DECISION",
+      "decision_key": "exam-readiness-gate",
+      "inputs": {
+        "paper_ready": true,
+        "approval_alpha": "APPROVED",
+        "approval_beta": "REJECTED"
+      },
+      "expected_result": "REWORK_REQUIRED"
+    }
+  ],
+  "decision_expectations": [
+    {
+      "decision_key": "exam-readiness-gate",
+      "decision_version": "fixture-1.0.0",
+      "inputs": {
+        "paper_ready": true,
+        "approval_alpha": "APPROVED",
+        "approval_beta": "REJECTED"
+      },
+      "expected_result": "REWORK_REQUIRED",
+      "deterministic": true
+    }
+  ],
+  "expected_events": [
+    {
+      "event_name": "plan.approved",
+      "at": "2026-11-10T08:55:00+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "aggregate_id": "plan-synth-exam-002"
+    },
+    {
+      "event_name": "workflow.task.created",
+      "at": "2026-11-10T08:55:01+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "task_key": "paper-readiness",
+      "assigned_role": "EXAM_OPERATIONS_COORDINATOR"
+    },
+    {
+      "event_name": "workflow.task.created",
+      "at": "2026-11-10T09:00:01+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "task_key": "department-approval-alpha",
+      "assigned_role": "DEPARTMENT_APPROVER"
+    },
+    {
+      "event_name": "workflow.task.created",
+      "at": "2026-11-10T09:00:01+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "task_key": "department-approval-beta",
+      "assigned_role": "DEPARTMENT_APPROVER"
+    },
+    {
+      "event_name": "workflow.task.created",
+      "at": "2026-11-10T10:12:00+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "task_key": "readiness-rework",
+      "assigned_role": "EXAM_OPERATIONS_COORDINATOR"
+    }
+  ],
+  "expected_audit": [
+    {
+      "actor": "actor-exam-coordinator",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-10T09:00:00+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "entity_reference": "paper-readiness",
+      "action": "COMPLETE",
+      "transition": "TASK_COMPLETED"
+    },
+    {
+      "actor": "actor-approver-alpha",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-10T10:00:00+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "entity_reference": "department-approval-alpha",
+      "action": "APPROVE",
+      "transition": "DEPARTMENT_APPROVAL_ALPHA_APPROVED"
+    },
+    {
+      "actor": "actor-approver-beta",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-10T10:10:00+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "entity_reference": "department-approval-beta",
+      "action": "REJECT",
+      "transition": "DEPARTMENT_APPROVAL_BETA_REJECTED",
+      "rejection_reason": "SYNTHETIC_TEST_REWORK_REQUIRED"
+    },
+    {
+      "actor": "SYSTEM",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-10T10:11:00+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "entity_reference": "exam-readiness-gate",
+      "action": "EVALUATE_DECISION",
+      "transition": "DETERMINISTIC_RULE_EVALUATED",
+      "decision_version": "fixture-1.0.0",
+      "decision_input": {
+        "paper_ready": true,
+        "approval_alpha": "APPROVED",
+        "approval_beta": "REJECTED"
+      },
+      "decision_result": "REWORK_REQUIRED"
+    },
+    {
+      "actor": "SYSTEM",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-10T10:11:01+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "entity_reference": "exam-question-paper-readiness-v1",
+      "action": "TRANSITION_BUSINESS_STATE",
+      "transition": "REWORK_REQUIRED"
+    },
+    {
+      "actor": "SYSTEM",
+      "source": "workflow-adapter",
+      "timestamp": "2026-11-10T10:12:00+05:30",
+      "correlation_id": "corr-wf-exam-reject-001",
+      "entity_reference": "readiness-rework",
+      "action": "CREATE_REWORK_TASK_MAPPING",
+      "transition": "REWORK_TASK_CREATED"
+    }
+  ],
+  "expected_properties": {
+    "expected_workflow_state": "RUNNING",
+    "expected_business_state": "REWORK_REQUIRED",
+    "ready_for_scheduling_must_be_false": true,
+    "rework_task_required": true,
+    "rejection_actor_must_be_authorized": true,
+    "decision_result": "REWORK_REQUIRED",
+    "audit_required": true
+  }
+}

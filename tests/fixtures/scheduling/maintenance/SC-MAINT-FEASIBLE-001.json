@@ -1,0 +1,235 @@
+{
+  "dataset_id": "SC-MAINT-FEASIBLE-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "generic_scheduling_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-MAINT-001",
+  "variant_id": "MAINT-FEASIBLE-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+  "horizon": {
+    "start_at": "2026-11-09T09:00:00+05:30",
+    "end_at": "2026-11-11T17:00:00+05:30"
+  },
+  "work_orders": [
+    {
+      "id": "wo-maint-001",
+      "title": "Electrical Distribution Inspection",
+      "duration_minutes": 120,
+      "priority": "HIGH",
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T12:00:00+05:30"
+        }
+      ],
+      "required_person_skills": [
+        "ELECTRICAL"
+      ],
+      "required_equipment_skills": [
+        "ELECTRICAL_DIAGNOSTIC"
+      ],
+      "predecessors": [],
+      "preferred_person_ids": [
+        "res-tech-004"
+      ]
+    },
+    {
+      "id": "wo-maint-002",
+      "title": "HVAC Preventive Service",
+      "duration_minutes": 120,
+      "priority": "MEDIUM",
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T12:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        }
+      ],
+      "required_person_skills": [
+        "HVAC"
+      ],
+      "required_equipment_skills": [
+        "HVAC_SERVICE"
+      ],
+      "predecessors": [],
+      "preferred_person_ids": [
+        "res-tech-003"
+      ]
+    },
+    {
+      "id": "wo-maint-003",
+      "title": "Plumbing Line Inspection",
+      "duration_minutes": 90,
+      "priority": "MEDIUM",
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T12:00:00+05:30"
+        }
+      ],
+      "required_person_skills": [
+        "PLUMBING"
+      ],
+      "required_equipment_skills": [],
+      "predecessors": [],
+      "preferred_person_ids": [
+        "res-tech-002"
+      ]
+    },
+    {
+      "id": "wo-maint-004",
+      "title": "Network Cabinet Inspection",
+      "duration_minutes": 120,
+      "priority": "MEDIUM",
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-10T12:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        }
+      ],
+      "required_person_skills": [
+        "NETWORK"
+      ],
+      "required_equipment_skills": [],
+      "predecessors": [],
+      "preferred_person_ids": [
+        "res-tech-004"
+      ]
+    },
+    {
+      "id": "wo-maint-005",
+      "title": "Elevated Electrical Fixture Inspection",
+      "duration_minutes": 120,
+      "priority": "HIGH",
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T12:00:00+05:30"
+        }
+      ],
+      "required_person_skills": [
+        "ELECTRICAL"
+      ],
+      "required_equipment_skills": [
+        "HEIGHT_ACCESS"
+      ],
+      "predecessors": [
+        {
+          "work_order_id": "wo-maint-001",
+          "minimum_gap_minutes": 0
+        }
+      ],
+      "preferred_person_ids": [
+        "res-tech-001"
+      ]
+    },
+    {
+      "id": "wo-maint-006",
+      "title": "Mechanical Ventilation Inspection",
+      "duration_minutes": 120,
+      "priority": "MEDIUM",
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-11T12:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        }
+      ],
+      "required_person_skills": [
+        "MECHANICAL"
+      ],
+      "required_equipment_skills": [],
+      "predecessors": [],
+      "preferred_person_ids": [
+        "res-tech-003"
+      ]
+    }
+  ],
+  "hard_constraint_expectations": [
+    "NO_PERSON_DOUBLE_BOOKING",
+    "NO_EQUIPMENT_DOUBLE_BOOKING",
+    "RESOURCE_AVAILABILITY",
+    "PERSON_SKILL_ELIGIBILITY",
+    "EQUIPMENT_CAPABILITY",
+    "DURATION_WITHIN_WINDOW",
+    "PRECEDENCE"
+  ],
+  "soft_constraint_expectations": [
+    {
+      "kind": "PREFERRED_PERSON",
+      "weight": 2
+    },
+    {
+      "kind": "WORKLOAD_BALANCE",
+      "weight": 1
+    },
+    {
+      "kind": "IDLE_GAP",
+      "weight": 1
+    }
+  ],
+  "feasibility_witness": [
+    {
+      "assignment_id": "assign-maint-001",
+      "work_order_id": "wo-maint-001",
+      "person_resource_id": "res-tech-004",
+      "equipment_resource_ids": [
+        "res-eq-002"
+      ],
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T11:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-maint-002",
+      "work_order_id": "wo-maint-002",
+      "person_resource_id": "res-tech-003",
+      "equipment_resource_ids": [
+        "res-eq-003"
+      ],
+      "start_at": "2026-11-09T13:00:00+05:30",
+      "end_at": "2026-11-09T15:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-maint-003",
+      "work_order_id": "wo-maint-003",
+      "person_resource_id": "res-tech-002",
+      "equipment_resource_ids": [],
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T10:30:00+05:30"
+    },
+    {
+      "assignment_id": "assign-maint-004",
+      "work_order_id": "wo-maint-004",
+      "person_resource_id": "res-tech-004",
+      "equipment_resource_ids": [],
+      "start_at": "2026-11-10T13:00:00+05:30",
+      "end_at": "2026-11-10T15:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-maint-005",
+      "work_order_id": "wo-maint-005",
+      "person_resource_id": "res-tech-001",
+      "equipment_resource_ids": [
+        "res-eq-001"
+      ],
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T11:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-maint-006",
+      "work_order_id": "wo-maint-006",
+      "person_resource_id": "res-tech-003",
+      "equipment_resource_ids": [],
+      "start_at": "2026-11-11T13:00:00+05:30",
+      "end_at": "2026-11-11T15:00:00+05:30"
+    }
+  ],
+  "expected_properties": {
+    "expected_outcome": "FEASIBLE",
+    "hard_constraint_violations": 0,
+    "candidate_requires_review": true,
+    "must_not_auto_publish": true,
+    "feasibility_witness_is_only_proof": true
+  }
+}

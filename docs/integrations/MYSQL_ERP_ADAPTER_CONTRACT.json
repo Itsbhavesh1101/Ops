@@ -1,0 +1,359 @@
+{
+  "contract_version": "1.0.0",
+  "contract_identifier": "E7-CTR-INT-001",
+  "status": "phase_0_design_baseline",
+  "source_system": "mysql_iredu",
+  "target_consumer": "E-7 Context Builder Engine (Provider-Neutral Integration Port)",
+  "mode": "READ_ONLY",
+  "principles": {
+    "provider_neutral": true,
+    "read_only_enforced": true,
+    "no_write_back_authorized": true,
+    "arbitrary_sql_allowed": false,
+    "llm_database_access": false,
+    "default_fail_closed": true,
+    "field_specific_projection_only": true,
+    "no_select_star": true,
+    "raw_row_isolation": true,
+    "no_credentials_in_context": true,
+    "no_direct_llm_coupling": true
+  },
+  "boundary_separation": {
+    "mysql_source": "External, read-only institutional ERP database (upstream system).",
+    "mysql_adapter": "Provider-specific integration boundary owning MySQL connection lifecycle, approved parameterized source queries, schema compatibility verification, basic health/freshness diagnostics, provenance tracking, and transformation of raw MySQL rows into provider-neutral SourceContextBundle DTOs. Enforces read-only posture and approved field projections before data leaves adapter.",
+    "context_builder": "Provider-neutral context assembly and data-minimization layer. Evaluates operational goals, determines required context categories, applies AI Context Access Policy rules (whitelist filtering, goal-scoped minimization, conditional name exposure, opaque reference tokenization), assembles model-visible prompt payloads, and emits audit evidence.",
+    "task_intelligence": "Consumer of sanitized, minimal, model-visible context payloads. Generates WBS task decompositions, dependency graphs, schedule proposals, effort estimates, and risk analyses. Never sees MySQL schema, SQL, table names, connection strings, credentials, or raw primary keys.",
+    "deterministic_validators": "Backend deterministic engines (Graph Service, Plan Validator, CPM Engine). Validates PlanSchema compliance, resolves opaque references through validated E-7 canonical/source-reference mappings, detects cycles via Kahn's algorithm, computes critical path/slack, and verifies constraint consistency before plan persistence.",
+    "postgresql": "Canonical System of Record for all E-7-owned persisted operational state, storing canonical/source mapping records, outbox/inbox events, audit ledgers, and verified plans/tasks/schedules."
+  },
+  "capabilities": [
+    {
+      "category_name": "organization_context",
+      "status": "SUPPORTED",
+      "source_tables": [
+        "department",
+        "staff_designation"
+      ],
+      "model_visible_fields_count": 2,
+      "validation_only_fields_count": 4,
+      "notes": "Provides institutional structure, department hierarchies, and professional designations for task routing and role matching. Descriptive context only; does NOT establish individual staff operational capability or task eligibility."
+    },
+    {
+      "category_name": "academic_context",
+      "status": "SUPPORTED",
+      "source_tables": [
+        "sessions",
+        "classes",
+        "sections",
+        "class_sections"
+      ],
+      "model_visible_fields_count": 3,
+      "validation_only_fields_count": 10,
+      "notes": "Provides academic session temporal bounds, target grade classes, sections, and class-section cohort bindings. Scoped strictly to goal-relevant target cohorts."
+    },
+    {
+      "category_name": "subject_context",
+      "status": "SUPPORTED",
+      "source_tables": [
+        "subjects",
+        "subject_groups",
+        "subject_group_subjects",
+        "subject_group_class_sections"
+      ],
+      "model_visible_fields_count": 6,
+      "validation_only_fields_count": 11,
+      "notes": "Provides course catalogue details, subject codes, instructional types (Theory vs Practical), and curricular groupings."
+    },
+    {
+      "category_name": "staff_resource_context",
+      "status": "SUPPORTED",
+      "source_tables": [
+        "staff"
+      ],
+      "model_visible_fields_count": 4,
+      "validation_only_fields_count": 6,
+      "notes": "Provides sanitized candidate staff roster, descriptive qualifications, work experience, and opaque reference tokens (<opaque_staff_ref>). Default model exposure is opaque reference only; human names conditional on explicit workflow requirement. Descriptive attributes do NOT establish task eligibility, certification, capability, authorization, or assignment suitability. RBAC roles (roles, staff_roles) are validation-only and must not be promoted into planner-visible capability context."
+    },
+    {
+      "category_name": "commitment_context",
+      "status": "SUPPORTED",
+      "source_tables": [
+        "subject_timetable"
+      ],
+      "model_visible_fields_count": 5,
+      "validation_only_fields_count": 5,
+      "notes": "Provides published teaching timetable periods defining known busy windows for candidate staff and classes. Scheduled periods represent known busy commitments; free timetable slots != complete availability."
+    },
+    {
+      "category_name": "calendar_context",
+      "status": "SUPPORTED",
+      "source_tables": [
+        "annual_calendar",
+        "events"
+      ],
+      "model_visible_fields_count": 8,
+      "validation_only_fields_count": 7,
+      "notes": "Provides informational academic calendar holiday dates and event descriptions. Informational dates do NOT enforce automated operational blackouts without explicit E-7 institutional policy."
+    },
+    {
+      "category_name": "aggregate_context",
+      "status": "SUPPORTED",
+      "source_tables": [
+        "students",
+        "student_session"
+      ],
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 6,
+      "notes": "Exposes strictly approved adapter-derived mathematical headcounts (e.g. cohort size) for effort estimation and staffing ratios. Individual student records, PII, contacts, addresses, medical, and guardian fields are not exposed to the model for the current Task Intelligence scope and policy version. Aggregation computation executes inside trusted adapter boundary."
+    },
+    {
+      "category_name": "authoritative_future_availability",
+      "status": "DEFERRED",
+      "source_tables": [
+        "staff_leave_request",
+        "staff_attendence_schedules"
+      ],
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 0,
+      "notes": "Future staff availability models deferred to Phase 2/4. Historical attendance daily punch logs (staff_attendance) are not exposed to the model for the current Task Intelligence scope and policy version (historical attendance does not establish future availability)."
+    },
+    {
+      "category_name": "physical_room_master",
+      "status": "UNSUPPORTED",
+      "source_tables": [],
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 0,
+      "notes": "MySQL iredu lacks canonical physical academic room masters. Fields named room_no are unconstrained strings."
+    },
+    {
+      "category_name": "room_capacity",
+      "status": "UNSUPPORTED",
+      "source_tables": [],
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 0,
+      "notes": "MySQL iredu contains no room capacity or seating capacity fields. Cannot be inferred from upstream ERP."
+    },
+    {
+      "category_name": "equipment_capability",
+      "status": "UNSUPPORTED",
+      "source_tables": [],
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 0,
+      "notes": "MySQL iredu contains no laboratory or instructional equipment inventory, capabilities, or maintenance availability."
+    },
+    {
+      "category_name": "authoritative_invigilator_eligibility",
+      "status": "UNSUPPORTED",
+      "source_tables": [],
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 0,
+      "notes": "MySQL iredu provides no invigilation qualification, certification, or formal examination assignment eligibility model. No invigilator eligibility may be inferred from MySQL."
+    },
+    {
+      "category_name": "authoritative_exam_resource_rules",
+      "status": "REQUIRES_BUSINESS_CONFIRMATION",
+      "source_tables": [
+        "cbse_exams",
+        "exam_groups"
+      ],
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 0,
+      "notes": "CBSE exam subsystem vs Legacy exam subsystem authority unresolved (UBQ-TI-03). Physical exam room assignment gated by BLK-02."
+    }
+  ],
+  "operations": [
+    {
+      "operation_name": "get_capabilities",
+      "port_method": "get_capabilities() -> AdapterCapabilityManifest",
+      "purpose": "Query supported, partially supported, deferred, and unsupported context categories and retrieval features exposed by this adapter instance.",
+      "input_contract": "None (parameterless query)",
+      "output_contract": "AdapterCapabilityManifest (manifest object containing supported context categories, freshness metadata, and active gates)",
+      "production_scope_required": false
+    },
+    {
+      "operation_name": "get_health",
+      "port_method": "get_health() -> AdapterHealthStatus",
+      "purpose": "Retrieve operational and connectivity health, schema compatibility status, and configuration validity without leaking credentials or raw driver internals.",
+      "input_contract": "None (parameterless diagnostic probe)",
+      "output_contract": "AdapterHealthStatus (health state enum, latency metric, schema status, degraded warnings)",
+      "production_scope_required": false
+    },
+    {
+      "operation_name": "fetch_context",
+      "port_method": "fetch_context(request: ContextSourceRequest) -> SourceContextBundle",
+      "purpose": "Execute bounded, read-only parameterized queries to retrieve, validate, and normalize approved institutional domain data for specified context categories.",
+      "input_contract": "ContextSourceRequest (bounded scope selectors, requested categories, organization scope, temporal context, policy versions)",
+      "output_contract": "SourceContextBundle (normalized DTOs, validation evidence, aggregates, provenance, degraded state warnings)",
+      "production_scope_required": true
+    },
+    {
+      "operation_name": "resolve_external_references",
+      "port_method": "resolve_external_references(request: ExternalReferenceResolutionRequest) -> ExternalReferenceResolutionResult",
+      "purpose": "Verify existence and currency of external entity references against upstream source without exposing raw external identifiers to planning models.",
+      "input_contract": "ExternalReferenceResolutionRequest (source entity type, external ID list, organization scope)",
+      "output_contract": "ExternalReferenceResolutionResult (map of found, missing, or changed external references)",
+      "production_scope_required": true
+    }
+  ],
+  "context_request": {
+    "required_concepts": [
+      "request_id: Globally unique identifier correlating the context retrieval request.",
+      "correlation_id: Distributed tracing identifier linking context retrieval to high-level goal workflow.",
+      "organization_scope_reference: Authenticated tenant/organization scope partition. Mandatory for live production retrieval; synthetic in mock testing.",
+      "goal_scope: Operational goal identifier or descriptor defining the task domain and bounding retrieval.",
+      "requested_context_categories: Explicit list of context categories requested from the capability manifest.",
+      "mapping_policy_version: Version of the MySQL Task Intelligence mapping applied (e.g. 1.2.0).",
+      "context_access_policy_version: Version of the AI Context Access Policy applied (e.g. 1.0.0)."
+    ],
+    "optional_concepts": [
+      "entity_selectors: Normalized bounded scope selectors (e.g. normalized academic session reference, normalized class references, normalized section references, normalized department references, normalized subject references, opaque staff references).",
+      "temporal_context: Bounded date/time operational planning window (start_at, end_at ISO-8601 UTC).",
+      "freshness_tolerance: Maximum allowable cache age or freshness class threshold before context is marked degraded."
+    ],
+    "disallowed_concepts": [
+      "Raw SQL strings or fragments.",
+      "Arbitrary WHERE clauses or table/column filters.",
+      "Unbounded scan requests ('select all institutional data').",
+      "Direct database connection parameters or credentials.",
+      "LLM prompt templates or prompt instructions."
+    ]
+  },
+  "source_context_bundle": {
+    "sections": [
+      {
+        "section_name": "normalized_context",
+        "description": "Provider-neutral typed domain DTOs organized strictly by supported context category. Contains only approved whitelisted fields normalized into canonical representations."
+      },
+      {
+        "section_name": "validation_evidence",
+        "description": "Internal deterministic metadata (raw source identifiers, relational bindings, status/lifecycle fields, bell schedule boundaries) required by backend validators. Strictly isolated and hidden from model context."
+      },
+      {
+        "section_name": "aggregates",
+        "description": "Approved mathematical headcount calculations (e.g. student cohort counts) derived by approved adapter-derived aggregate computation. Individual student records are not exposed to the model for the current Task Intelligence scope and policy version."
+      },
+      {
+        "section_name": "provenance",
+        "description": "Comprehensive audit metadata tracking source system ('mysql_iredu'), source entity types, source record keys, query timestamps, mapping versions, and freshness classifications."
+      },
+      {
+        "section_name": "warnings_or_degraded_state",
+        "description": "Structured diagnostics describing missing prerequisites, stale context warnings, unresolved status flags, or partial category availability."
+      },
+      {
+        "section_name": "external_reference_mappings",
+        "description": "Internal mapping records correlating external source identifiers to opaque planner tokens (<opaque_staff_ref>, <opaque_class_sec_ref>). Maintained internally for PostgreSQL canonical mapping resolution."
+      }
+    ]
+  },
+  "health_states": [
+    {
+      "state": "HEALTHY",
+      "definition": "Required source connectivity and compatibility checks succeed, and required organization scope is resolved."
+    },
+    {
+      "state": "DEGRADED",
+      "definition": "Source is reachable, but optional context is incomplete or freshness is insufficient for some non-critical use."
+    },
+    {
+      "state": "UNAVAILABLE",
+      "definition": "Required source cannot currently be reached or read."
+    },
+    {
+      "state": "MISCONFIGURED",
+      "definition": "Required adapter/source configuration is invalid or authentication cannot be established."
+    },
+    {
+      "state": "SCHEMA_INCOMPATIBLE",
+      "definition": "Required source contract no longer matches mapping expectations (e.g. required whitelisted column missing, renamed, or datatype mismatch)."
+    },
+    {
+      "state": "SCOPE_UNRESOLVED",
+      "definition": "Production organization scope has not been authoritatively resolved."
+    }
+  ],
+  "error_categories": [
+    "SOURCE_UNAVAILABLE: Upstream MySQL database connection timeout, socket error, or network partition.",
+    "SOURCE_AUTH_FAILURE: Database credentials rejected or insufficient privilege.",
+    "SOURCE_CONFIGURATION_INVALID: Malformed configuration parameters or invalid adapter initialization.",
+    "SCHEMA_INCOMPATIBLE: Required column missing, renamed, or SQL datatype mismatch detected.",
+    "SCOPE_UNRESOLVED: Live production retrieval requested without an established tenant/organization partition.",
+    "MAPPING_MISSING: Referenced external entity has no corresponding canonical or opaque identity mapping.",
+    "ENTITY_NOT_FOUND: Bounded scope selector references an entity that does not exist in upstream tables.",
+    "AMBIGUOUS_SOURCE_RECORD: Upstream database contains contradictory records (e.g. overlapping timetable periods).",
+    "STALE_SOURCE_CONTEXT: Retrieved snapshot timestamp exceeds the operational freshness tolerance.",
+    "POLICY_DENIED: Request asks for an unwhitelisted, restricted, or forbidden field/table.",
+    "UNSUPPORTED_CONTEXT_CATEGORY: Request specifies a category marked DEFERRED, UNSUPPORTED, or unknown.",
+    "AGGREGATE_UNAVAILABLE: Cohort headcount aggregation query failed, timed out, or returned invalid mathematical result."
+  ],
+  "freshness_classes": [
+    "STATIC_OR_SLOW: Curricular masters, departments, designations, academic sessions (stable per term; daily cache acceptable).",
+    "DAILY_OR_PERIODIC: Timetables, calendar events, candidate staff rosters (moderate volatility; refresh daily or on-demand).",
+    "NEAR_REAL_TIME: High-frequency operational state (not applicable to initial MySQL sources).",
+    "EVENT_DRIVEN_PREFERRED: Webhook or CDC-driven change notifications (not supported by initial MySQL dump).",
+    "UNKNOWN: Unclassified or unmapped tables."
+  ],
+  "schema_drift": {
+    "default_posture": "DENY_UNKNOWN",
+    "rules": [
+      "Any newly added column in an upstream MySQL table is ignored and omitted from projections by default.",
+      "Renamed, dropped, or datatype-modified whitelisted columns trigger SCHEMA_INCOMPATIBLE error and fail closed.",
+      "New tables or views cannot be queried until evaluated through a formal Task 0G mapping revision, access-policy revision, and governance approval (with an ADR required only if altering architectural decisions).",
+      "Projections are strictly field-specific; SELECT * is architecturally forbidden.",
+      "Cryptographic schema fingerprinting (DDL hashing) to be evaluated during Phase 1 adapter implementation."
+    ]
+  },
+  "security": {
+    "operating_mode": "READ_ONLY",
+    "least_privilege_principle": "Future production credentials must receive the minimum read privileges required by the actually implemented and approved adapter operations, derived from Task 0G.2 mapping, Task 0G.3 access policy, and enabled capabilities (including required aggregate-only sources students and student_session). No table count or grant set is prescribed in Phase 0. All mutation privileges (INSERT, UPDATE, DELETE, DROP, ALTER, CREATE, GRANT, EXECUTE) and unrelated administrative privileges must be revoked.",
+    "credential_storage": "Database credentials must be injected at runtime via environment variables or secret vaults; never committed to git, never logged, never sent over network to LLM providers.",
+    "arbitrary_sql_prohibition": "Adapter accepts only bounded, structured ContextSourceRequest objects; raw SQL strings, arbitrary WHERE clauses, and LLM-generated queries are strictly rejected.",
+    "pii_quarantine": "Restricted personnel fields (passwords, banking, salary, personal phone/email, addresses) and all individual student rows and columns are not exposed to the model for the current Task Intelligence scope and policy version. Credentials and secrets remain categorically prohibited from model context."
+  },
+  "production_blockers": [
+    {
+      "blocker_id": "BLK-01",
+      "title": "Tenant / Organization Partitioning Rule Unresolved",
+      "status": "ACTIVE_PRODUCTION_BLOCKER",
+      "description": "MySQL iredu lacks tenant_id, school_id, or campus_id foreign keys across 247 tables. Live production database queries remain blocked until authoritative tenant scoping rules are defined. Synthetic/mock test scope identifiers are permitted for development."
+    },
+    {
+      "blocker_id": "BLK-02",
+      "title": "SCHEDULING / EXAM RESOURCE PRODUCTION GATE: Physical Academic Resource Authority Unresolved",
+      "status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "description": "MySQL iredu lacks room capacity, equipment, and room dimensions. Unresolved room/equipment authority blocks production capabilities requiring authoritative physical-resource scheduling (such as exam-room assignment). It does NOT by itself block general Task Intelligence planning (goal intake, WBS generation, dependency planning, organization/subject context)."
+    }
+  ],
+  "unresolved_decisions": [
+    {
+      "gate_id": "UBQ-TI-01",
+      "title": "Tenant / Organization Scoping Blocker",
+      "status": "UNRESOLVED_PRODUCTION_BLOCKER",
+      "rule": "Live production context retrieval remains blocked until an authoritative organization/tenant partition rule is defined."
+    },
+    {
+      "gate_id": "UBQ-TI-02",
+      "title": "Active and Soft-Delete Semantics",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "rule": "Allowed active/status flag semantics must follow authoritative business mappings; where status semantics are unresolved, the adapter must report ambiguity or a business-confirmation gate; no universal is_active meaning is invented."
+    },
+    {
+      "gate_id": "UBQ-TI-03",
+      "title": "Examination Subsystem Operational Authority",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "rule": "Designate whether CBSE exam subsystem or Legacy exam subsystem is authoritative for curriculum workflows."
+    },
+    {
+      "gate_id": "UBQ-TI-04",
+      "title": "Physical Academic Resource Source Authority",
+      "status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "rule": "Confirm whether physical resources are owned in E-7 PostgreSQL (Universal Mode) or supplied by external facilities systems (Embedded Mode) before exam room scheduling."
+    },
+    {
+      "gate_id": "UBQ-TI-05",
+      "title": "Future Staff Availability vs Historical Attendance Semantics",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "rule": "Forward availability relies strictly on approved leave requests and published timetables; historical attendance punch logs excluded."
+    }
+  ]
+}

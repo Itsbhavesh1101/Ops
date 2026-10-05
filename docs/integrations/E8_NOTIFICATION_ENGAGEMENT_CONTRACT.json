@@ -1,0 +1,427 @@
+{
+  "contract_name": "E7_E8_NOTIFICATION_ENGAGEMENT_CONTRACT",
+  "contract_version": "1.0.0",
+  "status": "phase_0_design_baseline",
+  "governance_classification": "ENGINEERING DECISION — TASK 0G.6B",
+  "description": "Provider-neutral, transport-neutral integration contract between E-7 Operations Engine and E-8 Engagement Engine.",
+  "transport": {
+    "production_transport": "UNRESOLVED",
+    "transport_neutral": true,
+    "notes": "Transport remains unresolved for production. The contract is transport-neutral. RabbitMQ is approved as internal E-7 event broker (ADR-005), but this does not select the inter-engine E-8 transport."
+  },
+  "architectural_boundaries": {
+    "safe_architectural_baseline": "E-8 owns downstream notification/engagement delivery behavior assigned to it by the source contract.",
+    "e7_responsibility": "E-7 detects operational conditions that warrant engagement, formats structured transport-neutral NotificationCommand, and persists it atomically in the E-7 transactional outbox.",
+    "e8_responsibility": "E-8 owns downstream notification/engagement delivery behavior assigned to it by the source contract.",
+    "delivery_infrastructure_invariant": "E-7 is an operations and orchestration engine, NOT a notification delivery platform. E-7 must not manage SMS gateways, SMTP servers, WhatsApp BSPs, or push notification vendor tokens.",
+    "responsibility_audit_classifications": {
+      "downstream_notification_dispatch": {
+        "status": "SOURCE-BACKED",
+        "citation": "Complete Specification, Section 22 (p. 17)"
+      },
+      "supported_channels_email_sms_whatsapp_inapp": {
+        "status": "SOURCE-BACKED",
+        "citation": "Complete Specification, Section 22 (p. 17)"
+      },
+      "selecting_optimal_channels": {
+        "status": "REQUIRES_BUSINESS_CONFIRMATION",
+        "citation": "Not defined in available sources"
+      },
+      "channel_selection_ownership": {
+        "status": "REQUIRES_BUSINESS_CONFIRMATION",
+        "citation": "Not defined in available sources"
+      },
+      "recipient_delivery_preferences": {
+        "status": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "citation": "Not defined in available sources; classified as REQUIRES_BUSINESS_CONFIRMATION"
+      },
+      "urgency_based_routing": {
+        "status": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "citation": "Not defined in available sources; classified as REQUIRES_BUSINESS_CONFIRMATION"
+      },
+      "institutional_quiet_hours": {
+        "status": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "citation": "Not defined in available sources; classified as REQUIRES_BUSINESS_CONFIRMATION"
+      },
+      "recipient_endpoint_directory_resolution": {
+        "status": "REQUIRES_BUSINESS_CONFIRMATION",
+        "citation": "Not defined in available sources"
+      },
+      "localization_and_translation": {
+        "status": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "citation": "Not defined in available sources; classified as REQUIRES_BUSINESS_CONFIRMATION"
+      },
+      "carrier_connections_and_rate_limits": {
+        "status": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "citation": "Not defined in available sources; classified as REQUIRES_BUSINESS_CONFIRMATION"
+      },
+      "provider_failover_logic": {
+        "status": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "citation": "Not defined in available sources; classified as REQUIRES_BUSINESS_CONFIRMATION"
+      },
+      "detailed_delivery_states_sent_delivered_bounced_read": {
+        "status": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "citation": "Delivery receipt contract is UNRESOLVED / NOT_YET_REQUIRED"
+      }
+    }
+  },
+  "source_verified_events": [
+    {
+      "event_name": "task.blocked",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 21 (Event Model table, p. 16)",
+      "classification": "SOURCE FACT",
+      "target_in_source": "Risk monitor, manager dashboard, E-8 notifications",
+      "source_backed_description": "Literal event name tabulated in source event model targeting Risk monitor, manager dashboard, and E-8 notifications."
+    },
+    {
+      "event_name": "workflow.task.created",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 21 (Event Model table, p. 16)",
+      "classification": "SOURCE FACT",
+      "target_in_source": "Task inbox, E-8",
+      "source_backed_description": "Literal event name tabulated in source event model targeting Task inbox and E-8."
+    },
+    {
+      "event_name": "workflow.sla.warning",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 21 (Event Model table, p. 16)",
+      "classification": "SOURCE FACT",
+      "target_in_source": "E-8, manager dashboard",
+      "source_backed_description": "Literal event name tabulated in source event model targeting E-8 and manager dashboard."
+    },
+    {
+      "event_name": "schedule.published",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 21 (Event Model table, p. 16)",
+      "classification": "SOURCE FACT",
+      "target_in_source": "Calendar sync, E-8 notifications",
+      "source_backed_description": "Literal event name tabulated in source event model targeting Calendar sync and E-8 notifications."
+    }
+  ],
+  "source_backed_business_conditions": [
+    {
+      "condition": "Approval reminders",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 22 (p. 17)",
+      "classification": "SOURCE FACT",
+      "associated_source_verified_event": "workflow.task.created",
+      "exact_canonical_event_name": "workflow.task.created"
+    },
+    {
+      "condition": "SLA warnings",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 22 (p. 17)",
+      "classification": "SOURCE FACT",
+      "associated_source_verified_event": "workflow.sla.warning",
+      "exact_canonical_event_name": "workflow.sla.warning"
+    },
+    {
+      "condition": "Blocker alerts",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 21 (p. 16)",
+      "classification": "SOURCE FACT",
+      "associated_source_verified_event": "task.blocked",
+      "exact_canonical_event_name": "task.blocked"
+    },
+    {
+      "condition": "SLA breach / escalation notification",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+      "location": "Section 13.3 (p. 15)",
+      "classification": "SOURCE FACT",
+      "exact_canonical_event_name": "UNRESOLVED",
+      "normalized_business_condition_code": "SLA_BREACH_ESCALATION",
+      "code_classification": "ENGINEERING DECISION — TASK 0G.6B",
+      "derived_proposed_label": "workflow.sla.breached",
+      "label_classification": "DERIVED / PROPOSED — NOT SOURCE-VERIFIED",
+      "note": "NOT a canonical source event"
+    },
+    {
+      "condition": "Schedule-change notification",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 22 (p. 17)",
+      "classification": "SOURCE FACT",
+      "exact_canonical_event_name": "UNRESOLVED",
+      "normalized_business_condition_code": "SCHEDULE_CHANGE_NOTICE",
+      "code_classification": "ENGINEERING DECISION — TASK 0G.6B",
+      "derived_proposed_label": "schedule.changed",
+      "label_classification": "DERIVED / PROPOSED — NOT SOURCE-VERIFIED",
+      "note": "NOT a canonical source event"
+    }
+  ],
+  "notification_command": {
+    "concept_name": "NotificationCommand",
+    "concept_classification": "ENGINEERING DECISION — TASK 0G.6B",
+    "description": "Provider-neutral, transport-neutral message structure representing E-7's intention to emit an external notification via E-8.",
+    "required_fields": [
+      "contract_version",
+      "command_id",
+      "correlation_reference",
+      "organization_scope_reference",
+      "trigger",
+      "recipient_references",
+      "notification_context",
+      "requested_at"
+    ],
+    "optional_fields": [
+      "causation_reference"
+    ],
+    "field_specifications": {
+      "contract_version": {
+        "type": "string",
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Semantic version of this contract specification (e.g., '1.0.0')."
+      },
+      "command_id": {
+        "type": "string",
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Stable unique identifier/reference for one logical NotificationCommand. Its generation strategy is an implementation decision. The contract does NOT require deterministic ID generation or prescribe any specific format (such as UUID version, ULID, sequence, or database PK format)."
+      },
+      "correlation_reference": {
+        "type": "string",
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Opaque reference linking this command to the broader business transaction (goal, workflow instance, or scheduling scope)."
+      },
+      "causation_reference": {
+        "type": "string",
+        "required": false,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Opaque reference identifying the specific E-7 domain event or user action that caused this command, when available."
+      },
+      "organization_scope_reference": {
+        "type": "string",
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Authorized tenant / organization scope reference where the E-7 tenancy model requires it, originating from E-7's authenticated/authorized scope resolution. Task 0G.6B does not define the tenant claim schema. BLK-01 remains specifically relevant to live MySQL source retrieval; the E-8 contract neither resolves nor expands BLK-01."
+      },
+      "trigger": {
+        "type": "object",
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Provenance metadata detailing the operational cause.",
+        "properties": {
+          "trigger_kind": {
+            "type": "string",
+            "enum": [
+              "SOURCE_VERIFIED_EVENT",
+              "SOURCE_BACKED_BUSINESS_CONDITION"
+            ],
+            "required": true
+          },
+          "source_event_name": {
+            "type": "string",
+            "required": false,
+            "description": "Populated only when trigger_kind is SOURCE_VERIFIED_EVENT (must be one of the four verified event names)."
+          },
+          "business_condition": {
+            "type": "string",
+            "required": false,
+            "description": "Populated when trigger_kind is SOURCE_BACKED_BUSINESS_CONDITION (e.g., 'SLA_BREACH_ESCALATION', 'SCHEDULE_CHANGE_NOTICE')."
+          },
+          "source_entity_reference": {
+            "type": "string",
+            "required": false,
+            "description": "Canonical E-7 entity reference (e.g., task reference, workflow instance reference, schedule job reference)."
+          }
+        }
+      },
+      "recipient_references": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "List of approved canonical / opaque recipient references (e.g., user reference, resource reference, role reference). E-7 SHOULD use privacy-preserving canonical/opaque recipient references where the eventual E-8 integration supports reference resolution. Raw contact PII (emails, phone numbers, WhatsApp IDs, device tokens) and raw database PKs must not be included merely for convenience. The authoritative component responsible for resolving recipient references into delivery endpoints is currently REQUIRES_BUSINESS_CONFIRMATION."
+      },
+      "notification_context": {
+        "type": "object",
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Minimal structured operational context required for downstream engagement processing under the eventual E-8 contract. Favor minimal structured data. Context field examples (such as task title, deadline, breach duration, schedule version) are illustrative engineering choices (ENGINEERING DECISION — TASK 0G.6B), not mandatory source requirements. Prohibits arbitrary database rows, full workflow state dumps, PII, salaries, or credentials."
+      },
+      "requested_at": {
+        "type": "string",
+        "required": true,
+        "classification": "ENGINEERING DECISION — TASK 0G.6B",
+        "description": "Normalized UTC ISO-8601 timestamp representing when the operational condition occurred / command was produced."
+      }
+    }
+  },
+  "trigger_kinds": [
+    {
+      "trigger_kind": "SOURCE_VERIFIED_EVENT",
+      "description": "Triggered directly by one of the four source-verified canonical event names.",
+      "mandatory_properties": [
+        "source_event_name"
+      ],
+      "allowed_event_names": [
+        "task.blocked",
+        "workflow.task.created",
+        "workflow.sla.warning",
+        "schedule.published"
+      ],
+      "classification": "SOURCE FACT"
+    },
+    {
+      "trigger_kind": "SOURCE_BACKED_BUSINESS_CONDITION",
+      "description": "Triggered by a business condition mandated by source narrative where literal canonical event name is UNRESOLVED.",
+      "mandatory_properties": [
+        "business_condition"
+      ],
+      "allowed_business_condition_codes": [
+        "SLA_BREACH_ESCALATION",
+        "SCHEDULE_CHANGE_NOTICE"
+      ],
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    }
+  ],
+  "recipient_policy": {
+    "e7_responsibility": "Supplies approved canonical / opaque recipient references scoped to the authorized organization context. E-7 SHOULD use privacy-preserving canonical/opaque recipient references where the eventual E-8 integration supports reference resolution. Raw contact PII must not be included merely for convenience.",
+    "resolution_ownership_status": "REQUIRES_BUSINESS_CONFIRMATION",
+    "resolution_boundary_rule": "The authoritative component responsible for resolving recipient references into delivery endpoints is currently REQUIRES_BUSINESS_CONFIRMATION unless direct source evidence establishes E-8 ownership. Task 0G.6B does not invent an institutional directory architecture.",
+    "privacy_rule": "E-7 must not pass raw personal contact information (email addresses, phone numbers, device tokens) merely for convenience unless an explicit future contract requirement specifically authorizes it."
+  },
+  "idempotency": {
+    "rule": "Every NotificationCommand must contain a stable unique command_id. Repeated processing of the same logical command MUST NOT intentionally create an additional logical notification request. Transport/provider exactly-once delivery is NOT guaranteed by this Phase-0 contract.",
+    "command_id_generation": "command_id is a stable unique identifier/reference for one logical NotificationCommand. Its generation strategy is an implementation decision. The contract does NOT require deterministic ID generation or prescribe any specific format (such as UUID version, ULID, sequence, or database PK format).",
+    "implementation_neutrality": "No specific deduplication store (Redis, DB unique index), retry count, or deduplication retention window is mandated by this Phase-0 contract; deduplication implementation details remain transport and runtime concerns."
+  },
+  "transactional_outbox": {
+    "pattern": "Transactional Outbox Pattern (ADR-005)",
+    "requirement": "Notification commands MUST be committed atomically within the E-7 PostgreSQL transactional outbox alongside domain state changes before dispatch.",
+    "table_name_status": "UNRESOLVED. Contract does not prescribe physical outbox table names."
+  },
+  "privacy_and_data_minimization": {
+    "forbidden_payload_elements": [
+      "Plaintext passwords, tokens, API keys, private keys",
+      "Student grades, disciplinary remarks, health records",
+      "Employee salaries, bank accounts, home addresses",
+      "Raw unredacted SQL rows, table dumps",
+      "Full workflow process engine execution state dumps",
+      "Raw upstream MySQL database IDs (mysql_iredu)"
+    ]
+  },
+  "rendering_and_template_boundary": {
+    "e7_responsibility": "E-7 MUST NOT become a provider-specific message-rendering/delivery implementation. E-7 provides notification intent and minimum structured operational context.",
+    "e8_responsibility": "Final rendering/template-selection ownership is assigned according to the E-8 contract.",
+    "template_selection_status": "REQUIRES_BUSINESS_CONFIRMATION. The responsibility boundary for message subject/title, rendering, template selection, and structured context interpretation is REQUIRES_BUSINESS_CONFIRMATION.",
+    "int_notify_compatibility_difference": "The existing frozen fixture INT-NOTIFY-001 contains a human-facing subject. The contract does not declare that such a concept can never exist in E-7; rather, the compatibility difference is documented explicitly: Task 0G.6B structures notification intent through typed triggers and structured context, whereas INT-NOTIFY-001 included a top-level subject. Future reconciliation belongs to implementation/test-planning work."
+  },
+  "channel_responsibility": {
+    "supported_source_channels": [
+      "EMAIL",
+      "SMS",
+      "WHATSAPP",
+      "IN_APP"
+    ],
+    "channel_selection_responsibility": "REQUIRES_BUSINESS_CONFIRMATION",
+    "notes": "Supported channels are source-backed by Complete Specification, Section 22 (p. 17). The authoritative component responsible for selecting the channel (whether by E-7 configuration, by E-8 preference/urgency rules, or by external user profile preferences) is not defined in available sources and REQUIRES_BUSINESS_CONFIRMATION."
+  },
+  "failure_categories": [
+    {
+      "code": "INVALID_CONTRACT_VERSION",
+      "description": "Command payload does not specify or specifies an unsupported contract_version.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "MISSING_COMMAND_IDENTITY",
+      "description": "Command payload lacks a non-empty command_id required for tracking and idempotency.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "ORGANIZATION_SCOPE_MISSING",
+      "description": "Command payload lacks an organization_scope_reference required for multi-tenant boundary isolation.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "UNSUPPORTED_TRIGGER",
+      "description": "Trigger specification is malformed, unrecognized, or references an unverified event name.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "INVALID_RECIPIENT_REFERENCE",
+      "description": "Recipient references list is missing, empty, or contains raw database PKs or raw contact PII.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "POLICY_DENIED",
+      "description": "Command violates institutional notification policy or tenant-level notification blocks.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "PAYLOAD_NOT_ALLOWED",
+      "description": "Context payload contains forbidden elements (credentials, raw PII, sensitive financial data, unredacted rows).",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "DUPLICATE_COMMAND",
+      "description": "Command identity has already been processed. In production semantics, repeated processing of the same logical command MUST NOT intentionally create an additional logical notification request; duplicates may be recognized and idempotently absorbed without treating idempotency as an operational failure.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    },
+    {
+      "code": "REQUIRED_CONTEXT_MISSING",
+      "description": "Required business facts necessary to process the trigger are absent from notification_context.",
+      "classification": "ENGINEERING DECISION — TASK 0G.6B"
+    }
+  ],
+  "delivery_receipt_contract_status": {
+    "status": "UNRESOLVED_NOT_YET_REQUIRED",
+    "description": "No production delivery receipt or feedback contract is defined between E-8 and E-7 in frozen source documents. E-8 owns downstream notification/engagement delivery behavior assigned to it by the source contract. Test mock acceptance statuses (MOCK_ACCEPTED / MOCK_REJECTED) are test-harness behaviors only and NOT production E-8 delivery states."
+  },
+  "open_decisions": [
+    {
+      "id": "DEC-E8-01",
+      "decision": "Confirm the production E-7 ↔ E-8 transport protocol.",
+      "status": "UNRESOLVED",
+      "notes": "Transport remains unresolved for production. The contract is transport-neutral. RabbitMQ is approved as internal E-7 event broker (ADR-005), but this does not select the inter-engine E-8 transport."
+    },
+    {
+      "id": "DEC-E8-02",
+      "decision": "Confirm the authoritative component and contract responsible for resolving approved recipient references into delivery endpoints.",
+      "status": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    {
+      "id": "DEC-E8-03",
+      "decision": "Determine whether E-8 must provide delivery/engagement result feedback to E-7 and, if required, define that contract.",
+      "status": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    {
+      "id": "DEC-E8-04",
+      "decision": "Confirm the responsibility boundary for message subject/title, rendering, template selection, and structured context interpretation.",
+      "status": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    {
+      "id": "DEC-E8-05",
+      "decision": "Confirm the authoritative component and policy responsible for selecting delivery channel(s) from the source-supported channel set.",
+      "status": "REQUIRES_BUSINESS_CONFIRMATION"
+    }
+  ],
+  "existing_fixture_compatibility": {
+    "fixture_id": "INT-NOTIFY-001",
+    "fixture_path": "tests/fixtures/integrations/INT-NOTIFY-001.json",
+    "compatibility_status": "PARTIALLY_COMPATIBLE",
+    "compatible_elements": [
+      "Uses source-verified event schedule.published",
+      "Canonical opaque recipient references (canonical_resource_ids)",
+      "Multi-tenant scoping reference",
+      "Idempotency key present",
+      "Absence of real credentials and real contact PII"
+    ],
+    "compatibility_differences": [
+      "INT-NOTIFY-001 specifies top-level command_type ('SCHEDULE_PUBLISHED_NOTICE'); Task 0G.6B specifies typed trigger object",
+      "INT-NOTIFY-001 specifies human-facing 'subject'; Task 0G.6B treats subject and template rendering as assigned to the E-8 contract boundary while noting the split is REQUIRES_BUSINESS_CONFIRMATION",
+      "INT-NOTIFY-001 is a frozen Phase-0 fixture representing an earlier contract shape; it is not incorrect, and future reconciliation belongs to implementation/test-planning work"
+    ]
+  },
+  "phase_0_requirement_status": {
+    "exact_idp": "UNRESOLVED",
+    "first_erp_sis": "RESOLVED",
+    "first_calendar_provider": "UNRESOLVED",
+    "e8_contract_mock": "RESOLVED",
+    "all_phase_0_complete": false
+  }
+}

@@ -1,0 +1,705 @@
+"""Canonical PlanService application domain service (Phase 2A).
+
+Owns the lifecycle for goals, plans, tasks, dependencies, milestones,
+plan baselines, and approval gating.
+Coordinates transactional atomicity between planning state, audit logs,
+and outbox events.
+"""
+
+import hashlib
+import json
+from collections.abc import Callable
+from typing import Any
+from uuid import UUID
+
+from app.audit.repository import AuditRepository
+from app.audit.schemas import AuditEventCreate
+from app.db.models.planning import (
+    PlanRecord,
+    TaskDependencyRecord,
+    TaskRecord,
+)
+from app.db.repositories.planning import (
+    GoalRepository,
+    PlanRepository,
+    TaskRepository,
+)
+from app.db.uow import SqlAlchemyUnitOfWork
+from app.events.outbox.repository import OutboxRepository
+from app.events.schemas import EventCreate, create_event_envelope
+from app.task_intelligence.graph import (
+    CriticalPathCalculator,
+    TaskDependencyGraph,
+)
+from app.task_intelligence.graph.models import CPMScheduleResult
+from app.task_intelligence.planner.protocol import PlannerProtocol
+from app.task_intelligence.progress import (
+    TaskProgressStatus,
+    TaskProgressUpdate,
+    assert_valid_task_progress_transition,
+)
+from app.task_intelligence.schemas import (
+    GoalCreate,
+    GoalResponse,
+    PlanSchema,
+    PlanState,
+    TaskDraft,
+    ValidationResult,
+    assert_valid_plan_transition,
+)
+from app.task_intelligence.validators import PlanValidator
+
+
+class PlanServiceError(Exception):
+    """Base exception for PlanService operations."""
+
+
+class GoalNotFoundError(PlanServiceError):
+    """Raised when a referenced goal is not found in the current tenant."""
+
+    def __init__(self, goal_id: UUID):
+        super().__init__(f"Goal '{goal_id}' not found.")
+        self.goal_id = goal_id
+
+
+class PlanNotFoundError(PlanServiceError):
+    """Raised when a referenced plan is not found in the current tenant."""
+
+    def __init__(self, plan_id: UUID):
+        super().__init__(f"Plan '{plan_id}' not found.")
+        self.plan_id = plan_id
+
+
+class TaskNotFoundError(PlanServiceError):
+    """Raised when a referenced task is not found in the current tenant."""
+
+    def __init__(self, task_id: UUID):
+        super().__init__(f"Task '{task_id}' not found.")
+        self.task_id = task_id
+
+
+class PlanApprovalError(PlanServiceError):
+    """Raised when a plan cannot be approved due to policy or validation failure."""
+
+
+def compute_plan_baseline_hash(
+    tasks: list[TaskRecord],
+    dependencies: list[TaskDependencyRecord],
+) -> str:
+    """Compute deterministic SHA-256 fingerprint for a plan baseline."""
+    payload = {
+        "tasks": sorted(
+            [
+                {
+                    "tid": t.temporary_id,
+                    "duration": t.estimated_duration_minutes,
+                    "title": t.title,
+                }
+                for t in tasks
+            ],
+            key=lambda x: str(x["tid"]),
+        ),
+        "dependencies": sorted(
+            [
+                {
+                    "pred": str(d.predecessor_id),
+                    "succ": str(d.successor_id),
+                    "lag": d.lag_minutes,
+                }
+                for d in dependencies
+            ],
+            key=lambda x: (str(x["pred"]), str(x["succ"])),
+        ),
+    }
+    dump = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(dump.encode("utf-8")).hexdigest()
+
+
+class PlanService:
+    """Canonical domain service managing planning lifecycle and transactions."""
+
+    def __init__(
+        self,
+        uow_factory: Callable[[], SqlAlchemyUnitOfWork],
+        validator: PlanValidator | None = None,
+        planner: PlannerProtocol | None = None,
+        context_builder: Any | None = None,
+    ) -> None:
+        self._uow_factory = uow_factory
+        self._validator = validator or PlanValidator()
+        self._planner = planner
+        self._context_builder = context_builder
+
+    async def create_goal(
+        self,
+        tenant_id: str,
+        goal_data: GoalCreate,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> GoalResponse:
+        """Create and persist a canonical operational goal with audit trail."""
+        actor = actor_id or "system"
+        uow = self._uow_factory()
+
+        async with uow:
+            goal_repo = GoalRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+
+            goal_record = await goal_repo.create(goal_data, tenant_id)
+
+            # Audit goal creation
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=actor,
+                    actor_principal_type="SERVICE" if actor == "system" else "HUMAN",
+                    authentication_method="SERVICE_API_KEY" if actor == "system" else "OIDC",
+                    event_type="goal.created",
+                    resource_type="goal",
+                    resource_id=str(goal_record.id),
+                    outcome="SUCCESS",
+                    correlation_id=correlation_id,
+                    details={"objective": goal_data.objective[:100]},
+                )
+            )
+
+            await uow.commit()
+
+            return GoalResponse(
+                id=goal_record.id,
+                tenant_id=goal_record.tenant_id,
+                objective=goal_record.objective,
+                scope=goal_record.scope,
+                deadline=goal_record.deadline,
+                target_window=goal_data.target_window,
+                constraints=goal_record.constraints,
+                resource_scope=goal_record.resource_scope,
+                context_references=goal_record.context_references,
+                priority_target=goal_record.priority_target,
+                metadata=goal_record.metadata_json,
+                created_at=goal_record.created_at,
+                updated_at=goal_record.updated_at,
+            )
+
+    async def generate_plan(
+        self,
+        tenant_id: str,
+        goal_id: UUID,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> tuple[PlanRecord, PlanSchema, ValidationResult]:
+        """Orchestrate AI plan proposal, deterministic validation, bounded repair,
+        and persistence as GENERATED.
+
+        Flow (Section 50):
+        trusted goal
+        -> authorized Context Builder
+        -> PydanticAI planner proposal
+        -> PlanSchema
+        -> deterministic validation (and bounded targeted repair)
+        -> persist GENERATED plan through PlanService
+        -> plan.generated audit/outbox events emitted.
+
+        Important: Plan status remains GENERATED until subsequent deterministic validation.
+        """
+        uow = self._uow_factory()
+        async with uow:
+            goal_repo = GoalRepository(uow.session)
+            goal_record = await goal_repo.get_by_id(goal_id, tenant_id)
+            if not goal_record:
+                raise GoalNotFoundError(goal_id)
+
+            goal_input = GoalCreate(
+                objective=goal_record.objective,
+                scope=goal_record.scope,
+                constraints=goal_record.constraints,
+                resource_scope=goal_record.resource_scope,
+                context_references=goal_record.context_references,
+                priority_target=goal_record.priority_target,
+            )
+
+        # 1. Context Builder
+        cb = self._context_builder
+        if cb is None:
+            from app.task_intelligence.context import ContextBuilder
+
+            cb = ContextBuilder()
+
+        from app.task_intelligence.context import AssemblyStatus, ContextAssemblyRequest
+
+        context_request = ContextAssemblyRequest(
+            tenant_id=tenant_id,
+            goal_id=goal_id,
+            correlation_id=correlation_id,
+            objective=goal_input.objective,
+        )
+        context_res = await cb.build_context(context_request)
+        if context_res.assembly_status == AssemblyStatus.BLOCKED:
+            raise PlanServiceError(
+                f"Context assembly blocked for goal '{goal_id}': {context_res.warnings}"
+            )
+
+        # 2. Planner proposal (PydanticAiPlanner or configured planner)
+        pl = self._planner
+        if pl is None:
+            from app.task_intelligence.planner import PydanticAiPlanner
+
+            pl = PydanticAiPlanner(validator=self._validator)
+
+        if hasattr(pl, "generate_plan_with_result"):
+            gen_result = await pl.generate_plan_with_result(
+                goal=goal_input,
+                context=context_res.model_context.model_dump(exclude_none=True),
+            )
+            proposed_plan = gen_result.plan
+            val_res = gen_result.validation_result or self._validator.validate(proposed_plan)
+        else:
+            proposed_plan = await pl.generate_plan(
+                goal=goal_input,
+                context=context_res.model_context.model_dump(exclude_none=True),
+            )
+            val_res = self._validator.validate(proposed_plan)
+
+        # 3. Persist GENERATED plan
+        plan_record = await self.persist_generated_plan(
+            tenant_id=tenant_id,
+            goal_id=goal_id,
+            plan_schema=proposed_plan,
+            actor_id=actor_id,
+            correlation_id=correlation_id,
+        )
+
+        return plan_record, proposed_plan, val_res
+
+    async def persist_generated_plan(
+        self,
+        tenant_id: str,
+        goal_id: UUID,
+        plan_schema: PlanSchema,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> PlanRecord:
+        """Persist a generated or proposed PlanSchema under a goal version."""
+        actor = actor_id or "system"
+        uow = self._uow_factory()
+
+        async with uow:
+            goal_repo = GoalRepository(uow.session)
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+            outbox_repo = OutboxRepository(uow.session)
+
+            goal = await goal_repo.get_by_id(goal_id, tenant_id)
+            if not goal:
+                raise GoalNotFoundError(goal_id)
+
+            latest_version = await plan_repo.get_latest_version_number(goal_id, tenant_id)
+            new_version = latest_version + 1
+
+            plan_record = await plan_repo.create_plan(
+                tenant_id=tenant_id,
+                goal_id=goal_id,
+                plan_name=plan_schema.plan_name,
+                version_number=new_version,
+                status=PlanState.GENERATED,
+                is_baseline=False,
+                metadata_json=plan_schema.metadata,
+            )
+
+            # Persist tasks, dependencies, milestones
+            await task_repo.persist_plan_aggregates(
+                tenant_id=tenant_id,
+                plan_id=plan_record.id,
+                task_drafts=plan_schema.tasks,
+                dependency_drafts=plan_schema.dependencies,
+                milestone_drafts=plan_schema.milestones,
+            )
+
+            # Outbox event: plan.generated (data minimization: minimal metadata only)
+            envelope = create_event_envelope(
+                EventCreate(
+                    event_type="plan.generated",
+                    event_version=1,
+                    tenant_id=tenant_id,
+                    correlation_id=correlation_id,
+                    subject_type="plan",
+                    subject_id=str(plan_record.id),
+                    payload={
+                        "goal_id": str(goal_id),
+                        "plan_id": str(plan_record.id),
+                        "version_number": new_version,
+                        "task_count": len(plan_schema.tasks),
+                        "dependency_count": len(plan_schema.dependencies),
+                    },
+                )
+            )
+            await outbox_repo.enqueue(envelope)
+
+            # Audit event
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=actor,
+                    actor_principal_type="SERVICE" if actor == "system" else "HUMAN",
+                    authentication_method="SERVICE_API_KEY" if actor == "system" else "OIDC",
+                    event_type="plan.generated",
+                    resource_type="plan",
+                    resource_id=str(plan_record.id),
+                    outcome="SUCCESS",
+                    correlation_id=correlation_id,
+                    details={
+                        "goal_id": str(goal_id),
+                        "version_number": new_version,
+                        "task_count": len(plan_schema.tasks),
+                    },
+                )
+            )
+
+            await uow.commit()
+
+            return plan_record
+
+    async def validate_plan(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> ValidationResult:
+        """Run deterministic validation on a persisted plan.
+
+        Transitions plan to VALIDATED if zero errors found.
+        """
+        actor = actor_id or "system"
+        uow = self._uow_factory()
+
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+
+            # Reconstruct PlanSchema for deterministic validator
+            task_drafts = [
+                TaskDraft(
+                    temporary_id=t.temporary_id,
+                    title=t.title,
+                    description=t.description,
+                    estimated_duration_minutes=t.estimated_duration_minutes,
+                    work_category=t.work_category,
+                )
+                for t in tasks
+            ]
+            task_id_to_temp = {t.id: t.temporary_id for t in tasks}
+            dep_drafts = [
+                from_dep
+                for d in dependencies
+                if (from_dep := self._build_dep_draft(d, task_id_to_temp)) is not None
+            ]
+
+            plan_schema = PlanSchema(
+                plan_name=plan.plan_name,
+                goal_id=plan.goal_id,
+                tasks=task_drafts,
+                dependencies=dep_drafts,
+            )
+
+            result = self._validator.validate(plan_schema)
+
+            # If valid, assert transition to VALIDATED
+            if result.is_valid:
+                current_st = PlanState(plan.status)
+                if current_st != PlanState.VALIDATED:
+                    assert_valid_plan_transition(current_st, PlanState.VALIDATED)
+                    await plan_repo.update_status(plan_id, tenant_id, PlanState.VALIDATED)
+
+            # Append audit event
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=actor,
+                    actor_principal_type="SERVICE" if actor == "system" else "HUMAN",
+                    authentication_method="SERVICE_API_KEY" if actor == "system" else "OIDC",
+                    event_type="plan.validated",
+                    resource_type="plan",
+                    resource_id=str(plan_id),
+                    outcome="SUCCESS" if result.is_valid else "FAILURE",
+                    correlation_id=correlation_id,
+                    details={
+                        "is_valid": result.is_valid,
+                        "issue_count": len(result.issues),
+                        "evaluated_tasks": result.evaluated_task_count,
+                    },
+                )
+            )
+
+            await uow.commit()
+
+            return result
+
+    def _build_dep_draft(self, d: TaskDependencyRecord, id_map: dict[UUID, str]) -> Any:
+        pred_tid = id_map.get(d.predecessor_id)
+        succ_tid = id_map.get(d.successor_id)
+        if pred_tid and succ_tid:
+            from app.task_intelligence.schemas import DependencyDraft, DependencyType
+
+            return DependencyDraft(
+                predecessor_id=pred_tid,
+                successor_id=succ_tid,
+                dependency_type=DependencyType(d.dependency_type),
+                lag_minutes=d.lag_minutes,
+            )
+        return None
+
+    async def submit_for_approval(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> PlanRecord:
+        """Submit a validated plan for human review and approval."""
+        actor = actor_id or "system"
+        uow = self._uow_factory()
+
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            current_st = PlanState(plan.status)
+            assert_valid_plan_transition(current_st, PlanState.APPROVAL_PENDING)
+
+            updated_plan = await plan_repo.update_status(
+                plan_id=plan_id,
+                tenant_id=tenant_id,
+                status=PlanState.APPROVAL_PENDING,
+            )
+            assert updated_plan is not None
+
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=actor,
+                    actor_principal_type="SERVICE" if actor == "system" else "HUMAN",
+                    authentication_method="SERVICE_API_KEY" if actor == "system" else "OIDC",
+                    event_type="plan.approval_submitted",
+                    resource_type="plan",
+                    resource_id=str(plan_id),
+                    outcome="SUCCESS",
+                    correlation_id=correlation_id,
+                    details={"status": PlanState.APPROVAL_PENDING},
+                )
+            )
+
+            await uow.commit()
+
+            return updated_plan
+
+    async def approve_plan(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        approver_id: str,
+        correlation_id: str | None = None,
+    ) -> PlanRecord:
+        """Approve and freeze a validated plan as the authoritative baseline.
+
+        Enforces:
+        - Must be in APPROVAL_PENDING state.
+        - Unsets baseline flag on any prior baseline for the goal.
+        - Calculates deterministic baseline fingerprint hash.
+        - Emits plan.approved outbox event and audit event atomically.
+        """
+        uow = self._uow_factory()
+
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+            outbox_repo = OutboxRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            current_st = PlanState(plan.status)
+            assert_valid_plan_transition(current_st, PlanState.APPROVED)
+
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+
+            baseline_hash = compute_plan_baseline_hash(tasks, dependencies)
+
+            # Supersede prior baseline if one exists
+            prior_baseline = await plan_repo.get_baseline_for_goal(plan.goal_id, tenant_id)
+            if prior_baseline and prior_baseline.id != plan_id:
+                prior_baseline.is_baseline = False
+                prior_baseline.superseded_by_plan_id = plan_id
+
+            # Freeze this plan as approved baseline
+            approved_plan = await plan_repo.update_status(
+                plan_id=plan_id,
+                tenant_id=tenant_id,
+                status=PlanState.APPROVED,
+                is_baseline=True,
+                baseline_hash=baseline_hash,
+            )
+            assert approved_plan is not None
+
+            # Outbox event: plan.approved (data minimization)
+            envelope = create_event_envelope(
+                EventCreate(
+                    event_type="plan.approved",
+                    event_version=1,
+                    tenant_id=tenant_id,
+                    correlation_id=correlation_id,
+                    subject_type="plan",
+                    subject_id=str(plan_id),
+                    payload={
+                        "plan_id": str(plan_id),
+                        "goal_id": str(plan.goal_id),
+                        "version_number": plan.version_number,
+                        "baseline_hash": baseline_hash,
+                        "approver_id": approver_id,
+                    },
+                )
+            )
+            await outbox_repo.enqueue(envelope)
+
+            # Audit event: plan.approved
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=approver_id,
+                    actor_principal_type="HUMAN",
+                    authentication_method="OIDC",
+                    event_type="plan.approved",
+                    resource_type="plan",
+                    resource_id=str(plan_id),
+                    outcome="SUCCESS",
+                    correlation_id=correlation_id,
+                    details={
+                        "version_number": plan.version_number,
+                        "baseline_hash": baseline_hash,
+                    },
+                )
+            )
+
+            await uow.commit()
+
+            return approved_plan
+
+    async def get_plan(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        load_relations: bool = True,
+    ) -> PlanRecord | None:
+        """Retrieve plan entity within tenant boundary."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            record = await plan_repo.get_by_id(plan_id, tenant_id, load_relations=load_relations)
+            await uow.commit()
+            return record
+
+    async def get_critical_path(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+    ) -> CPMScheduleResult:
+        """Compute CPM schedule metrics and critical path for a plan."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+
+            graph = TaskDependencyGraph()
+            for t in tasks:
+                graph.add_task(
+                    task_id=t.temporary_id,
+                    duration_minutes=t.estimated_duration_minutes,
+                )
+
+            task_id_to_temp = {t.id: t.temporary_id for t in tasks}
+            for d in dependencies:
+                pred = task_id_to_temp.get(d.predecessor_id)
+                succ = task_id_to_temp.get(d.successor_id)
+                if pred and succ:
+                    graph.add_dependency(
+                        predecessor_id=pred,
+                        successor_id=succ,
+                        lag_minutes=d.lag_minutes,
+                    )
+
+            await uow.commit()
+            return CriticalPathCalculator.calculate(graph)
+
+    async def update_task_progress(
+        self,
+        tenant_id: str,
+        task_id: UUID,
+        update_data: TaskProgressUpdate,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> TaskRecord:
+        """Update canonical task progress and blocker status."""
+        actor = actor_id or "system"
+        uow = self._uow_factory()
+
+        async with uow:
+            task_repo = TaskRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+
+            task = await task_repo.get_task_by_id(task_id, tenant_id)
+            if not task:
+                raise TaskNotFoundError(task_id)
+
+            if update_data.status is not None:
+                current_st = TaskProgressStatus(task.status)
+                assert_valid_task_progress_transition(current_st, update_data.status)
+
+            updated = await task_repo.update_task_progress(task_id, tenant_id, update_data)
+            assert updated is not None
+
+            # Audit progress transition
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=actor,
+                    actor_principal_type="SERVICE" if actor == "system" else "HUMAN",
+                    authentication_method="SERVICE_API_KEY" if actor == "system" else "OIDC",
+                    event_type="task.progress_updated",
+                    resource_type="task",
+                    resource_id=str(task_id),
+                    outcome="SUCCESS",
+                    correlation_id=correlation_id,
+                    details={
+                        "new_status": str(update_data.status) if update_data.status else None,
+                        "progress_percentage": update_data.progress_percentage,
+                        "blocked_reason": update_data.blocked_reason,
+                    },
+                )
+            )
+
+            await uow.commit()
+
+            return updated

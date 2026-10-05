@@ -1,0 +1,182 @@
+{
+  "dataset_id": "TI-GOLD-005",
+  "dataset_version": "1.0.0",
+  "fixture_type": "task_intelligence_gold_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "input_case": {
+    "input_mode": "STRUCTURED",
+    "objective": "Plan Grade 10 semester examination operations",
+    "target_window": {
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30"
+    },
+    "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+    "allowed_resource_ids": [
+      "res-inv-001",
+      "res-inv-002",
+      "res-inv-003",
+      "res-inv-004",
+      "res-room-001",
+      "res-room-002",
+      "res-room-003"
+    ]
+  },
+  "authorized_context": {
+    "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+    "allowed_resource_ids": [
+      "res-inv-001",
+      "res-inv-002",
+      "res-inv-003",
+      "res-inv-004",
+      "res-room-001",
+      "res-room-002",
+      "res-room-003"
+    ],
+    "source_work_categories": [
+      "PLANNING",
+      "QUESTION_PAPER_READINESS",
+      "APPROVALS",
+      "ROOM_PREPARATION",
+      "INVIGILATOR_PREPARATION",
+      "SCHEDULING",
+      "EXAM_EXECUTION",
+      "INCIDENT_HANDLING",
+      "CLOSURE"
+    ]
+  },
+  "synthetic_invalid_candidate": {
+    "fixture_only": true,
+    "candidate_id": "invalid-plan-candidate-001",
+    "tasks": [
+      {
+        "temporary_id": "tmp-task-001",
+        "title": "Prepare examination plan",
+        "parent_temporary_id": null,
+        "acceptance_criteria": [],
+        "resource_refs": []
+      },
+      {
+        "temporary_id": "tmp-task-002",
+        "title": "Prepare rooms",
+        "parent_temporary_id": "tmp-task-001",
+        "acceptance_criteria": [
+          "Authorized room readiness is verified"
+        ],
+        "resource_refs": [
+          "res-room-001"
+        ]
+      },
+      {
+        "temporary_id": "tmp-task-003",
+        "title": "Assign invented invigilator",
+        "parent_temporary_id": "tmp-task-001",
+        "acceptance_criteria": [
+          "Invigilator is assigned"
+        ],
+        "resource_refs": [
+          "res-inv-999"
+        ]
+      }
+    ],
+    "dependencies": [
+      {
+        "predecessor_id": "tmp-task-001",
+        "successor_id": "tmp-task-002"
+      },
+      {
+        "predecessor_id": "tmp-task-002",
+        "successor_id": "tmp-task-003"
+      },
+      {
+        "predecessor_id": "tmp-task-003",
+        "successor_id": "tmp-task-001"
+      }
+    ]
+  },
+  "expected_validation_error_categories": [
+    "MISSING_ACCEPTANCE_CRITERIA",
+    "UNRESOLVED_RESOURCE_REFERENCE",
+    "DEPENDENCY_CYCLE"
+  ],
+  "expected_validation_diagnostics": {
+    "MISSING_ACCEPTANCE_CRITERIA": {
+      "target_temporary_task_id": "tmp-task-001",
+      "message": "Task tmp-task-001 is missing required acceptance criteria"
+    },
+    "UNRESOLVED_RESOURCE_REFERENCE": {
+      "target_temporary_task_id": "tmp-task-003",
+      "unresolved_resource_id": "res-inv-999",
+      "message": "Resource res-inv-999 does not exist in authorized context"
+    },
+    "DEPENDENCY_CYCLE": {
+      "cycle_nodes": [
+        "tmp-task-001",
+        "tmp-task-002",
+        "tmp-task-003",
+        "tmp-task-001"
+      ],
+      "message": "Directed dependency cycle detected: tmp-task-001 -> tmp-task-002 -> tmp-task-003 -> tmp-task-001"
+    }
+  },
+  "bounded_repair_expectations": {
+    "repair_allowed": true,
+    "fixture_max_repair_attempts": 2,
+    "repair_scope": "VALIDATION_FAILURES_ONLY",
+    "machine_readable_errors_only": true,
+    "valid_content_should_be_preserved": true,
+    "unresolved_resources_must_not_be_invented": true,
+    "cycle_must_be_removed_before_activation": true,
+    "acceptance_criteria_must_be_supplied_or_flagged": true,
+    "canonical_persistence_while_invalid_forbidden": true,
+    "activation_while_invalid_forbidden": true
+  },
+  "expected_repair_semantics": [
+    "remove_the_dependency_cycle",
+    "remove_or_resolve_unresolved_resource_using_authorized_context_or_leave_flagged_for_human",
+    "provide_meaningful_acceptance_criteria_or_leave_flagged_for_human",
+    "preserve_valid_task_content_where_possible",
+    "remain_non_authoritative_proposal",
+    "require_human_review_and_validation_before_activation"
+  ],
+  "forbidden_repair_behavior": [
+    "replacing_unresolved_resource_with_another_invented_id",
+    "hiding_the_dependency_cycle",
+    "dropping_validation_errors_without_correction",
+    "deleting_arbitrary_valid_tasks_solely_to_make_validation_pass",
+    "canonical_persistence_of_malformed_candidate",
+    "direct_activation_without_approval",
+    "unbounded_retry_loop"
+  ],
+  "expected_plan_properties": {
+    "hierarchical_wbs_required": true,
+    "unique_temporary_task_ids_required": true,
+    "dependency_graph_must_be_acyclic": true,
+    "unresolved_resource_references_allowed": 0,
+    "human_review_required_before_activation": true
+  },
+  "forbidden_plan_properties": [
+    "cyclic_dependencies",
+    "unresolved_resource_references",
+    "missing_acceptance_criteria",
+    "direct_activation_without_approval"
+  ],
+  "evaluation_expectations": {
+    "structured_output_validity": false,
+    "invalid_dependency_count": 1,
+    "hallucinated_entity_count": 1,
+    "expected_validation_error_category_count": 3,
+    "validation_error_categories": [
+      "MISSING_ACCEPTANCE_CRITERIA",
+      "UNRESOLVED_RESOURCE_REFERENCE",
+      "DEPENDENCY_CYCLE"
+    ],
+    "repair_behavior": "BOUNDED_REPAIR_OR_FAIL",
+    "human_correction_required": true,
+    "exact_wording_scored": false
+  },
+  "common_evaluation_note": "Gold evaluation assesses semantic, structural, and dependency properties rather than exact wording or ordering. Different valid task breakdowns or titles are acceptable if they satisfy the required properties and categories. Output must be treated as a non-authoritative proposal requiring human/policy review before canonical activation. Zero model or provider names are encoded; fixture values are regression benchmarks and never production defaults."
+}

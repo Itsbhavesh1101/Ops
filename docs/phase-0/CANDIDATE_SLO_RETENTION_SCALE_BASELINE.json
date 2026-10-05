@@ -1,0 +1,633 @@
+{
+  "baseline_version": "1.0.0",
+  "document_name": "CANDIDATE_SLO_RETENTION_SCALE_BASELINE",
+  "status": "PROPOSED_FOR_REVIEW",
+  "governance": {
+    "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+    "contractual_sla": false,
+    "source_requirement": false,
+    "validation_status": "NOT_YET_BENCHMARKED",
+    "purpose": "Phase-0 engineering candidate baseline for implementation sizing, PoC benchmarking, performance testing, configuration defaults, and Phase-8/Phase-9 validation.",
+    "relationship_to_task_0h1": "Task 0H.1 established source evidence (auditing original documents where SOURCE_NUMERIC_TARGET = 0, and classifying Complete Spec PoC targets as engineering proposals). Task 0H.2 defines engineering candidate values, every one of which is explicitly classified as PHASE_0_ENGINEERING_PROPOSAL and PROPOSED_FOR_REVIEW without claiming original source requirement or contractual SLA status.",
+    "configuration_principle": "Candidate values belong to distinct governance and configuration surfaces (runtime technical budgets, retention policies, observability thresholds, benchmark/load-test profiles, and tenant business policies). Benchmark values must not automatically become production runtime configuration. Hardcoding any candidate value in production business logic is strictly prohibited.",
+    "configuration_surfaces": {
+      "runtime_technical_budgets": "runtime technical configuration / solver profile (e.g., planner timeout, solver budget)",
+      "retention_durations": "retention policy / tenant policy configuration",
+      "slo_thresholds": "observability / SLO configuration",
+      "benchmark_envelope_values": "benchmark / load-test profiles (MUST NOT automatically become production runtime configuration or tenant business policy)",
+      "business_customer_policy": "versioned tenant / business policy where applicable"
+    },
+    "retention_policy_precedence": "GOVERNING_POLICY_RESOLUTION_REQUIRED",
+    "engineering_default_role": "FALLBACK_ONLY",
+    "retention_resolution_rule": "Effective retention MUST satisfy all applicable legal/regulatory obligations, binding contractual requirements, and approved customer/tenant policies. The Phase-0 engineering default applies only where those governing requirements do not establish another value. Where multiple applicable requirements exist, no legal precedence or conflict resolution is decided in this technical document; approved compliance/policy resolution is required. An engineering default must never weaken an applicable governing requirement."
+  },
+  "slo_candidates": {
+    "SLO-API-AVAIL-01": {
+      "name": "Core API Monthly Availability",
+      "target": "99.9%",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "POC_TARGET_IN_COMPLETE_SPECIFICATION",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "Core E-7 API/service availability. Provider-dependent external systems (IdP, Calendar, E-8, MySQL SIS) must be measured and observed separately.",
+      "measurement_method": {
+        "metric_name": "core_api_monthly_availability_percentage",
+        "measurement_window": "calendar_month_rolling_30_days",
+        "included_operations": "Synchronous HTTP/REST endpoints hosted by E-7 Core API gateway",
+        "excluded_operations": "Scheduled maintenance windows, third-party provider downtime (IdP, Calendar, E-8, MySQL SIS), client-side network failures",
+        "calculation": "((total_uptime_minutes - unexcused_downtime_minutes) / total_uptime_minutes) * 100",
+        "instrumentation_source": "Synthetic health check probes + edge gateway metrics",
+        "benchmark_scenario": "Continuous health check probing at 30-second intervals",
+        "validation_phase": "Phase 8 / Phase 9 Pilot Readiness"
+      },
+      "source_reference": "Complete Specification, Section 10 (Non-Functional Requirements, p. 8)"
+    },
+    "SLO-API-LAT-01": {
+      "name": "Core CRUD/API Latency",
+      "target_p95_ms": "< 500",
+      "target_p99_ms": 1000,
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "P95_POC_TARGET_PRESERVED_EXACT_INEQUALITY_P99_PROPOSED_IN_TASK_0H2",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "Synchronous E-7 CRUD / metadata / lightweight command APIs (p95 < 500 ms preserves the frozen source-proposed PoC target; p99 <= 1000 ms proposed in Task 0H.2). Excludes LLM inference, solver execution, long-running workflow work, and external-provider latency.",
+      "measurement_method": {
+        "metric_name": "core_api_http_request_duration_ms",
+        "measurement_window": "rolling_1_hour_and_24_hour_windows",
+        "included_operations": "Direct synchronous entity CRUD, metadata reads, lightweight state updates",
+        "excluded_operations": "AI plan generation, solver execution, workflow transitions, external sync calls",
+        "calculation": "p95 and p99 percentile latency of server-side request processing duration",
+        "instrumentation_source": "OpenTelemetry HTTP server spans / Prometheus histogram metrics",
+        "benchmark_scenario": "Standard CRUD load profile under baseline concurrency",
+        "validation_phase": "Phase 1 PoC & Phase 8 Benchmarking"
+      },
+      "target_p95": "p95 < 500 ms",
+      "target_p99": "p99 <= 1000 ms",
+      "source_reference": "Complete Specification, Section 10 (Non-Functional Requirements, p. 8)"
+    },
+    "SLO-API-ERR-01": {
+      "name": "Core API Server-Side Error Rate",
+      "target_max_error_rate_percentage": 1.0,
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "NOT_ORIGINAL_SOURCE_REQUIREMENT",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "Server-side failure outcomes (HTTP 5xx / unhandled internal errors). Excludes expected client validation failures (400), authentication/authorization rejections (401/403), and expected conflict/business-rule rejections (409/422).",
+      "measurement_method": {
+        "metric_name": "core_api_server_error_rate_percentage",
+        "measurement_window": "rolling_1_hour_and_24_hour_windows",
+        "included_operations": "All core E-7 HTTP API requests",
+        "excluded_operations": "Client-induced 4xx responses (validation, auth, business rule rejects)",
+        "calculation": "(count(http_status >= 500) / count(total_requests)) * 100",
+        "instrumentation_source": "API Gateway / HTTP server metrics",
+        "benchmark_scenario": "Continuous API traffic under baseline and stress validation",
+        "validation_phase": "Phase 1 PoC & Phase 8 Benchmarking"
+      }
+    },
+    "SLO-ASYNC-ACK-01": {
+      "name": "Asynchronous Job Acceptance Latency",
+      "target_p95_ms": 1000,
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "NOT_ORIGINAL_SOURCE_REQUIREMENT",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "Request validation + durable acceptance/enqueue response (job ID assignment and outbox/queue persistence). Applies conceptually to AI planning jobs, solver jobs, and asynchronous orchestration jobs. Does NOT mean job completion in one second.",
+      "measurement_method": {
+        "metric_name": "async_job_enqueue_ack_latency_ms",
+        "measurement_window": "rolling_1_hour_and_24_hour_windows",
+        "included_operations": "POST /jobs/plan, POST /jobs/solve, POST /workflows/instances",
+        "excluded_operations": "Downstream job execution time, background worker processing duration",
+        "calculation": "p95 duration from HTTP receipt to 202 Accepted response with job ID",
+        "instrumentation_source": "HTTP server span + durable enqueue transaction duration",
+        "benchmark_scenario": "Job submission burst under baseline concurrency",
+        "validation_phase": "Phase 1 PoC & Phase 8 Benchmarking"
+      }
+    },
+    "SLO-TI-PLAN-01": {
+      "name": "Task Intelligence Plan Generation Completion",
+      "target_p95_completion_seconds": 120,
+      "max_execution_budget_seconds": 180,
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "NOT_ORIGINAL_SOURCE_REQUIREMENT",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "Goal normalization + approved context assembly + LLM planning + schema validation + bounded repair + deterministic graph validation + initial effort/risk processing under the Task 0H.2 first-tenant benchmark envelope. Configurable candidate budget, never hardcoded. Must be benchmarked against actual configured AI provider.",
+      "measurement_method": {
+        "metric_name": "ti_plan_generation_end_to_end_duration_seconds",
+        "measurement_window": "per_job_execution_and_batch_runs",
+        "included_operations": "End-to-end orchestration: context retrieval, prompt assembly, LLM calls, schema parse, bounded repair, graph validation",
+        "excluded_operations": "User human review/approval time, UI rendering",
+        "calculation": "p95 wall-clock execution duration of completed plan generation jobs",
+        "instrumentation_source": "Task Intelligence orchestrator job execution span",
+        "benchmark_scenario": "Standard 500-task plan generation under benchmark envelope",
+        "validation_phase": "Phase 1 PoC & Phase 8 Benchmarking"
+      }
+    },
+    "SLO-WF-RESP-01": {
+      "name": "Workflow Service Synchronous API Response",
+      "target_p95_ms": "< 500",
+      "target_p99_ms": 1000,
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "NOT_ORIGINAL_SOURCE_REQUIREMENT",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "Workflow-facing synchronous E-7 APIs align with Core API baseline (p95 < 500 ms, p99 <= 1000 ms). No separate unsupported availability SLA for Flowable. External runtime/provider health must be observed independently.",
+      "measurement_method": {
+        "metric_name": "workflow_api_response_latency_ms",
+        "measurement_window": "rolling_1_hour_and_24_hour_windows",
+        "included_operations": "Workflow task query, claim, complete, state fetch via E-7 API",
+        "excluded_operations": "Flowable background job execution, async timer evaluation, external webhooks",
+        "calculation": "p95 and p99 server-side response duration",
+        "instrumentation_source": "Workflow service adapter HTTP metrics",
+        "benchmark_scenario": "Concurrent workflow task completions under baseline scale",
+        "validation_phase": "Phase 1 PoC & Phase 8 Benchmarking"
+      },
+      "target_p95": "p95 < 500 ms",
+      "target_p99": "p99 <= 1000 ms"
+    },
+    "SLO-SCHED-SOLVE-01": {
+      "name": "Scheduling Solve Completion Baseline",
+      "target_standard_solve_completion_seconds": 120,
+      "target_completion_percentage": 95,
+      "max_solver_budget_seconds": 180,
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "NOT_ORIGINAL_SOURCE_REQUIREMENT",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "95% of standard baseline scheduling jobs complete within 120 seconds under Task 0H.2 benchmark envelope. Configurable maximum budget 180 seconds. Solver may return FEASIBLE or INFEASIBLE. Normal infeasibility is NOT a performance failure. Optimality is NOT required within the budget. Budget is configurable, never hardcoded.",
+      "measurement_method": {
+        "metric_name": "scheduling_solver_solve_duration_seconds",
+        "measurement_window": "per_job_execution_and_benchmark_suites",
+        "included_operations": "Solver instance preparation, constraint model compilation, CP-SAT/solver search execution, solution extraction",
+        "excluded_operations": "Pre-solve data gathering from external systems, post-solve human schedule publishing",
+        "calculation": "Percentage of standard baseline solver jobs completing search within 120 seconds",
+        "instrumentation_source": "Scheduling solver worker job metrics",
+        "benchmark_scenario": "2000 activities, 1000 resources, 20000 constraints benchmark",
+        "validation_phase": "Phase 1 PoC & Phase 8 Benchmarking"
+      }
+    },
+    "SLO-EVENT-LAG-01": {
+      "name": "Event / Outbox Propagation Lag",
+      "target_p95_seconds": 5,
+      "target_p99_seconds": 30,
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "source_status": "NOT_ORIGINAL_SOURCE_REQUIREMENT",
+      "contractual_sla": false,
+      "source_requirement": false,
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "configurable": true,
+      "scope": "Outbox-to-consumer-visible event propagation under healthy PostgreSQL + broker + consumer conditions. Internal E-7 reliability target; does NOT establish E-7 <-> E-8 production wire protocol.",
+      "measurement_method": {
+        "metric_name": "outbox_to_consumer_propagation_lag_seconds",
+        "measurement_window": "rolling_1_hour_and_24_hour_windows",
+        "included_operations": "Time from outbox record insertion commit in PostgreSQL to consumer message acknowledgement",
+        "excluded_operations": "Downstream consumer processing time, broker network partition periods",
+        "calculation": "p95 and p99 duration between event occurrence timestamp and consumer receipt timestamp",
+        "instrumentation_source": "Outbox publisher lag metrics + consumer receive telemetry",
+        "benchmark_scenario": "Steady event publishing at 100 events/second burst",
+        "validation_phase": "Phase 1 PoC & Phase 8 Benchmarking"
+      }
+    }
+  },
+  "deferred_items": [
+    {
+      "id": "ERP_EXTERNAL_SLO",
+      "status": "DEFERRED_PENDING_LIVE_MEASUREMENT_AND_BLK_01",
+      "target": "UNASSIGNED",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "rationale": "Live MySQL ERP/SIS query latency, network topology, concurrency profile, and BLK-01 connection validation remain unmeasured."
+    },
+    {
+      "id": "CALENDAR_EXTERNAL_SLO",
+      "status": "DEFERRED_PENDING_PROVIDER_SELECTION",
+      "target": "UNASSIGNED",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "rationale": "First production calendar provider selection (Google Workspace, Microsoft 365, Exchange/CalDAV) remains unresolved under decision D-EXT-02."
+    },
+    {
+      "id": "E8_EXTERNAL_DELIVERY_SLO",
+      "status": "DEFERRED_PENDING_TRANSPORT_AND_DELIVERY_CONTRACT",
+      "target": "UNASSIGNED",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "rationale": "Production transport binding (RabbitMQ, Kafka, or HTTP webhook) and downstream multi-channel delivery SLA are owned by E-8."
+    },
+    {
+      "id": "IDP_EXTERNAL_SLO",
+      "status": "DEFERRED_PENDING_PROVIDER_SELECTION",
+      "target": "UNASSIGNED",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "rationale": "Exact production Identity Provider (Keycloak, Azure AD, Okta, etc.) remains unresolved under decision D-EXT-01."
+    },
+    {
+      "id": "RTO",
+      "status": "NOT_FOUND_IN_AVAILABLE_SOURCES",
+      "target": "UNASSIGNED",
+      "classification": "UNRESOLVED",
+      "rationale": "No business Recovery Time Objective target exists in available source documents."
+    },
+    {
+      "id": "RPO",
+      "status": "NOT_FOUND_IN_AVAILABLE_SOURCES",
+      "target": "UNASSIGNED",
+      "classification": "UNRESOLVED",
+      "rationale": "No business Recovery Point Objective target exists in available source documents."
+    },
+    {
+      "id": "PHYSICAL_STORAGE_CAPACITY",
+      "status": "MEASURE_DURING_BENCHMARKING",
+      "target": "UNASSIGNED",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "rationale": "Storage capacity in GB/TB must be derived empirically from measured row sizes, retention policies, index overhead, and growth profiles."
+    },
+    {
+      "id": "ACTUAL_FIRST_TENANT_WORKLOAD",
+      "status": "UNRESOLVED / REQUIRES_BUSINESS_CONFIRMATION",
+      "target": "UNASSIGNED",
+      "classification": "UNRESOLVED",
+      "rationale": "Actual customer contract and institutional deployment scale profile requires business and institutional partner confirmation."
+    }
+  ],
+  "retention_candidates": {
+    "RET-CANONICAL-01": {
+      "name": "Canonical Operational Records",
+      "examples": [
+        "goals",
+        "plans",
+        "tasks",
+        "dependencies",
+        "workflow-linked canonical references",
+        "scheduling baseline references",
+        "integration mappings"
+      ],
+      "proposed_duration": "NO_UNIVERSAL_AUTOMATIC_DELETION",
+      "retention_driver": "TENANT_OR_CUSTOMER_OR_LEGAL_POLICY_DRIVEN",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "No arbitrary universal deletion duration in Phase 0. Retention is governed strictly by customer contract, institutional retention policy, and applicable law."
+    },
+    "RET-PLAN-01": {
+      "name": "Plan / Task Version History",
+      "proposed_duration_days": 365,
+      "trigger": "after supersession or closure",
+      "retention_driver": "TENANT_POLICY_WITH_ENGINEERING_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Configurable per tenant/policy; stricter legal/institutional compliance policies override this default."
+    },
+    "RET-WF-01": {
+      "name": "Workflow Execution History",
+      "proposed_duration_days": 365,
+      "trigger": "after workflow completion",
+      "retention_driver": "TENANT_POLICY_WITH_ENGINEERING_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Configurable per tenant. Does not define Flowable's internal runtime cleanup implementation."
+    },
+    "RET-SCHED-01": {
+      "name": "Scheduling Job / Result History",
+      "proposed_duration_days": 180,
+      "trigger": "after completion or supersession",
+      "retention_driver": "TENANT_POLICY_WITH_ENGINEERING_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Applies to operational job/result history; currently active published schedule is preserved according to business policy."
+    },
+    "RET-AUDIT-01": {
+      "name": "Audit Evidence",
+      "proposed_duration_days": 365,
+      "trigger": "from record creation timestamp",
+      "retention_driver": "OVERRIDE_HIERARCHY",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Effective retention MUST satisfy all applicable legal/regulatory obligations, binding contractual requirements, and approved customer/tenant policies. The Phase-0 engineering default applies only where those governing requirements do not establish another value. Where multiple applicable requirements exist, no legal precedence or conflict resolution is decided in this technical document; approved compliance/policy resolution is required. 365 days is an engineering default fallback only; it must never be presented as legally sufficient or weaken an applicable governing requirement.",
+      "retention_policy_precedence": "GOVERNING_POLICY_RESOLUTION_REQUIRED",
+      "engineering_default_role": "FALLBACK_ONLY"
+    },
+    "RET-OUTBOX-01": {
+      "name": "Published Outbox Records",
+      "proposed_duration_days": 30,
+      "trigger": "after confirmed publication/dispatch",
+      "purpose": "diagnostics and replay investigation",
+      "retention_driver": "ENGINEERING_OPERATIONAL_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Source-defined outbox retention remains UNRESOLVED in 0H.1; this 30-day proposal is a newly introduced engineering operational candidate."
+    },
+    "RET-INBOX-01": {
+      "name": "Inbox / Deduplication Records",
+      "proposed_duration_days": 30,
+      "trigger": "after event receipt",
+      "purpose": "idempotency deduplication across replay/retry window",
+      "retention_driver": "ENGINEERING_OPERATIONAL_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Must be configurable; production value must cover supported broker retry/replay window. No source requirement exists."
+    },
+    "RET-INTEGRATION-01": {
+      "name": "Integration Delivery / Sync Evidence",
+      "proposed_duration_days": 90,
+      "trigger": "from event execution timestamp",
+      "purpose": "diagnostic metadata (sync outcome, command acceptance/rejection evidence, external mapping status, retry outcome metadata)",
+      "retention_driver": "ENGINEERING_OPERATIONAL_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Unnecessary external payloads must not be stored merely for diagnostics."
+    },
+    "RET-LOG-01": {
+      "name": "Application Logs",
+      "proposed_duration_days": 30,
+      "trigger": "from log generation timestamp",
+      "purpose": "searchable structured application telemetry",
+      "retention_driver": "PLATFORM_OBSERVABILITY_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Logs must not intentionally contain secrets or unrestricted PII."
+    },
+    "RET-TRACE-01": {
+      "name": "Distributed Traces",
+      "proposed_duration_days": 14,
+      "trigger": "from trace generation timestamp",
+      "purpose": "distributed span and execution path telemetry",
+      "retention_driver": "PLATFORM_OBSERVABILITY_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Traces must be sampled and retained for short-term operational debugging."
+    },
+    "RET-METRIC-01": {
+      "name": "Metrics / Aggregated Telemetry",
+      "proposed_duration_days": 90,
+      "trigger": "from metric emission timestamp",
+      "purpose": "operational capacity, latency, and throughput trend analysis",
+      "retention_driver": "PLATFORM_OBSERVABILITY_DEFAULT",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Long-term rollups may be retained longer per platform operational policy."
+    },
+    "RET-AI-RAW-01": {
+      "name": "Raw AI Prompts / Raw Model Outputs",
+      "proposed_default": "DO_NOT_PERSIST",
+      "conditional_debug_duration_days": "up to 30 days",
+      "purpose": "transient debugging and model quality evaluation under strict governance",
+      "retention_driver": "AI_GOVERNANCE_AND_PRIVACY_POLICY",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Default is DO_NOT_PERSIST. Diagnostic persistence requires explicit approved policy. Candidate engineering retention under that policy is up to 30 days. Governing legal, contractual, or customer policy may require a different outcome. Persistence remains prohibited where the approved policy disallows it. Minimization, redaction, and access-control rules remain mandatory. The 30-day duration is an engineering candidate, not an unconditional universal maximum that overrides approved governing policy."
+    },
+    "RET-AI-EVAL-01": {
+      "name": "Sanitized AI Evaluation Artifacts",
+      "proposed_duration_days": 180,
+      "trigger": "from evaluation benchmark completion",
+      "purpose": "model drift tracking and deterministic validation regression testing",
+      "retention_driver": "AI_GOVERNANCE_AND_EVALUATION_POLICY",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Only sanitized, PII-free evaluation evidence is retained."
+    },
+    "RET-SOLVER-TEMP-01": {
+      "name": "Solver-Internal Temporary Artifacts",
+      "proposed_default": "NOT_PERSISTED_BY_DEFAULT",
+      "conditional_debug_duration_days": "up to 7 days",
+      "purpose": "in-depth solver search tree and constraint branch diagnostics",
+      "retention_driver": "SOLVER_ENGINEERING_DIAGNOSTICS",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "Default is NOT_PERSISTED_BY_DEFAULT. Candidate debug retention is up to 7 days, representing an engineering debug default / proposal, not a source-defined lifecycle and not an absolute policy override. Any exception requires approved retention/debug policy. Source-defined solver temporary lifecycle remains unresolved per frozen Task 0H.1 evidence."
+    },
+    "RET-PII-01": {
+      "name": "Personal / Sensitive Data",
+      "proposed_duration": "NO_UNIVERSAL_DURATION",
+      "retention_driver": "TENANT_OR_CUSTOMER_OR_LEGAL_POLICY_DRIVEN",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "configurable": true,
+      "policy_override_rule": "No universal number. Task Intelligence aggregate-only restrictions remain intact (students and student_session rows in MySQL SIS are AGGREGATE_ONLY; no raw individual rows are model-visible)."
+    }
+  },
+  "first_tenant_scale_envelope": {
+    "governance": {
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "approval_status": "PROPOSED_FOR_REVIEW",
+      "validation_status": "NOT_YET_BENCHMARKED",
+      "purpose": "Implementation sizing, synthetic benchmark generation, load-test planning, and capacity planning. NOT a prediction of actual customer load.",
+      "levels": {
+        "BASELINE": "Expected nominal operational envelope for first institutional deployment sizing.",
+        "STRESS_VALIDATION": "Test headroom envelope (2x-2.5x multiplier) for pre-pilot stability and bottleneck detection, not a customer commitment."
+      },
+      "workload_status": "FIRST_TENANT_ACTUAL_BUSINESS_WORKLOAD = UNRESOLVED / REQUIRES_BUSINESS_CONFIRMATION",
+      "benchmark_role": "The benchmark envelope exists only for implementation sizing, synthetic/load-test planning, bottleneck discovery, and capacity validation. It is NOT an actual production workload, NOT a customer commitment, and NOT a solver/API capability guarantee.",
+      "configuration_assignment": "Benchmark scale values belong to benchmark/load-test profiles; they MUST NOT automatically become production runtime configuration or tenant business policy."
+    },
+    "baseline": {
+      "SCALE-USERS-01": {
+        "category": "Users / Concurrency",
+        "named_users": 500,
+        "simultaneously_active_users": 75,
+        "notes": "The Task 0H.2 benchmark envelope does not assume students as direct E-7 users. Actual production user classes and counts remain subject to business confirmation."
+      },
+      "SCALE-RESOURCE-01": {
+        "category": "Organizational Resource References",
+        "staff_or_resource_references": 1000,
+        "cohort_or_class_section_aggregate_references": 500,
+        "notes": "Canonical/approved references or aggregate context. Individual student rows are not model-visible."
+      },
+      "SCALE-TI-PLAN-01": {
+        "category": "Task Intelligence Plan Size",
+        "tasks_per_plan": 500,
+        "dependencies_per_plan": 1500,
+        "milestones_per_plan": 50,
+        "notes": "Standard complex institutional project plan."
+      },
+      "SCALE-TI-VOLUME-01": {
+        "category": "Task Intelligence Daily Volume",
+        "plan_generation_jobs_per_day": 100,
+        "concurrent_planner_jobs": 5,
+        "notes": "Dispatched across worker pool."
+      },
+      "SCALE-WF-01": {
+        "category": "Workflow Scale",
+        "active_workflow_instances": 5000,
+        "workflow_task_transitions_per_day": 25000,
+        "notes": "State stored in Flowable database; not all workflows execute simultaneously."
+      },
+      "SCALE-SCHED-01": {
+        "category": "Scheduling Scale",
+        "candidate_assignments_or_activities": 2000,
+        "resources_participating_in_solve": 1000,
+        "hard_and_soft_constraint_instances": 20000,
+        "concurrent_solver_jobs": 4,
+        "notes": "Benchmark envelope values, not solver capability guarantees."
+      },
+      "SCALE-EVENT-01": {
+        "category": "Event Volume",
+        "domain_and_integration_events_per_day": 100000,
+        "short_duration_burst_rate_events_per_sec": 100,
+        "notes": "Outbox and broker message throughput."
+      },
+      "SCALE-API-01": {
+        "category": "API Traffic",
+        "sustained_requests_per_sec": 25,
+        "short_duration_burst_requests_per_sec": 100,
+        "notes": "Aggregate synchronous E-7 API workload."
+      },
+      "SCALE-INTEGRATION-01": {
+        "category": "Calendar / E-8 Integration Test Volume",
+        "calendar_sync_operations_per_day": 10000,
+        "e8_notification_commands_per_day": 20000,
+        "notes": "Internal contract/load-test values only; not production provider limits."
+      }
+    },
+    "stress_validation": {
+      "SCALE-USERS-01": {
+        "category": "Users / Concurrency",
+        "named_users": 1000,
+        "simultaneously_active_users": 150,
+        "notes": "Stress headroom validation. The benchmark envelope does not assume students as direct E-7 users. Actual production user classes and counts remain subject to business confirmation."
+      },
+      "SCALE-RESOURCE-01": {
+        "category": "Organizational Resource References",
+        "staff_or_resource_references": 2000,
+        "cohort_or_class_section_aggregate_references": 1000,
+        "notes": "Stress headroom. Individual student rows are not model-visible."
+      },
+      "SCALE-TI-PLAN-01": {
+        "category": "Task Intelligence Plan Size",
+        "tasks_per_plan": 1000,
+        "dependencies_per_plan": 3000,
+        "milestones_per_plan": 100,
+        "notes": "Large-scale institutional breakdown test."
+      },
+      "SCALE-TI-VOLUME-01": {
+        "category": "Task Intelligence Daily Volume",
+        "plan_generation_jobs_per_day": 250,
+        "concurrent_planner_jobs": 10,
+        "notes": "Stress queue concurrency test."
+      },
+      "SCALE-WF-01": {
+        "category": "Workflow Scale",
+        "active_workflow_instances": 10000,
+        "workflow_task_transitions_per_day": 50000,
+        "notes": "Workflow engine high-load test."
+      },
+      "SCALE-SCHED-01": {
+        "category": "Scheduling Scale",
+        "candidate_assignments_or_activities": 5000,
+        "resources_participating_in_solve": 2000,
+        "hard_and_soft_constraint_instances": 50000,
+        "concurrent_solver_jobs": 8,
+        "notes": "Solver stress benchmark envelope; not a capability guarantee."
+      },
+      "SCALE-EVENT-01": {
+        "category": "Event Volume",
+        "domain_and_integration_events_per_day": 250000,
+        "short_duration_burst_rate_events_per_sec": 250,
+        "notes": "Broker spike test."
+      },
+      "SCALE-API-01": {
+        "category": "API Traffic",
+        "sustained_requests_per_sec": 50,
+        "short_duration_burst_requests_per_sec": 200,
+        "notes": "API gateway peak stress load."
+      },
+      "SCALE-INTEGRATION-01": {
+        "category": "Calendar / E-8 Integration Test Volume",
+        "calendar_sync_operations_per_day": 25000,
+        "e8_notification_commands_per_day": 50000,
+        "notes": "Integration contract stress volume."
+      }
+    },
+    "storage_sizing": {
+      "SCALE-STORAGE-01": {
+        "physical_storage_capacity": "MEASURE_DURING_BENCHMARKING",
+        "status": "UNASSIGNED",
+        "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+        "principle": "Storage capacity sizing must be derived from actual row/document sizes, retention policy, index overhead, audit/event volume, and growth measurement. Storage capacity is NOT derived from MySQL schema table counts."
+      }
+    },
+    "capacity_headroom_rule": {
+      "rule": "Stress-validation success is one engineering readiness input. Production readiness additionally depends on architecture, security/privacy, integration readiness, operational observability, and approved pilot scope.",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "contractual_requirement": false
+    }
+  },
+  "promotion_gates": [
+    {
+      "stage": "GATE_1_GOVERNANCE_REVIEW",
+      "description": "Source and governance consistency review confirming alignment with frozen architectural invariants.",
+      "required_inputs": [
+        "Audit against RTM, Guardrails, and ADR-000 through ADR-009"
+      ]
+    },
+    {
+      "stage": "GATE_2_BUSINESS_PLATFORM_REVIEW",
+      "description": "Business, institutional partner, and platform stakeholder review confirming operational applicability.",
+      "required_inputs": [
+        "Institutional profile sign-off, SLA commercial alignment"
+      ]
+    },
+    {
+      "stage": "GATE_3_POC_BENCHMARK_EVIDENCE",
+      "description": "Empirical benchmark execution demonstrating that the proposed candidate targets are realistically achievable under the defined baseline envelope.",
+      "required_inputs": [
+        "Phase 1 / Phase 8 benchmark telemetry data, load-test reports"
+      ]
+    },
+    {
+      "stage": "GATE_4_SECURITY_PRIVACY_REVIEW",
+      "description": "Security and compliance review verifying that retention and telemetry policies uphold data minimization, PII restrictions, and regulatory standards.",
+      "required_inputs": [
+        "Data protection impact assessment, compliance policy confirmation"
+      ]
+    },
+    {
+      "stage": "GATE_5_BLOCKER_RESOLUTION",
+      "description": "Verification that no outstanding architectural blocker (e.g., BLK-01 MySQL performance, D-EXT-01 IdP selection, D-EXT-02 Calendar provider selection) invalidates the metric.",
+      "required_inputs": [
+        "Closure of BLK-01, D-EXT-01, and D-EXT-02"
+      ]
+    },
+    {
+      "stage": "GATE_6_CONTRACTUAL_PROMOTION",
+      "description": "Promotion from APPROVED_ENGINEERING_BASELINE to contractual customer SLA, which requires explicit formal legal/commercial agreement.",
+      "required_inputs": [
+        "Customer Master Services Agreement / SLA Schedule"
+      ]
+    }
+  ],
+  "next_task": "0I"
+}

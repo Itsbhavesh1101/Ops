@@ -1,0 +1,178 @@
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL: Canonical System of Record, Outbox, and Audit
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: e7-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-operations_engine}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # RabbitMQ: Asynchronous Event Transport and Messaging
+  # ----------------------------------------------------------------------------
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: e7-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Flowable REST: Workflow Runtime & Human Task Lifecycle Boundary
+  # Documented as LOCAL_INTEGRATION_BASELINE (ADR-001)
+  # Flowable owns native workflow runtime state; E-7 Alembic does NOT manage Flowable tables.
+  # ----------------------------------------------------------------------------
+  flowable:
+    image: flowable/flowable-rest:7.0.0
+    container_name: e7-flowable
+    restart: unless-stopped
+    environment:
+      SPRING_DATASOURCE_URL: ${FLOWABLE_DATASOURCE_URL:-jdbc:postgresql://postgres:5432/${FLOWABLE_DB:-flowable_db}}
+      SPRING_DATASOURCE_USERNAME: ${FLOWABLE_DB_USER:-${POSTGRES_USER:-postgres}}
+      SPRING_DATASOURCE_PASSWORD: ${FLOWABLE_DB_PASSWORD:-${POSTGRES_PASSWORD:-postgres}}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+    ports:
+      - "${FLOWABLE_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------------------
+  # FastAPI API Service
+  # ----------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      network: host
+    container_name: e7-api
+    restart: unless-stopped
+    environment:
+      E7_ENVIRONMENT: ${E7_ENVIRONMENT:-local}
+      E7_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-operations_engine}
+      E7_RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+      E7_RABBITMQ_EXCHANGE_NAME: ${E7_RABBITMQ_EXCHANGE_NAME:-events}
+      FLOWABLE_BASE_URL: http://flowable:8080/flowable-rest/service
+      E7_OTEL_ENABLED: ${E7_OTEL_ENABLED:-false}
+      E7_OTEL_EXPORTER_OTLP_ENDPOINT: ${E7_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      E7_OTEL_SERVICE_NAME: ${E7_OTEL_SERVICE_NAME:-e7-api}
+      E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS: ${E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS:-60.0}
+    ports:
+      - "${PORT:-8000}:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ----------------------------------------------------------------------------
+  # Background Runtime Worker (Task 1J.3B Outbox-Only Runtime)
+  # Uses same application image as API.
+  # Placed behind 'worker-runtime' profile for Phase-1 explicit activation.
+  # Supervises OutboxDispatcherRunner; inbound consumer runtime remains disabled.
+  # ----------------------------------------------------------------------------
+  worker:
+    profiles:
+      - worker-runtime
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      network: host
+    container_name: e7-worker
+    environment:
+      E7_ENVIRONMENT: ${E7_ENVIRONMENT:-local}
+      E7_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-operations_engine}
+      E7_RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+      E7_RABBITMQ_EXCHANGE_NAME: ${E7_RABBITMQ_EXCHANGE_NAME:-events}
+      E7_OUTBOX_POLL_INTERVAL_SECONDS: ${E7_OUTBOX_POLL_INTERVAL_SECONDS:-1.0}
+      E7_OUTBOX_MAX_CONCURRENCY: ${E7_OUTBOX_MAX_CONCURRENCY:-1}
+      E7_OUTBOX_SHUTDOWN_GRACE_SECONDS: ${E7_OUTBOX_SHUTDOWN_GRACE_SECONDS:-10.0}
+      E7_OUTBOX_LEASE_DURATION_SECONDS: ${E7_OUTBOX_LEASE_DURATION_SECONDS:-30.0}
+      E7_OUTBOX_PUBLISH_TIMEOUT_SECONDS: ${E7_OUTBOX_PUBLISH_TIMEOUT_SECONDS:-5.0}
+      E7_OUTBOX_RETRY_BASE_DELAY_SECONDS: ${E7_OUTBOX_RETRY_BASE_DELAY_SECONDS:-1.0}
+      E7_OUTBOX_RETRY_MAX_DELAY_SECONDS: ${E7_OUTBOX_RETRY_MAX_DELAY_SECONDS:-60.0}
+      E7_OUTBOX_RETRY_MULTIPLIER: ${E7_OUTBOX_RETRY_MULTIPLIER:-2.0}
+      E7_OTEL_ENABLED: ${E7_OTEL_ENABLED:-false}
+      E7_OTEL_EXPORTER_OTLP_ENDPOINT: ${E7_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      E7_OTEL_SERVICE_NAME: ${E7_OTEL_SERVICE_NAME:-e7-worker}
+      E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS: ${E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS:-60.0}
+    command: python -m app.worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------------------
+  # OpenTelemetry Collector: Local Trace and Metric Aggregator (Task 1K.6)
+  # Receives OTLP/HTTP from api and worker; exports metrics to Prometheus
+  # Placed behind 'observability' profile.
+  # ----------------------------------------------------------------------------
+  otel-collector:
+    profiles:
+      - observability
+    image: otel/opentelemetry-collector-contrib:0.100.0
+    container_name: e7-otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./docker/observability/otel-collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318"
+
+  # ----------------------------------------------------------------------------
+  # Prometheus: Local Metric Time Series Scraper (Task 1K.6)
+  # Scrapes OpenTelemetry Collector metrics endpoint; NO direct scrape of API/worker
+  # Placed behind 'observability' profile.
+  # ----------------------------------------------------------------------------
+  prometheus:
+    profiles:
+      - observability
+    image: prom/prometheus:v2.51.0
+    container_name: e7-prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    volumes:
+      - ./docker/observability/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    depends_on:
+      - otel-collector
+
+
+volumes:
+  postgres_data:
+  rabbitmq_data:
+

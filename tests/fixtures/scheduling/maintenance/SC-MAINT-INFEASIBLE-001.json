@@ -1,0 +1,71 @@
+{
+  "dataset_id": "SC-MAINT-INFEASIBLE-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "generic_scheduling_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-MAINT-001",
+  "variant_id": "MAINT-INFEASIBLE-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+  "horizon": {
+    "start_at": "2026-11-12T09:00:00+05:30",
+    "end_at": "2026-11-12T17:00:00+05:30"
+  },
+  "work_orders": [
+    {
+      "id": "wo-maint-inf-001",
+      "title": "Compound Plumbing and Network Repair",
+      "duration_minutes": 120,
+      "priority": "HIGH",
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-12T10:00:00+05:30",
+          "end_at": "2026-11-12T14:00:00+05:30"
+        }
+      ],
+      "required_person_skills": [
+        "PLUMBING",
+        "NETWORK"
+      ],
+      "required_equipment_skills": [],
+      "predecessors": [],
+      "preferred_person_ids": []
+    }
+  ],
+  "hard_constraint_expectations": [
+    "RESOURCE_AVAILABILITY",
+    "PERSON_SKILL_ELIGIBILITY",
+    "DURATION_WITHIN_WINDOW"
+  ],
+  "known_conflict": {
+    "type": "PERSON_CAPABILITY_COMBINATION_UNSATISFIABLE",
+    "work_order_id": "wo-maint-inf-001",
+    "required_person_skills": [
+      "PLUMBING",
+      "NETWORK"
+    ],
+    "known_individual_skill_holders": {
+      "PLUMBING": [
+        "res-tech-002"
+      ],
+      "NETWORK": [
+        "res-tech-004"
+      ]
+    },
+    "eligible_person_resources_expected": []
+  },
+  "relaxation_expectations": [
+    "split the work into separate skill-specific work orders",
+    "provide a person resource possessing both required capabilities",
+    "change the required capability combination if business policy allows"
+  ],
+  "expected_properties": {
+    "expected_outcome": "INFEASIBLE",
+    "candidate_must_be_absent": true,
+    "silent_partial_success_forbidden": true,
+    "conflict_diagnostics_required": true,
+    "relaxation_suggestions_required": true
+  }
+}

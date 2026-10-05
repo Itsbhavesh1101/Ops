@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://e7.operations.irinfotech.com/workflows">
+  <process id="two_step_approval_process" name="Two-Step Sequential Approval Process" isExecutable="true">
+    <startEvent id="start_event" name="Process Initiated" />
+    <sequenceFlow id="flow1" sourceRef="start_event" targetRef="chair_review" />
+
+    <userTask id="chair_review" name="Department Chair Review" flowable:candidateGroups="chairs">
+      <documentation>Initial review by department chair.</documentation>
+    </userTask>
+    <sequenceFlow id="flow2" sourceRef="chair_review" targetRef="dean_review" />
+
+    <userTask id="dean_review" name="Dean Final Approval" flowable:candidateGroups="deans">
+      <documentation>Final approval by academic dean.</documentation>
+    </userTask>
+    <sequenceFlow id="flow3" sourceRef="dean_review" targetRef="end_event" />
+
+    <endEvent id="end_event" name="Process Completed" />
+  </process>
+</definitions>

@@ -1,0 +1,1643 @@
+{
+  "policy_version": "1.0.0",
+  "policy_status": "phase_0_documentation_baseline",
+  "default_decision": "DENY",
+  "source_mapping": {
+    "inventory_document": "docs/integrations/MYSQL_SCHEMA_INVENTORY.json",
+    "task_intelligence_mapping_document": "docs/integrations/MYSQL_TASK_INTELLIGENCE_DATA_MAPPING.json",
+    "source_system": "mysql_iredu",
+    "evaluated_tables_count": 70,
+    "initial_sources_count": 14,
+    "allowed_planner_columns_count": 28,
+    "validation_only_columns_count": 74
+  },
+  "allowed_fields": [
+    {
+      "table": "annual_calendar",
+      "column": "from_date",
+      "sql_type": "datetime",
+      "context_category": "calendar_context",
+      "normalized_output_field": "from",
+      "model_exposure": "ALLOWED",
+      "purpose": "Holiday start datetime boundary",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "ISO-8601 UTC timestamp formatting",
+      "opaque_reference_required": false,
+      "conditional_rule": "Informational date context only; does not enforce automated operational blackout without E-7 policy.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "annual_calendar",
+      "column": "to_date",
+      "sql_type": "datetime",
+      "context_category": "calendar_context",
+      "normalized_output_field": "to",
+      "model_exposure": "ALLOWED",
+      "purpose": "Holiday end datetime boundary",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "ISO-8601 UTC timestamp formatting",
+      "opaque_reference_required": false,
+      "conditional_rule": "Informational date context only; does not enforce automated operational blackout without E-7 policy.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "annual_calendar",
+      "column": "description",
+      "sql_type": "text",
+      "context_category": "calendar_context",
+      "normalized_output_field": "description",
+      "model_exposure": "ALLOWED",
+      "purpose": "Holiday title / description",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Whitespace normalization and sanitization per reviewed policy; structural separation as untrusted data",
+      "opaque_reference_required": false,
+      "conditional_rule": "Untrusted free text; MUST remain structurally separated from instructions. Suspicious instruction-like text treated as data and may be omitted/quarantined.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "classes",
+      "column": "class",
+      "sql_type": "varchar(60)",
+      "context_category": "academic_context",
+      "normalized_output_field": "class",
+      "model_exposure": "ALLOWED",
+      "purpose": "Grade level name",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, string sanitization",
+      "opaque_reference_required": false,
+      "conditional_rule": "Scoped to active academic session and goal target cohort only.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "department",
+      "column": "department_name",
+      "sql_type": "varchar(200)",
+      "context_category": "organization_context",
+      "normalized_output_field": "department_name",
+      "model_exposure": "ALLOWED",
+      "purpose": "Department display label for task assignment and routing",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, string sanitization",
+      "opaque_reference_required": false,
+      "conditional_rule": "Scoped to active departments relevant to the active planning goal. Provides descriptive organizational context only; does NOT establish individual task eligibility or capability.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "events",
+      "column": "event_title",
+      "sql_type": "varchar(200)",
+      "context_category": "calendar_context",
+      "normalized_output_field": "title",
+      "model_exposure": "ALLOWED",
+      "purpose": "Event title summary",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, string sanitization",
+      "opaque_reference_required": false,
+      "conditional_rule": "Informational date context only; verified against active status and event_for scope.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "events",
+      "column": "event_description",
+      "sql_type": "text",
+      "context_category": "calendar_context",
+      "normalized_output_field": "description",
+      "model_exposure": "ALLOWED",
+      "purpose": "Event detailed description",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Whitespace normalization and sanitization per reviewed policy; structural separation as untrusted data",
+      "opaque_reference_required": false,
+      "conditional_rule": "Untrusted free text; MUST remain structurally separated from instructions. Suspicious instruction-like text treated as data and may be omitted/quarantined.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "events",
+      "column": "start_date",
+      "sql_type": "datetime",
+      "context_category": "calendar_context",
+      "normalized_output_field": "start_date",
+      "model_exposure": "ALLOWED",
+      "purpose": "Event start datetime",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "ISO-8601 UTC timestamp formatting",
+      "opaque_reference_required": false,
+      "conditional_rule": "Filtered to events overlapping the active planning operational window.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "events",
+      "column": "end_date",
+      "sql_type": "datetime",
+      "context_category": "calendar_context",
+      "normalized_output_field": "end_date",
+      "model_exposure": "ALLOWED",
+      "purpose": "Event end datetime",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "ISO-8601 UTC timestamp formatting",
+      "opaque_reference_required": false,
+      "conditional_rule": "Filtered to events overlapping the active planning operational window.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "events",
+      "column": "event_type",
+      "sql_type": "varchar(100)",
+      "context_category": "calendar_context",
+      "normalized_output_field": "event_type",
+      "model_exposure": "ALLOWED",
+      "purpose": "Event classification (e.g. public, task, academic)",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+      "transformation": "Standardize enum string token",
+      "opaque_reference_required": false,
+      "conditional_rule": "Filter by event_for to prevent leaking staff-only or private events to generalized planning.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "sections",
+      "column": "section",
+      "sql_type": "varchar(60)",
+      "context_category": "academic_context",
+      "normalized_output_field": "section",
+      "model_exposure": "ALLOWED",
+      "purpose": "Section letter or name",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, string sanitization",
+      "opaque_reference_required": false,
+      "conditional_rule": "Scoped to active class-sections in goal scope.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "sessions",
+      "column": "session",
+      "sql_type": "varchar(60)",
+      "context_category": "academic_context",
+      "normalized_output_field": "session",
+      "model_exposure": "ALLOWED",
+      "purpose": "Academic session name/code (e.g., 2026-2027)",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, string sanitization",
+      "opaque_reference_required": false,
+      "conditional_rule": "Active institutional session only (is_active = 1 or explicit target session).",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "staff",
+      "column": "qualification",
+      "sql_type": "varchar(200)",
+      "context_category": "staff_resource_context",
+      "normalized_output_field": "qualification",
+      "model_exposure": "ALLOWED",
+      "purpose": "Professional qualification for descriptive candidate context (does NOT establish authoritative capability or task eligibility)",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, sanitize string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Descriptive context only; does NOT establish task eligibility or capability. Free-text qualification must not automatically map to capabilities without an explicit versioned business rule.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "staff",
+      "column": "work_exp",
+      "sql_type": "varchar(200)",
+      "context_category": "staff_resource_context",
+      "normalized_output_field": "work_exp",
+      "model_exposure": "ALLOWED",
+      "purpose": "Reported work experience description for descriptive candidate context (does NOT establish authoritative capability or task eligibility)",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, sanitize string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Descriptive context only; does NOT establish task eligibility or capability. Free-text work experience must not automatically map to capabilities without an explicit versioned business rule.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "staff",
+      "column": "name",
+      "sql_type": "varchar(200)",
+      "context_category": "staff_resource_context",
+      "normalized_output_field": "display_name",
+      "model_exposure": "CONDITIONAL",
+      "purpose": "Staff first name for display/identification",
+      "sensitivity": "PERSONAL DATA",
+      "transformation": "Opaque reference token (StaffRef_<id>) by default; sanitized display label only for authorized use case requiring human-recognizable identity",
+      "opaque_reference_required": true,
+      "conditional_rule": "MODEL_EXPOSURE_CONDITIONAL: Default projection MUST use an opaque staff reference (StaffRef_<id>) where identity is not needed. Human-readable name may be included only for an authorized use case where the user's workflow genuinely needs a recognizable person (e.g. an authorized human-facing review or assignment screen where a recognizable staff identity is genuinely required and the actor is permitted to see it). Name is display identity, not capability evidence, and must never influence eligibility or ranking merely because it identifies the person. Qualifications, work experience, department association, and designation may provide descriptive context, but must not be treated as authoritative evidence of task eligibility or capability unless a separately approved policy/mapping establishes that relationship. No name exposure can compensate for unresolved tenant/org authorization.",
+      "raw_value_shown_to_model": false,
+      "allowed_in_logs": false,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "staff",
+      "column": "surname",
+      "sql_type": "varchar(200)",
+      "context_category": "staff_resource_context",
+      "normalized_output_field": "display_name",
+      "model_exposure": "CONDITIONAL",
+      "purpose": "Staff last name for display/identification",
+      "sensitivity": "PERSONAL DATA",
+      "transformation": "Opaque reference token (StaffRef_<id>) by default; sanitized display label only for authorized use case requiring human-recognizable identity",
+      "opaque_reference_required": true,
+      "conditional_rule": "MODEL_EXPOSURE_CONDITIONAL: Default projection MUST use an opaque staff reference (StaffRef_<id>) where identity is not needed. Human-readable name may be included only for an authorized use case where the user's workflow genuinely needs a recognizable person (e.g. an authorized human-facing review or assignment screen where a recognizable staff identity is genuinely required and the actor is permitted to see it). Name is display identity, not capability evidence, and must never influence eligibility or ranking merely because it identifies the person. Qualifications, work experience, department association, and designation may provide descriptive context, but must not be treated as authoritative evidence of task eligibility or capability unless a separately approved policy/mapping establishes that relationship. No name exposure can compensate for unresolved tenant/org authorization.",
+      "raw_value_shown_to_model": false,
+      "allowed_in_logs": false,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "staff_designation",
+      "column": "designation",
+      "sql_type": "varchar(200)",
+      "context_category": "organization_context",
+      "normalized_output_field": "designation",
+      "model_exposure": "ALLOWED",
+      "purpose": "Professional title label for owner role suggestions",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, sanitize string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Filter to active professional titles relevant to institutional work breakdown. Provides descriptive title context only; does NOT establish individual task eligibility or capability.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_group_class_sections",
+      "column": "description",
+      "sql_type": "text",
+      "context_category": "subject_context",
+      "normalized_output_field": "description",
+      "model_exposure": "ALLOWED",
+      "purpose": "Curricular assignment notes",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Whitespace normalization and sanitization per reviewed policy; structural separation as untrusted data",
+      "opaque_reference_required": false,
+      "conditional_rule": "Untrusted free text; MUST remain structurally separated from instructions. Suspicious instruction-like text treated as data and may be omitted/quarantined.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_groups",
+      "column": "name",
+      "sql_type": "varchar(250)",
+      "context_category": "subject_context",
+      "normalized_output_field": "group_name",
+      "model_exposure": "ALLOWED",
+      "purpose": "Subject group name",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, sanitize string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Scoped to target class curriculum.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_groups",
+      "column": "description",
+      "sql_type": "text",
+      "context_category": "subject_context",
+      "normalized_output_field": "description",
+      "model_exposure": "ALLOWED",
+      "purpose": "Curricular group description",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Whitespace normalization and sanitization per reviewed policy; structural separation as untrusted data",
+      "opaque_reference_required": false,
+      "conditional_rule": "Untrusted free text; MUST remain structurally separated from instructions. Suspicious instruction-like text treated as data and may be omitted/quarantined.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_timetable",
+      "column": "day",
+      "sql_type": "varchar(20)",
+      "context_category": "commitment_context",
+      "normalized_output_field": "day",
+      "model_exposure": "ALLOWED",
+      "purpose": "Day of week for commitment interval (e.g. Monday)",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Standardize day of week string token",
+      "opaque_reference_required": false,
+      "conditional_rule": "Published timetable intervals define busy windows only. Free intervals != complete availability.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_timetable",
+      "column": "time_from",
+      "sql_type": "varchar(20)",
+      "context_category": "commitment_context",
+      "normalized_output_field": "time_from",
+      "model_exposure": "ALLOWED",
+      "purpose": "Period start time string",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Standardize HH:MM string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Commitment window context; free slots != complete availability.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_timetable",
+      "column": "time_to",
+      "sql_type": "varchar(20)",
+      "context_category": "commitment_context",
+      "normalized_output_field": "time_to",
+      "model_exposure": "ALLOWED",
+      "purpose": "Period end time string",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Standardize HH:MM string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Commitment window context; free slots != complete availability.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_timetable",
+      "column": "start_time",
+      "sql_type": "time",
+      "context_category": "commitment_context",
+      "normalized_output_field": "start_time",
+      "model_exposure": "ALLOWED",
+      "purpose": "Period start time (time datatype)",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "ISO-8601 Time formatting (HH:MM:SS)",
+      "opaque_reference_required": false,
+      "conditional_rule": "Commitment window context; free slots != complete availability.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subject_timetable",
+      "column": "end_time",
+      "sql_type": "time",
+      "context_category": "commitment_context",
+      "normalized_output_field": "end_time",
+      "model_exposure": "ALLOWED",
+      "purpose": "Period end time (time datatype)",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "ISO-8601 Time formatting (HH:MM:SS)",
+      "opaque_reference_required": false,
+      "conditional_rule": "Commitment window context; free slots != complete availability.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subjects",
+      "column": "name",
+      "sql_type": "varchar(100)",
+      "context_category": "subject_context",
+      "normalized_output_field": "name",
+      "model_exposure": "ALLOWED",
+      "purpose": "Subject title",
+      "sensitivity": "INTERNAL BUSINESS DATA",
+      "transformation": "Trim whitespace, sanitize string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Scoped to subjects assigned to target cohorts.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subjects",
+      "column": "code",
+      "sql_type": "varchar(100)",
+      "context_category": "subject_context",
+      "normalized_output_field": "code",
+      "model_exposure": "ALLOWED",
+      "purpose": "Subject code",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+      "transformation": "Trim whitespace, uppercase string",
+      "opaque_reference_required": false,
+      "conditional_rule": "Scoped to subjects assigned to target cohorts.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    },
+    {
+      "table": "subjects",
+      "column": "type",
+      "sql_type": "varchar(100)",
+      "context_category": "subject_context",
+      "normalized_output_field": "type",
+      "model_exposure": "ALLOWED",
+      "purpose": "Instructional type: Theory vs Practical (contextual feature for effort estimation)",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+      "transformation": "Standardize case token ('Theory' / 'Practical')",
+      "opaque_reference_required": false,
+      "conditional_rule": "Contextual feature for effort estimation (FR-TI-04); values must be validated against allowed types.",
+      "raw_value_shown_to_model": true,
+      "allowed_in_logs": true,
+      "allowed_in_audit_metadata": true,
+      "requires_authorization": true
+    }
+  ],
+  "validation_only_fields": [
+    {
+      "table": "annual_calendar",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "annual_calendar",
+      "column": "session_id",
+      "sql_type": "int",
+      "purpose": "FK to sessions.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "annual_calendar",
+      "column": "holiday_type",
+      "sql_type": "int",
+      "purpose": "FK / lookup to holiday_type.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "annual_calendar",
+      "column": "is_active",
+      "sql_type": "int",
+      "purpose": "Active holiday entry flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "class_sections",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "class_sections",
+      "column": "class_id",
+      "sql_type": "int",
+      "purpose": "FK to classes.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "class_sections",
+      "column": "section_id",
+      "sql_type": "int",
+      "purpose": "FK to sections.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "class_sections",
+      "column": "is_active",
+      "sql_type": "varchar(255)",
+      "purpose": "Active status flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "classes",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "classes",
+      "column": "is_active",
+      "sql_type": "varchar(255)",
+      "purpose": "Active status flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "department",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "department",
+      "column": "is_active",
+      "sql_type": "varchar(100)",
+      "purpose": "Department active status flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "events",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "events",
+      "column": "event_for",
+      "sql_type": "varchar(100)",
+      "purpose": "Audience filter code (e.g. all, staff, students)",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "events",
+      "column": "role_id",
+      "sql_type": "int",
+      "purpose": "FK to roles.id for role-specific events",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "events",
+      "column": "is_active",
+      "sql_type": "varchar(100)",
+      "purpose": "Active status flag (varchar)",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "sections",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "sections",
+      "column": "is_active",
+      "sql_type": "varchar(255)",
+      "purpose": "Active status flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "sessions",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "sessions",
+      "column": "is_active",
+      "sql_type": "varchar(255)",
+      "purpose": "Active academic session flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff",
+      "column": "employee_id",
+      "sql_type": "varchar(200)",
+      "purpose": "Institutional staff code",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff",
+      "column": "department",
+      "sql_type": "int",
+      "purpose": "FK to department.id",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff",
+      "column": "designation",
+      "sql_type": "int",
+      "purpose": "FK to staff_designation.id",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff",
+      "column": "date_of_joining",
+      "sql_type": "date",
+      "purpose": "Employment start date",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff",
+      "column": "date_of_leaving",
+      "sql_type": "date",
+      "purpose": "Employment end date",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff",
+      "column": "contract_type",
+      "sql_type": "varchar(100)",
+      "purpose": "Employment contract classification (e.g. permanent, contract)",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff",
+      "column": "shift",
+      "sql_type": "varchar(100)",
+      "purpose": "Work shift code",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff",
+      "column": "location",
+      "sql_type": "varchar(100)",
+      "purpose": "Campus office location",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff",
+      "column": "user_id",
+      "sql_type": "int",
+      "purpose": "FK to users.id",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff",
+      "column": "is_active",
+      "sql_type": "int",
+      "purpose": "Staff active employment status",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff",
+      "column": "disable_at",
+      "sql_type": "date",
+      "purpose": "Account deactivation timestamp",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff_designation",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff_designation",
+      "column": "is_active",
+      "sql_type": "varchar(100)",
+      "purpose": "Active status flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_class_sections",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_class_sections",
+      "column": "subject_group_id",
+      "sql_type": "int",
+      "purpose": "FK to subject_groups.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_class_sections",
+      "column": "class_section_id",
+      "sql_type": "int",
+      "purpose": "FK to class_sections.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_class_sections",
+      "column": "session_id",
+      "sql_type": "int",
+      "purpose": "FK to sessions.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_class_sections",
+      "column": "is_active",
+      "sql_type": "int",
+      "purpose": "Active status flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_subjects",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_subjects",
+      "column": "subject_group_id",
+      "sql_type": "int",
+      "purpose": "FK to subject_groups.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_subjects",
+      "column": "session_id",
+      "sql_type": "int",
+      "purpose": "FK to sessions.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_group_subjects",
+      "column": "subject_id",
+      "sql_type": "int",
+      "purpose": "FK to subjects.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_groups",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_groups",
+      "column": "session_id",
+      "sql_type": "int",
+      "purpose": "FK to sessions.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "session_id",
+      "sql_type": "int",
+      "purpose": "FK to sessions.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "class_id",
+      "sql_type": "int",
+      "purpose": "FK to classes.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "section_id",
+      "sql_type": "int",
+      "purpose": "FK to sections.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "subject_group_id",
+      "sql_type": "int",
+      "purpose": "FK to subject_groups.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "subject_group_subject_id",
+      "sql_type": "int",
+      "purpose": "FK to subject_group_subjects.id",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "staff_id",
+      "sql_type": "int",
+      "purpose": "FK to staff.id",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "subject_timetable",
+      "column": "room_no",
+      "sql_type": "varchar(20)",
+      "purpose": "Informational room label only",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "subjects",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "Primary key identifier",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "subjects",
+      "column": "is_active",
+      "sql_type": "varchar(255)",
+      "purpose": "Active status flag",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "cbse_template_class_sections",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "cbse_template_class_sections",
+      "column": "cbse_template_id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "cbse_template_class_sections",
+      "column": "class_section_id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "class_section_times",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "class_section_times",
+      "column": "class_section_id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "class_section_times",
+      "column": "time",
+      "sql_type": "time",
+      "purpose": "",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "holiday_type",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "holiday_type",
+      "column": "type",
+      "sql_type": "varchar(255)",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "holiday_type",
+      "column": "is_default",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "roles",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "roles",
+      "column": "name",
+      "sql_type": "varchar(100)",
+      "purpose": "",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "roles",
+      "column": "slug",
+      "sql_type": "varchar(150)",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "roles",
+      "column": "is_active",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "roles",
+      "column": "is_system",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "roles",
+      "column": "is_superadmin",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff_roles",
+      "column": "id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff_roles",
+      "column": "role_id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    },
+    {
+      "table": "staff_roles",
+      "column": "staff_id",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "INTERNAL BUSINESS DATA"
+    },
+    {
+      "table": "staff_roles",
+      "column": "is_active",
+      "sql_type": "int",
+      "purpose": "",
+      "sensitivity": "PUBLIC/NON-SENSITIVE METADATA"
+    }
+  ],
+  "aggregate_only_sources": [
+    {
+      "table": "students",
+      "purpose": "Cohort headcount calculation via adapter count aggregation queries",
+      "exposure_rule": "AGGREGATE_ONLY",
+      "forbidden_scope": "All 67 individual student demographic, guardian, contact, medical, and enrollment columns",
+      "allowed_aggregation_outputs": [
+        "student_count",
+        "cohort_headcount"
+      ],
+      "re_identification_prevention": "Aggregates must group by class_id and section_id. Aggregate disclosure must follow institutional privacy policy; minimum-group-size or suppression thresholds, if required, MUST be configurable and approved by the appropriate business/privacy authority; no numeric cutoff is invented or assumed in this policy. If a cohort aggregate creates an obvious re-identification concern, policy requires OMIT_AGGREGATE or REQUIRE_HUMAN_CLARIFICATION."
+    },
+    {
+      "table": "student_session",
+      "purpose": "Session-specific student enrollment cohort headcount aggregation",
+      "exposure_rule": "AGGREGATE_ONLY",
+      "forbidden_scope": "Individual student_session IDs, student_id links, route/transport IDs, fee session IDs",
+      "allowed_aggregation_outputs": [
+        "student_count",
+        "enrolled_cohort_size"
+      ],
+      "re_identification_prevention": "Raw foreign keys must never enter prompt; output is strictly an adapter-derived integer headcount; aggregate disclosure must adhere to institutional privacy policy."
+    }
+  ],
+  "forbidden_categories": [
+    {
+      "category_id": "CAT-FORBID-01",
+      "name": "Authentication Credentials & Secrets",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version (categorically prohibited under all circumstances)",
+      "description": "Passwords, password hashes, salt strings, auth tokens, session tokens, verification codes",
+      "risk": "Total system compromise and unauthorized account takeover",
+      "examples_in_schema": [
+        "staff.password",
+        "staff.verification_code"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-02",
+      "name": "Financial & Personal Banking Identifiers",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Bank account numbers, account titles, bank names, branch IFSC codes, routing numbers",
+      "risk": "Financial fraud, identity theft, financial privacy violation",
+      "examples_in_schema": [
+        "staff.bank_account_no",
+        "staff.bank_name",
+        "staff.ifsc_code",
+        "staff.account_title",
+        "staff.bank_branch"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-03",
+      "name": "Compensation & Payroll Data",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Basic salaries, payscales, allowances, provident fund (EPF) numbers, tax deductions",
+      "risk": "Employee wage privacy breach, HR compensation policy leak",
+      "examples_in_schema": [
+        "staff.basic_salary",
+        "staff.payscale",
+        "staff.epf_no"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-04",
+      "name": "Government National Identifiers & Tax IDs",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "National identity numbers, Aadhaar numbers, PAN numbers, passport numbers, driving licenses",
+      "risk": "Regulatory statutory breach, severe identity theft risk",
+      "examples_in_schema": [
+        "students.adhar_no",
+        "students.samagra_id"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-05",
+      "name": "Biometric & Physical Measurement Records",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Height, weight, measurements, fingerprints, biometric punch logs",
+      "risk": "Sensitive personal physical data violation",
+      "examples_in_schema": [
+        "students.height",
+        "students.weight"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-06",
+      "name": "Personal Telecommunications & Contact PII",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Personal phone numbers, emergency contact numbers, personal email addresses",
+      "risk": "Employee and minor harassment, spam, privacy infringement",
+      "examples_in_schema": [
+        "staff.contact_no",
+        "staff.emergency_contact_no",
+        "staff.email",
+        "students.mobileno",
+        "students.guardian_phone"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-07",
+      "name": "Personal Residential & Physical Addresses",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Permanent home addresses, local temporary residential addresses, postal codes",
+      "risk": "Personal safety risk, physical privacy breach",
+      "examples_in_schema": [
+        "staff.local_address",
+        "staff.permanent_address",
+        "students.current_address",
+        "students.permanent_address"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-08",
+      "name": "Personal Dates of Birth (DOB)",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Exact dates of birth of adult employees and minor students",
+      "risk": "Identity spoofing, age discrimination, statutory privacy breach",
+      "examples_in_schema": [
+        "staff.dob",
+        "students.dob"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-09",
+      "name": "Demographic, Caste, Religious & Family Background",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Religion, caste, community category, marital status, father/mother names",
+      "risk": "Unlawful demographic profiling, social discrimination, sensitive PII leak",
+      "examples_in_schema": [
+        "staff.marital_status",
+        "staff.father_name",
+        "staff.mother_name",
+        "students.religion",
+        "students.cast"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-10",
+      "name": "Personal Social Media Profiles & Handles",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Facebook, Twitter, LinkedIn, Instagram links, personal web pages",
+      "risk": "Personal social scraping, profile doxxing",
+      "examples_in_schema": [
+        "staff.facebook",
+        "staff.twitter",
+        "staff.linkedin",
+        "staff.instagram"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-11",
+      "name": "Confidential HR & Employment Documents",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Resumes, appointment letters, resignation letters, internal HR notes, medical certificates",
+      "risk": "Confidential personnel file exposure, internal legal document leak",
+      "examples_in_schema": [
+        "staff.resume",
+        "staff.joining_letter",
+        "staff.resignation_letter",
+        "staff.note",
+        "staff.other_document_file"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-12",
+      "name": "Subjective Employee Ratings & Disciplinary Notes",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Subjective supervisor feedback, performance ratings, chronological disciplinary journal entries",
+      "risk": "Defamation, biased planning allocation, internal HR friction",
+      "examples_in_schema": [
+        "staff_rating.comment",
+        "staff_rating.rate",
+        "staff_timeline.title",
+        "staff_timeline.description"
+      ]
+    },
+    {
+      "category_id": "CAT-FORBID-13",
+      "name": "Minors' Individual Academic, Attendance & Conduct Records",
+      "policy_status": "FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version",
+      "description": "Individual student test scores, homework submissions, evaluations, daily attendance punches",
+      "risk": "Student privacy statutory violations (e.g. FERPA / Indian DPDP Act), minor profiling",
+      "examples_in_schema": [
+        "homework_evaluation",
+        "submit_assignment",
+        "student_attendance",
+        "students"
+      ]
+    }
+  ],
+  "business_confirmation_gates": [
+    {
+      "gate_id": "UBQ-TI-01",
+      "title": "Tenant / Organization Scoping Blocker",
+      "status": "UNRESOLVED_PRODUCTION_BLOCKER",
+      "schema_fact": "Database dump iredu lacks tenant_id, school_id, or organization_id columns across all 247 tables.",
+      "risk": "Without tenant scoping, multi-campus deployments risk catastrophic cross-tenant data leakage.",
+      "fail_closed_action": "BLOCK_PLANNING",
+      "rule": "Live production context retrieval remains blocked until an authoritative organization/tenant partition rule is established. Audit evidence must store the resolved tenant/organization scope reference only when such scope has been authoritatively established. During synthetic/mock/documentation testing, synthetic/test scope identifiers only are used; do not invent a production tenant filter or identifier."
+    },
+    {
+      "gate_id": "UBQ-TI-02",
+      "title": "Active and Soft-Delete Semantics",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "schema_fact": "Tables utilize heterogeneous active flags (int is_active, varchar(100) is_active, status varchar, disable_at).",
+      "risk": "Naive queries may misinterpret string flags or include inactive/soft-deleted resources.",
+      "fail_closed_action": "REQUIRE_HUMAN_CLARIFICATION",
+      "rule": "Allowed values ('0','1','yes','no','active') must be explicitly confirmed for each source table before production queries."
+    },
+    {
+      "gate_id": "UBQ-TI-03",
+      "title": "Examination Subsystem Operational Authority",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "schema_fact": "Schema contains parallel examination subsystems: CBSE exam subsystem vs Legacy exam_groups subsystem.",
+      "risk": "Targeting the incorrect exam subsystem will generate plans incompatible with school workflows.",
+      "fail_closed_action": "REQUIRE_HUMAN_CLARIFICATION",
+      "rule": "Institutional stakeholders must designate which exam subsystem is authoritative for the curriculum."
+    },
+    {
+      "gate_id": "UBQ-TI-04",
+      "title": "SCHEDULING / EXAM RESOURCE PRODUCTION GATE: Physical Academic Resource Source Authority",
+      "status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "schema_fact": "MySQL iredu lacks room capacity, room equipment, room dimensions, or room type masters. Fields named room_no are unconstrained strings.",
+      "risk": "Inferring room seating capacity or equipment from MySQL will produce invalid schedules.",
+      "fail_closed_action": "REQUIRE_HUMAN_CLARIFICATION",
+      "rule": "The unresolved academic room/equipment authority blocks production capabilities that require authoritative physical-resource scheduling, such as exam-room assignment. It does NOT by itself block all Task Intelligence functions (such as goal intake, WBS generation, dependency planning, organization/subject context, or general planning using known supported data). Physical room/resource authority remains unresolved; no room capacity or equipment metadata may be invented."
+    },
+    {
+      "gate_id": "UBQ-TI-05",
+      "title": "Future Staff Availability vs Historical Attendance Semantics",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "schema_fact": "Historical daily employee punch logs (staff_attendance) cannot be assumed to represent future operational availability. Timetable free slots != complete availability.",
+      "risk": "Treating historical punch logs as forward availability creates severe resource scheduling risk.",
+      "fail_closed_action": "OMIT_FIELD",
+      "rule": "Forward availability is governed exclusively by approved leave (staff_leave_request) and published timetables; historical attendance is excluded from planning."
+    }
+  ],
+  "context_categories": {
+    "organization_context": {
+      "purpose": "Provide institutional structure, department hierarchies, and professional designations for task routing and role matching.",
+      "allowed_source_tables": [
+        "department",
+        "staff_designation"
+      ],
+      "allowed_model_visible_fields": [
+        "department.department_name",
+        "staff_designation.designation"
+      ],
+      "validation_only_fields": [
+        "department.id",
+        "department.is_active",
+        "staff_designation.id",
+        "staff_designation.is_active"
+      ],
+      "aggregate_only_fields": [],
+      "forbidden_fields": [],
+      "conditions_for_inclusion": "Included when goal requires role-based work decomposition or inter-departmental task routing. Descriptive context only; does not establish individual task capability or eligibility.",
+      "freshness_class": "STATIC_OR_SLOW",
+      "source_attribution_requirement": "Attributed to institutional organization master in upstream ERP.",
+      "staleness_behavior": "High caching tolerance (daily refresh acceptable); invalidate on explicit administrative organizational update."
+    },
+    "academic_context": {
+      "purpose": "Provide academic session temporal bounds, target grade classes, sections, and cohort identifiers.",
+      "allowed_source_tables": [
+        "sessions",
+        "classes",
+        "sections",
+        "class_sections"
+      ],
+      "allowed_model_visible_fields": [
+        "sessions.session",
+        "classes.class",
+        "sections.section"
+      ],
+      "validation_only_fields": [
+        "sessions.id",
+        "sessions.is_active",
+        "classes.id",
+        "classes.is_active",
+        "sections.id",
+        "sections.is_active",
+        "class_sections.id",
+        "class_sections.class_id",
+        "class_sections.section_id",
+        "class_sections.is_active"
+      ],
+      "aggregate_only_fields": [],
+      "forbidden_fields": [],
+      "conditions_for_inclusion": "Mandatory for academic operational goals; scoped strictly to target cohorts identified in goal input.",
+      "freshness_class": "STATIC_OR_SLOW",
+      "source_attribution_requirement": "Attributed to academic session and curriculum masters in upstream ERP.",
+      "staleness_behavior": "Session rarely changes mid-term; high caching tolerance; invalidate on term rollover."
+    },
+    "subject_context": {
+      "purpose": "Provide subject master details, codes, instructional types (Theory vs Practical), and curricular groupings.",
+      "allowed_source_tables": [
+        "subjects",
+        "subject_groups",
+        "subject_group_subjects",
+        "subject_group_class_sections"
+      ],
+      "allowed_model_visible_fields": [
+        "subjects.name",
+        "subjects.code",
+        "subjects.type",
+        "subject_groups.name",
+        "subject_groups.description",
+        "subject_group_class_sections.description"
+      ],
+      "validation_only_fields": [
+        "subjects.id",
+        "subject_groups.id",
+        "subject_groups.session_id",
+        "subject_group_subjects.id",
+        "subject_group_subjects.subject_group_id",
+        "subject_group_subjects.subject_id",
+        "subject_group_subjects.session_id",
+        "subject_group_class_sections.id",
+        "subject_group_class_sections.subject_group_id",
+        "subject_group_class_sections.class_section_id",
+        "subject_group_class_sections.session_id"
+      ],
+      "aggregate_only_fields": [],
+      "forbidden_fields": [],
+      "conditions_for_inclusion": "Included when goal involves curriculum, examination, lesson planning, or subject-specific work orders.",
+      "freshness_class": "STATIC_OR_SLOW",
+      "source_attribution_requirement": "Attributed to institutional course catalogue and subject masters.",
+      "staleness_behavior": "Curricular definitions are stable per term; cached across planning sessions; refreshed on syllabus change."
+    },
+    "staff_resource_context": {
+      "purpose": "Provide sanitized candidate staff roster, descriptive qualifications, work experience, and opaque reference tokens for contextual planning suggestions. Descriptive staff attributes do NOT establish authoritative operational capability or task eligibility.",
+      "allowed_source_tables": [
+        "staff"
+      ],
+      "allowed_model_visible_fields": [
+        "staff.qualification",
+        "staff.work_exp",
+        "staff.name",
+        "staff.surname"
+      ],
+      "validation_only_fields": [
+        "staff.id",
+        "staff.employee_id",
+        "staff.department",
+        "staff.designation",
+        "staff.is_active",
+        "staff.disable_at"
+      ],
+      "aggregate_only_fields": [],
+      "forbidden_fields": [
+        "staff.password",
+        "staff.verification_code",
+        "staff.bank_account_no",
+        "staff.bank_name",
+        "staff.ifsc_code",
+        "staff.account_title",
+        "staff.bank_branch",
+        "staff.basic_salary",
+        "staff.payscale",
+        "staff.epf_no",
+        "staff.contact_no",
+        "staff.emergency_contact_no",
+        "staff.email",
+        "staff.local_address",
+        "staff.permanent_address",
+        "staff.dob",
+        "staff.gender",
+        "staff.marital_status",
+        "staff.father_name",
+        "staff.mother_name",
+        "staff.image",
+        "staff.facebook",
+        "staff.twitter",
+        "staff.linkedin",
+        "staff.instagram",
+        "staff.resume",
+        "staff.joining_letter",
+        "staff.resignation_letter",
+        "staff.other_document_file",
+        "staff.note"
+      ],
+      "conditions_for_inclusion": "Included when goal requires resource candidate matching; filtered to staff matching required designations or departments. Default projection uses opaque staff references; names conditional on explicit workflow requirement. Descriptive attributes provide contextual suggestions only; deterministic validation and/or human review must determine whether a candidate assignment is actually permitted.",
+      "freshness_class": "STATIC_OR_SLOW",
+      "source_attribution_requirement": "Attributed to sanitized staff roster; opaque references mapped to canonical E-7 resource IDs.",
+      "staleness_behavior": "Staff roster cached daily; active employment status verified prior to planning payload dispatch."
+    },
+    "commitment_context": {
+      "purpose": "Provide known published teaching timetable periods defining busy intervals for candidate staff and classes.",
+      "allowed_source_tables": [
+        "subject_timetable"
+      ],
+      "allowed_model_visible_fields": [
+        "subject_timetable.day",
+        "subject_timetable.time_from",
+        "subject_timetable.time_to",
+        "subject_timetable.start_time",
+        "subject_timetable.end_time"
+      ],
+      "validation_only_fields": [
+        "subject_timetable.id",
+        "subject_timetable.subject_group_subject_id",
+        "subject_timetable.subject_group_class_sections_id",
+        "subject_timetable.staff_id",
+        "subject_timetable.session_id"
+      ],
+      "aggregate_only_fields": [],
+      "forbidden_fields": [],
+      "conditions_for_inclusion": "Included when scheduling operational tasks or meetings to avoid timetable collisions. Known periods define busy windows; free slots != complete availability.",
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "source_attribution_requirement": "Attributed to published institutional timetable schedule in upstream ERP.",
+      "staleness_behavior": "Moderate tolerance for caching (session duration); refresh daily or on-demand prior to schedule run."
+    },
+    "calendar_context": {
+      "purpose": "Provide informational institutional holiday dates and events for temporal planning awareness.",
+      "allowed_source_tables": [
+        "annual_calendar",
+        "events"
+      ],
+      "allowed_model_visible_fields": [
+        "annual_calendar.from_date",
+        "annual_calendar.to_date",
+        "annual_calendar.description",
+        "events.event_title",
+        "events.event_description",
+        "events.start_date",
+        "events.end_date",
+        "events.event_type"
+      ],
+      "validation_only_fields": [
+        "annual_calendar.id",
+        "annual_calendar.holiday_type_id",
+        "annual_calendar.is_active",
+        "events.id",
+        "events.event_for",
+        "events.is_active",
+        "events.status"
+      ],
+      "aggregate_only_fields": [],
+      "forbidden_fields": [],
+      "conditions_for_inclusion": "Filtered to calendar dates and events overlapping the active planning operational window. Informational only; hard operational shutdown requires E-7 policy.",
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "source_attribution_requirement": "Attributed to institutional academic calendar and public event logs.",
+      "staleness_behavior": "Refreshed daily or on-demand before planning intake."
+    },
+    "aggregate_context": {
+      "purpose": "Provide anonymized student cohort headcounts for operational scale, effort estimation, and staffing ratio planning (individual staff assignment eligibility is not inferred from MySQL).",
+      "allowed_source_tables": [
+        "students",
+        "student_session"
+      ],
+      "allowed_model_visible_fields": [],
+      "validation_only_fields": [
+        "students.id",
+        "students.is_active",
+        "student_session.id",
+        "student_session.session_id",
+        "student_session.class_id",
+        "student_session.section_id"
+      ],
+      "aggregate_only_fields": [
+        "student_session.student_count (derived)",
+        "student_session.cohort_headcount (derived)"
+      ],
+      "forbidden_fields": [
+        "All individual student row attributes, PII, contacts, addresses, medical, and guardian fields"
+      ],
+      "conditions_for_inclusion": "Included when task effort, seating, or material requirements scale with cohort population size. Aggregate disclosure must follow institutional privacy policy; minimum group size or suppression thresholds, if required, must be configurable and approved by business authority; no numeric threshold is hardcoded in this policy.",
+      "freshness_class": "AGGREGATE_ON_DEMAND",
+      "source_attribution_requirement": "Derived dynamically by ERP adapter aggregation query without storing or exposing individual records.",
+      "staleness_behavior": "Computed synchronously during goal intake or cached with short TTL."
+    }
+  },
+  "failure_modes": [
+    {
+      "failure_id": "FM-01",
+      "failure": "unknown_table",
+      "description": "A query or context builder component attempts to access a table not in the allowed source catalog.",
+      "default_action": "BLOCK_PLANNING",
+      "reason": "Access to unmapped, unvetted, or arbitrary tables is denied by default.",
+      "human_required": false
+    },
+    {
+      "failure_id": "FM-02",
+      "failure": "unknown_column",
+      "description": "An unexpected or newly added column is returned by the upstream source database.",
+      "default_action": "OMIT_FIELD",
+      "reason": "Unknown columns fail closed and MUST be omitted before context normalization.",
+      "human_required": false
+    },
+    {
+      "failure_id": "FM-03",
+      "failure": "changed_schema",
+      "description": "An existing whitelisted column's data type, nullability, or key constraint has changed in MySQL.",
+      "default_action": "BLOCK_PLANNING",
+      "reason": "Upstream schema mutation cannot automatically expand or modify the exposure surface.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-04",
+      "failure": "missing_mapping",
+      "description": "A referenced foreign key cannot be mapped to an internal canonical entity.",
+      "default_action": "BLOCK_PLANNING",
+      "reason": "Unmapped entities cannot be safely represented in canonical or opaque context.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-05",
+      "failure": "unresolved_tenant_scope",
+      "description": "A live production query is attempted without an established tenant or organizational scope partition.",
+      "default_action": "BLOCK_PLANNING",
+      "reason": "Database iredu lacks multi-tenant partitioning; live production context retrieval remains blocked until authoritative tenant/organization scoping is defined.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-06",
+      "failure": "stale_critical_context",
+      "description": "Retrieved context snapshot exceeds freshness threshold for time-critical planning.",
+      "default_action": "MARK_CONTEXT_DEGRADED",
+      "reason": "Stale context reduces planning fidelity; marked degraded and planning proceeds only with human override.",
+      "human_required": false
+    },
+    {
+      "failure_id": "FM-07",
+      "failure": "missing_required_entity",
+      "description": "A required institutional prerequisite (e.g. active academic session, target grade class) is missing.",
+      "default_action": "BLOCK_PLANNING",
+      "reason": "Core planning context cannot be constructed without foundational entities.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-08",
+      "failure": "restricted_field_requested",
+      "description": "A prompt, service, or query requests a restricted, forbidden, or PII field.",
+      "default_action": "OMIT_FIELD",
+      "reason": "Restricted fields are FORBIDDEN_FROM_AI for the current Task Intelligence scope and policy version; MUST emit security audit evidence.",
+      "human_required": false
+    },
+    {
+      "failure_id": "FM-09",
+      "failure": "business_confirmation_field_requested",
+      "description": "A field or table requiring unresolved business confirmation is requested before formal sign-off.",
+      "default_action": "OMIT_FIELD",
+      "reason": "Unconfirmed business fields fail closed and cannot enter model context.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-10",
+      "failure": "aggregate_computation_unavailable",
+      "description": "Adapter cohort count query fails, times out, returns an invalid mathematical result, or cohort aggregate presents re-identification risk.",
+      "default_action": "MARK_CONTEXT_DEGRADED",
+      "reason": "Missing cohort headcount degrades effort estimation accuracy; if aggregate presents re-identification risk, action is OMIT_FIELD or REQUIRE_HUMAN_CLARIFICATION without assuming numeric thresholds.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-11",
+      "failure": "source_database_unavailable",
+      "description": "Upstream MySQL connection times out, returns connection error, or network partition occurs.",
+      "default_action": "BLOCK_PLANNING",
+      "reason": "Cannot assemble verified context; silent fallback or synthetic substitution is strictly prohibited.",
+      "human_required": false
+    },
+    {
+      "failure_id": "FM-12",
+      "failure": "prompt_injection_like_upstream_text",
+      "description": "Upstream free-text field contains suspicious instruction-like text, prompt injection patterns, or role overrides.",
+      "default_action": "OMIT_FIELD",
+      "reason": "Suspicious instruction-like text is treated as data, SHOULD be omitted or quarantined from the context payload, and MUST emit security audit evidence.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-13",
+      "failure": "conflicting_source_records",
+      "description": "Upstream database contains contradictory records (e.g. overlapping teaching periods for single teacher).",
+      "default_action": "REQUIRE_HUMAN_CLARIFICATION",
+      "reason": "Contradictory upstream data cannot be resolved algorithmically by the Context Builder.",
+      "human_required": true
+    },
+    {
+      "failure_id": "FM-14",
+      "failure": "unresolved_external_id_mapping",
+      "description": "An external entity ID cannot be resolved or mapped to a canonical E-7 identifier.",
+      "default_action": "REQUIRE_HUMAN_CLARIFICATION",
+      "reason": "Missing identity mapping prevents linking generated tasks to institutional entities.",
+      "human_required": true
+    }
+  ],
+  "production_blockers": [
+    {
+      "blocker_id": "BLK-01",
+      "title": "Tenant / Organization Partitioning Rule Unresolved",
+      "component": "Upstream MySQL Adapter / Context Builder Ingress",
+      "status": "ACTIVE_PRODUCTION_BLOCKER",
+      "description": "MySQL iredu database dump contains no tenant_id, school_id, or campus_id foreign keys across 247 tables. Live production database queries remain blocked until authoritative tenant scoping rules are defined. During synthetic/mock/documentation testing, synthetic/test scope identifiers only are used; do not invent a production tenant filter or identifier.",
+      "allowed_exceptions": "Synthetic fixture execution (tests/fixtures/*), local mocked adapter tests, schema mapping, and specification tasks."
+    },
+    {
+      "blocker_id": "BLK-02",
+      "title": "SCHEDULING / EXAM RESOURCE PRODUCTION GATE: Physical Academic Resource Authority Unresolved",
+      "component": "Resource Service / Scheduling Ingress",
+      "status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "description": "MySQL iredu lacks room capacity, equipment, and room dimensions. The unresolved academic room/equipment authority blocks production capabilities that require authoritative physical-resource scheduling, such as exam-room assignment. It does NOT by itself block all Task Intelligence functions (such as goal intake, WBS generation, dependency planning, organization/subject context, or general planning using known supported data). Physical room/resource authority remains unresolved; no room capacity or equipment metadata may be invented.",
+      "allowed_exceptions": "Synthetic room fixture testing (RS-SYNTH-001) in Universal Mode, and non-resource-dependent Task Intelligence capabilities."
+    }
+  ],
+  "audit_requirements": [
+    "Future Context Builder implementation MUST produce auditable evidence for context assembly operations.",
+    "context_request_id: Globally unique identifier correlating the context build request.",
+    "goal_id / plan_request_id: Identifier of the active operational goal triggering context assembly.",
+    "actor_identity: Authenticated actor or background service identity requesting plan generation.",
+    "resolved_tenant_scope: Resolved tenant/organization scope reference ONLY when such scope has been authoritatively established; during synthetic/mock/documentation testing, synthetic/test scope identifiers only; no production tenant identifier is invented.",
+    "policy_version: Version of the AI Context Access Policy applied (e.g. 1.0.0).",
+    "mapping_version: Version of the MySQL Task Intelligence mapping applied (e.g. 1.2.0).",
+    "categories_requested: Array of context categories evaluated for the goal.",
+    "categories_included: Array of context categories admitted into the payload.",
+    "categories_denied: Array of context categories rejected by policy or goal minimization.",
+    "fields_projected_count: Total integer count of whitelisted/projected fields admitted.",
+    "fields_redacted_count: Total integer count of restricted/forbidden fields intercepted and omitted.",
+    "source_freshness_snapshots: Map of source table names to their last retrieval timestamp or cache age.",
+    "model_invocation_correlation_id: Correlation token linking context payload to model telemetry.",
+    "audit_storage_rule: Immutable append-only audit evidence emission; raw sensitive payload persistence is NOT required and forbidden raw PII must never be stored."
+  ],
+  "schema_drift_policy": {
+    "default_posture": "DENY_UNKNOWN",
+    "rules": [
+      "Any newly discovered column in upstream MySQL MUST be denied by default.",
+      "Renamed, dropped, or modified whitelisted columns trigger validation block (FM-03) and require manual policy review.",
+      "New upstream tables or views MUST NOT be accessible until evaluated through a formal Task 0G mapping revision.",
+      "Production systems MUST NOT dynamically expand the LLM exposure surface based on upstream DDL changes.",
+      "Schema cryptographic fingerprinting (DDL hashing) MUST be evaluated during adapter implementation in Phase 1."
+    ]
+  }
+}

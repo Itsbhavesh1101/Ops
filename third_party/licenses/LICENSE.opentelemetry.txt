@@ -1,0 +1,42 @@
+# OpenTelemetry License Provenance & Compliance Evidence
+
+Project: OpenTelemetry
+Component Family: OpenTelemetry Python API, SDK, Contrib Instrumentation, OTLP Exporter, and Collector
+Verified License Identifier: Apache-2.0 (Apache License, Version 2.0)
+Verification Date: 2026-09-29
+Compliance Disposition: ACCEPTABLE (Permissive open source; approved for Phase-1 Task-1K adoption)
+
+## Verified Upstream Sources
+
+1. OpenTelemetry Python API & SDK
+   - Package Names: opentelemetry-api, opentelemetry-sdk
+   - Official Upstream Repository: https://github.com/open-telemetry/opentelemetry-python
+   - Official LICENSE Location: https://github.com/open-telemetry/opentelemetry-python/blob/main/LICENSE
+   - License: Apache-2.0
+   - Phase-1 Role: Core in-process telemetry API, TracerProvider, MeterProvider, and BatchSpanProcessor
+
+2. OpenTelemetry Python Contrib Instrumentation
+   - Package Names: opentelemetry-instrumentation-fastapi, opentelemetry-instrumentation-sqlalchemy
+   - Official Upstream Repository: https://github.com/open-telemetry/opentelemetry-python-contrib
+   - Official LICENSE Location: https://github.com/open-telemetry/opentelemetry-python-contrib/blob/main/LICENSE
+   - License: Apache-2.0
+   - Phase-1 Role: Inbound HTTP route instrumentation (FastAPI); database query instrumentation (SQLAlchemy, deferred pending query privacy validation)
+
+3. OpenTelemetry OTLP HTTP Exporter
+   - Package Name: opentelemetry-exporter-otlp-proto-http
+   - Official Upstream Repository: https://github.com/open-telemetry/opentelemetry-python
+   - Official LICENSE Location: https://github.com/open-telemetry/opentelemetry-python/blob/main/LICENSE
+   - License: Apache-2.0
+   - Phase-1 Role: In-process push exporter transmitting spans and metrics over HTTP/protobuf to the local OpenTelemetry Collector
+
+4. OpenTelemetry Collector & Collector Contrib
+   - Distribution / Container Image: otel/opentelemetry-collector-contrib
+   - Official Upstream Repository: https://github.com/open-telemetry/opentelemetry-collector-contrib
+   - Official LICENSE Location: https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/LICENSE
+   - License: Apache-2.0
+   - Phase-1 Role: Decoupled container service receiving OTLP/HTTP telemetry, providing local trace sink, and exposing Prometheus-compatible metrics endpoint
+
+## Attribution & Usage Policy
+- Import and consume unmodified binary distributions/wheels as versioned package dependencies.
+- Retain official Apache-2.0 license headers and NOTICE files in distribution manifests.
+- Zero source code copying into the IR proprietary application core.

@@ -1,0 +1,30 @@
+# Flowable Engine License Provenance & Compliance Evidence
+
+Project: Flowable Engine (flowable-engine / flowable-rest)
+Component Family: BPMN 2.0 / CMMN 1.1 / DMN 1.3 Workflow Runtime
+Verified License Identifier: Apache-2.0 (Apache License, Version 2.0)
+Verification Date: 2026-10-02
+Compliance Disposition: ACCEPTABLE (Permissive open source; approved for Phase-3 Workflow Runtime adoption)
+
+## Verified Upstream Source
+
+1. Flowable Open Source Workflow Engine
+   - Package / Image: flowable/flowable-rest:7.0.0
+   - Official Upstream Repository: https://github.com/flowable/flowable-engine
+   - Official LICENSE Location: https://github.com/flowable/flowable-engine/blob/main/LICENSE
+   - Official NOTICE Location: https://github.com/flowable/flowable-engine/blob/main/NOTICE
+   - License: Apache-2.0
+   - Phase-3 Role: Standalone workflow runtime and human task lifecycle engine executed via REST API boundary. Executes BPMN 2.0 process graphs, timer countdowns, and sequence flows.
+
+## Architectural Boundaries & Isolation
+- Deployed exclusively as a decoupled, isolated container service (`flowable/flowable-rest:7.0.0`).
+- Dedicated PostgreSQL database (`flowable_db`) completely segregated from E-7 canonical persistence (`operations_engine`).
+- E-7 Alembic does NOT manage Flowable Liquibase `ACT_*` tables.
+- All interactions flow through provider-neutral `WorkflowAdapterProtocol` and `FlowableAdapter`.
+- Flowable native execution IDs are strictly secondary external references; public E-7 API contracts expose only canonical E-7 identifiers.
+- Zero copying of Flowable Java source code into IR application core.
+
+## Attribution & Usage Policy
+- Operate unmodified binary container image (`flowable/flowable-rest:7.0.0`).
+- Retain standard Apache-2.0 copyright and NOTICE files in external distribution manifests.
+- Multi-tenant data isolation and authorization enforced on the E-7 API boundary prior to reaching Flowable.

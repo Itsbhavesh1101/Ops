@@ -1,0 +1,682 @@
+{
+  "audit_version": "1.2.0",
+  "document_name": "SLO_RETENTION_SCALE_EVIDENCE_AUDIT",
+  "status": "phase_0_evidence_audit",
+  "governance_classification": "NON_FUNCTIONAL_EVIDENCE_AUDIT",
+  "timestamp": "2026-09-25T02:10:00Z",
+  "description": "Source-grounded evidence audit cataloging non-functional requirements, named metrics, existing numerical thresholds, retention assumptions, and first-tenant scale dimensions across the E-7 Operations Engine.",
+  "source_corpus": {
+    "physically_present_sources": [
+      {
+        "file_name": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "role": "Authoritative implementation specification and core functional/non-functional definitions",
+        "pages_audited": 26
+      },
+      {
+        "file_name": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "role": "Master implementation sequence, operational controls, and architecture milestones",
+        "pages_audited": 31
+      },
+      {
+        "file_name": "IR_Infotech_E7_Operations_Engine_Open_Source_Research_Report.pdf",
+        "role": "Open-source runtime evaluation, resource profiles, and integration guidelines",
+        "pages_audited": 19
+      },
+      {
+        "file_name": "opes eng.pdf",
+        "role": "Early high-level architecture vision and engine interaction summaries",
+        "pages_audited": 4
+      }
+    ],
+    "governance_artifacts_audited": [
+      "docs/SOURCE_OF_TRUTH.md",
+      "docs/IMPLEMENTATION_GUARDRAILS.md",
+      "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md",
+      "docs/data-model/CANONICAL_OWNERSHIP_AND_SERVICE_BOUNDARIES.md",
+      "docs/integrations/MYSQL_TASK_INTELLIGENCE_DATA_MAPPING.md",
+      "docs/integrations/AI_CONTEXT_ACCESS_POLICY.md",
+      "docs/adr/ (ADR-000 through ADR-009, README.md)",
+      "docs/poc/REFERENCE_USE_CASES.md",
+      "tests/fixtures/MANIFEST.json and 18 test fixture datasets"
+    ],
+    "adr_inventory_audit": [
+      {
+        "file": "docs/adr/ADR-000-source-of-truth-and-reconciliation.md",
+        "finding": "REVIEWED \u2014 Invariants confirmed (PostgreSQL SoR, outbox pattern, PoC != production)"
+      },
+      {
+        "file": "docs/adr/ADR-001-workflow-runtime.md",
+        "finding": "REVIEWED \u2014 Flowable runtime persistence, DB isolation confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-002-task-intelligence-orchestration.md",
+        "finding": "REVIEWED \u2014 Bounded LLM retry, context minimization, aggregate-only student context confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-003-scheduling-solver-strategy.md",
+        "finding": "REVIEWED \u2014 Solver isolation, benchmark 100% hard constraint satisfaction confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-004-business-rules.md",
+        "finding": "REVIEWED \u2014 Deterministic rule execution confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-005-event-broker.md",
+        "finding": "REVIEWED \u2014 Transactional outbox, broker outage survival, consumer deduplication confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-006-system-of-record.md",
+        "finding": "REVIEWED \u2014 PostgreSQL 16 canonical SoR, transactional consistency, audit logging confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-007-cache-and-coordination.md",
+        "finding": "REVIEWED \u2014 Concurrency and coordination via PostgreSQL advisory locks/transactions confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-008-llm-provider-strategy.md",
+        "finding": "REVIEWED \u2014 Replaceable provider abstraction, fallback route confirmed"
+      },
+      {
+        "file": "docs/adr/ADR-009-workflow-authoring-toolkit.md",
+        "finding": "REVIEWED \u2014 NO 0H-RELEVANT REQUIREMENT FOUND"
+      },
+      {
+        "file": "docs/adr/README.md",
+        "finding": "REVIEWED \u2014 Master index and invariant summaries confirmed"
+      }
+    ],
+    "corpus_limitation_statement": "Audit is strictly bounded to physically available local documents. The absence of specific metrics or scale definitions reflects authentic source reality and is not extrapolated to uninspected external or historical corporate records."
+  },
+  "evidence_classification_rules": {
+    "SOURCE_REQUIREMENT": "Explicit functional or architectural requirement literally mandated by source documents.",
+    "SOURCE_METRIC_WITHOUT_TARGET": "Metric family explicitly named for monitoring/telemetry in source documents, but without any associated numeric threshold.",
+    "SOURCE_NUMERIC_TARGET": "Contractual quantitative target literally mandated by authoritative source documents.",
+    "APPROVED_ARCHITECTURE_CONSTRAINT": "Architectural invariant, design boundary, or governance rule approved in Phase-0 ADRs or guardrails.",
+    "PHASE_0_ENGINEERING_PROPOSAL": "Quantitative target or operational number proposed by engineering in technical specifications to validate during PoC/benchmarking rather than an original contractual source target.",
+    "REQUIRES_BUSINESS_CONFIRMATION": "Parameter, baseline, or policy requiring explicit business, customer, platform, or legal confirmation.",
+    "NOT_FOUND_IN_AVAILABLE_SOURCES": "Concept or metric completely unmentioned in accessible project source documents."
+  },
+  "slo_evidence": {
+    "api_service": [
+      {
+        "metric_name": "availability",
+        "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 10 (p. 8)",
+        "source_statement": "Core API target 99.9% monthly after production hardening; workflow state persistence must survive process restarts. (Context: The source requires secure, scalable and extensible AI capabilities but does not provide numeric SLOs. The following are implementation targets to validate during PoC and adjust after load testing.)",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "crud_api_p95_latency",
+        "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 10 (p. 8)",
+        "source_statement": "CRUD/API p95 < 500 ms excluding LLM/solver work; asynchronous jobs return job IDs quickly. LLM/solver endpoints expose progress/status.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "api_p50_latency",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Reliability: API p50/p95/p99, error rate, broker lag, DB pool saturation, dead-letter count.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "api_p99_latency",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Reliability: API p50/p95/p99, error rate, broker lag, DB pool saturation, dead-letter count.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "api_error_rate",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Reliability: API p50/p95/p99, error rate, broker lag, DB pool saturation, dead-letter count.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "api_throughput",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 14 (p. 12)",
+        "source_statement": "Analytics API: Operational KPIs, SLA metrics, throughput, utilization, schedule stability and bottlenecks.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "api_concurrency",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 10 (p. 8)",
+        "source_statement": "Stateless API workers scale horizontally; solver jobs isolated by queue/worker pool; tenant-aware quotas. (Target numeric concurrency is unquantified).",
+        "confidence": "HIGH"
+      }
+    ],
+    "task_intelligence": [
+      {
+        "metric_name": "plan_generation_latency",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Planning: plan generation latency, model cost/tokens, validation failures, human correction rate, accepted-vs-edited task ratio.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "model_tokens_and_cost",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Planning: plan generation latency, model cost/tokens, validation failures, human correction rate, accepted-vs-edited task ratio.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "schema_and_policy_validation_failure_rate",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Planning: validation failures, human correction rate, accepted-vs-edited task ratio.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "human_correction_rate",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Planning: validation failures, human correction rate, accepted-vs-edited task ratio.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "accepted_vs_edited_task_ratio",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Planning: validation failures, human correction rate, accepted-vs-edited task ratio.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "planner_retry_and_fallback_resilience",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 15 (p. 16)",
+        "source_statement": "LLM timeout / invalid JSON: Bounded retry; configured fallback model; persist job failure, never malformed plan.",
+        "confidence": "HIGH"
+      }
+    ],
+    "workflow": [
+      {
+        "metric_name": "workflow_instances_lifecycle_rates",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Workflow: instances started/completed/failed, user-task queue age, SLA warning/breach rate, retries, stuck instances.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "user_task_queue_age",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Workflow: task queue age, SLA warning/breach rate, retries, stuck instances.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "sla_warning_and_breach_rate",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Workflow: SLA warning/breach rate, retries, stuck instances.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "stuck_workflow_instances",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 16 (p. 16)",
+        "source_statement": "Workflow telemetry: stuck instances, engine/API latency.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "workflow_crash_resilience",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 15 (p. 16)",
+        "source_statement": "Flowable/worker crash: Durable runtime resumes; external service actions are idempotent.",
+        "confidence": "HIGH"
+      }
+    ],
+    "scheduling": [
+      {
+        "metric_name": "solve_duration",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Scheduling: solve duration, feasibility rate, objective score, conflict count, number of moved assignments in repair.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "feasibility_rate",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Scheduling: feasibility rate, objective score, conflict count.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "constraint_violations_and_conflict_count",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 16 (p. 16)",
+        "source_statement": "Scheduling telemetry: hard/soft violations, repair movement count, solver timeout rate.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "schedule_stability_and_moved_assignments",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Scheduling: number of moved assignments in repair. Business: schedule stability.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "solver_timeout_handling",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 15 (p. 16)",
+        "source_statement": "Solver timeout: Return best feasible solution only if policy permits; mark optimality unknown; otherwise unresolved with diagnostics.",
+        "confidence": "HIGH"
+      }
+    ],
+    "events_broker": [
+      {
+        "metric_name": "outbox_backlog",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 16 (p. 16)",
+        "source_statement": "Reliability: outbox backlog, dead-letter count.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "broker_consumer_lag",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Reliability: broker lag, DB pool saturation, dead-letter count.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "dead_letter_count",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Reliability: dead-letter count.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "broker_outage_resilience",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 15 (p. 16)",
+        "source_statement": "Broker outage: Persist outbox; publish when broker recovers.",
+        "confidence": "HIGH"
+      }
+    ],
+    "database": [
+      {
+        "metric_name": "connection_pool_saturation",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Reliability: DB pool saturation.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "database_persistence_survival",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 10 (p. 8)",
+        "source_statement": "PostgreSQL is system of record; state-changing APIs are transactional and idempotent. Persistence must survive process restarts.",
+        "confidence": "HIGH"
+      }
+    ],
+    "external_integrations": [
+      {
+        "metric_name": "erp_unavailable_resilience",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 15 (p. 16)",
+        "source_statement": "ERP unavailable: Retry/backoff + degraded integration state; no fake success.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "calendar_callback_deduplication",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "location": "Section 15 (p. 16)",
+        "source_statement": "Calendar duplicate callback: Deduplicate by provider/version + idempotency key.",
+        "confidence": "HIGH"
+      },
+      {
+        "metric_name": "availability_freshness",
+        "classification": "SOURCE_METRIC_WITHOUT_TARGET",
+        "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "location": "Section 24 (p. 17)",
+        "source_statement": "Resources: utilization, over-allocation attempts, availability freshness.",
+        "confidence": "HIGH"
+      }
+    ]
+  },
+  "numeric_targets": [
+    {
+      "value_id": "NUM-01",
+      "metric": "Core API Availability",
+      "numerical_value": "99.9% monthly",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 10 (p. 8)",
+      "notes": "Explicitly characterized by specification author as an implementation target to validate during PoC and adjust after load testing rather than a mandatory source requirement."
+    },
+    {
+      "value_id": "NUM-02",
+      "metric": "CRUD / API p95 Latency",
+      "numerical_value": "< 500 ms",
+      "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "location": "Section 10 (p. 8)",
+      "notes": "Proposed implementation target excluding LLM and solver workloads. Asynchronous jobs return job IDs quickly."
+    },
+    {
+      "value_id": "NUM-03",
+      "metric": "Solver Solve Time Limit",
+      "numerical_value": "SOLVER_MAX_SECONDS (Unquantified default)",
+      "classification": "CONFIG PLACEHOLDER",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+      "location": "Section 17.2 (p. 18)",
+      "notes": "Configuration variable representing solve budget; concrete numeric ceiling unstated."
+    },
+    {
+      "value_id": "NUM-04",
+      "metric": "Audit Retention Duration",
+      "numerical_value": "AUDIT_RETENTION_DAYS (Unquantified default)",
+      "classification": "CONFIG PLACEHOLDER",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+      "location": "Section 17.2 (p. 18)",
+      "notes": "Configuration variable for tenant policy default; concrete retention duration unstated. Does not establish an approved default duration."
+    },
+    {
+      "value_id": "NUM-05",
+      "metric": "LLM Timeout / Max Retries",
+      "numerical_value": "LLM_TIMEOUT / MAX_RETRIES (Unquantified)",
+      "classification": "CONFIG PLACEHOLDER",
+      "source_document": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+      "location": "Section 17.2 (p. 18)",
+      "notes": "Configuration settings for bounded inference resilience; concrete seconds/retries unstated."
+    },
+    {
+      "value_id": "NUM-06",
+      "metric": "Benchmark Hard Constraint Satisfaction",
+      "numerical_value": "100%",
+      "classification": "DERIVED PHASE-0 TEST INTERPRETATION",
+      "source_document": "docs/adr/ADR-003-scheduling-solver-strategy.md",
+      "location": "Section 4.1 (p. 2)",
+      "notes": "Acceptance criteria for test suites executing on synthetic benchmark datasets."
+    },
+    {
+      "value_id": "NUM-07",
+      "metric": "Phase-0 Test Fixture Resource Catalog Size",
+      "numerical_value": "14 resources, 70 availability windows",
+      "classification": "FIXTURE VALUE",
+      "source_document": "tests/fixtures/resources/RS-SYNTH-001.json",
+      "location": "Full Fixture",
+      "notes": "Synthetic test dataset scale; strictly NOT a production capacity target."
+    },
+    {
+      "value_id": "NUM-08",
+      "metric": "Phase-0 Test Fixture Exam Scheduling Problem Size",
+      "numerical_value": "2 cohorts, 5 exams, 10 exam sessions",
+      "classification": "FIXTURE VALUE",
+      "source_document": "tests/fixtures/scheduling/exam/SC-EXAM-FEASIBLE-001.json",
+      "location": "Full Fixture",
+      "notes": "Synthetic benchmark problem size; strictly NOT a production scale envelope."
+    }
+  ],
+  "retention_evidence": {
+    "operational": [
+      {
+        "data_category": "canonical_operational_records (goals, plans, tasks, workflows, schedules, assignments)",
+        "source_authority": "PostgreSQL (Canonical System of Record)",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "TENANT / CUSTOMER / LEGAL POLICY DRIVEN",
+        "classification": "REQUIRES_BUSINESS_CONFIRMATION",
+        "deletion_archive_defined": "Approved/canonical scheduling results and required scheduling evidence are persisted in E-7 PostgreSQL according to the canonical scheduling data model (docs/data-model/CANONICAL_OWNERSHIP_AND_SERVICE_BOUNDARIES.md). Tenant-configurable retention/export/delete policy (Spec Sec. 23, p. 17; Plan Sec. 16, p. 16).",
+        "sensitive": false
+      },
+      {
+        "data_category": "workflow_execution_history (Flowable ACT_HI_*)",
+        "source_authority": "PostgreSQL / Flowable History Service",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "TENANT / CUSTOMER / LEGAL POLICY DRIVEN",
+        "classification": "REQUIRES_BUSINESS_CONFIRMATION",
+        "deletion_archive_defined": "History retention level configurable in workflow runtime; cleanup policy unstated in sources.",
+        "sensitive": false
+      },
+      {
+        "data_category": "canonical_scheduling_records_and_evidence",
+        "source_authority": "PostgreSQL (Canonical System of Record)",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "TENANT / CUSTOMER / LEGAL POLICY DRIVEN",
+        "classification": "REQUIRES_BUSINESS_CONFIRMATION",
+        "deletion_archive_defined": "Approved/canonical scheduling results and required scheduling evidence are persisted in E-7 PostgreSQL according to the canonical scheduling data model. Specific retention or deletion period is unresolved in available sources.",
+        "sensitive": false
+      }
+    ],
+    "audit_events": [
+      {
+        "data_category": "application_audit_trail (actor, timestamp, correlation_id, diff)",
+        "source_authority": "PostgreSQL (audit table)",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "TENANT / CUSTOMER / LEGAL POLICY DRIVEN",
+        "audit_retention_duration": "UNRESOLVED",
+        "audit_retention_policy": "TENANT / CUSTOMER / LEGAL POLICY DRIVEN",
+        "classification": "REQUIRES_BUSINESS_CONFIRMATION",
+        "governance_rule": "Audit logs must be append-only at application level and immutable while retained (Spec Sec. 23). Immutability while retained does NOT mean retain forever (append-only != retain forever). Parameterized via AUDIT_RETENTION_DAYS (Plan Sec. 17.2) as a configuration placeholder, but sources do not establish an approved default duration. AUDIT_RETENTION_DURATION = UNRESOLVED, AUDIT_RETENTION_POLICY = TENANT / CUSTOMER / LEGAL POLICY DRIVEN.",
+        "sensitive": false
+      },
+      {
+        "data_category": "transactional_outbox_events",
+        "source_authority": "PostgreSQL (outbox table)",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "outbox_retention_duration": "UNRESOLVED",
+        "outbox_pruning_policy": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "classification": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "governance_rule": "PostgreSQL transactional outbox provides durable event publication and event publication state must survive broker outages (ADR-005, Spec Sec. 21, Plan Sec. 15). Published/unpublished semantics exist where frozen architecture defines them. Available sources do not establish an outbox pruning rule, archival policy, or retention duration. Durability does not imply indefinite retention. OUTBOX_RETENTION_DURATION = UNRESOLVED, OUTBOX_PRUNING_POLICY = NOT_DEFINED_IN_AVAILABLE_SOURCES.",
+        "sensitive": false
+      },
+      {
+        "data_category": "consumer_inbox_deduplication_records",
+        "source_authority": "PostgreSQL / Memory Cache",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "inbox_dedup_retention_duration": "UNRESOLVED",
+        "replay_window_duration": "UNRESOLVED",
+        "classification": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "governance_rule": "Consumer deduplication and inbox idempotency are required by architecture invariants (Spec Sec. 21, ADR-005, Plan Sec. 15). However, available sources do not define a specific replay window duration or inbox retention lifecycle. Idempotency requirements do not themselves define a retention period. INBOX_DEDUP_RETENTION_DURATION = UNRESOLVED, REPLAY_WINDOW_DURATION = UNRESOLVED.",
+        "sensitive": false
+      }
+    ],
+    "ai_temporary": [
+      {
+        "data_category": "ai_prompts_and_raw_responses",
+        "source_authority": "Context Builder / Task Intelligence Worker",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "PRIVACY_AND_STORAGE_MINIMIZATION_DRIVEN",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "governance_rule": "AI recommendations carry rationale and confidence metadata. Prompts receive minimum necessary context (ADR-002, Spec Sec. 23); persistent retention of full raw prompt transcripts is unstated in source documents.",
+        "sensitive": true
+      },
+      {
+        "data_category": "solver_internal_temporary_and_search_state",
+        "source_authority": "Solver Worker (Memory / Worker Process)",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "solver_temporary_retention_duration": "UNRESOLVED",
+        "solver_temporary_data_lifecycle": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "classification": "NOT_DEFINED_IN_AVAILABLE_SOURCES",
+        "governance_rule": "Solver-internal temporary/search artifacts are not established as canonical E-7 records by available sources. Approved/canonical scheduling results and required scheduling evidence are persisted in E-7 PostgreSQL according to the canonical scheduling data model (ADR-003, ADR-006, docs/data-model/CANONICAL_OWNERSHIP_AND_SERVICE_BOUNDARIES.md). Canonical scheduling state belongs to E-7 PostgreSQL; solver-internal temporary/search state has no source-defined retention lifecycle. Available sources do not imply that internal solver search artifacts are persisted, nor that they are deleted automatically. SOLVER_TEMPORARY_RETENTION_DURATION = UNRESOLVED, SOLVER_TEMPORARY_DATA_LIFECYCLE = NOT_DEFINED_IN_AVAILABLE_SOURCES.",
+        "sensitive": false
+      }
+    ],
+    "telemetry": [
+      {
+        "data_category": "structured_logs_and_traces (OpenTelemetry / OTLP)",
+        "source_authority": "Observability Exporter",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "INFRASTRUCTURE_PLATFORM_DRIVEN",
+        "classification": "NOT_FOUND_IN_AVAILABLE_SOURCES",
+        "governance_rule": "Logs are structured JSON with tenant-safe fields; zero secrets or raw sensitive model context logged (Plan Sec. 16, p. 17). Centralized telemetry retention duration is unstated in available application sources.",
+        "sensitive": false
+      }
+    ],
+    "personal_sensitive": [
+      {
+        "data_category": "student_data_boundary_and_cohort_headcounts",
+        "source_authority": "Trusted MySQL Adapter / Task Intelligence Context Builder",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "AGGREGATE_ONLY_FOR_AI_CONTEXT",
+        "classification": "APPROVED_ARCHITECTURE_CONSTRAINT",
+        "governance_rule": "Individual `students` / `student_session` source rows are prohibited from the Task Intelligence planner/model context under the frozen aggregate-only access policy (docs/integrations/MYSQL_TASK_INTELLIGENCE_DATA_MAPPING.md, docs/integrations/AI_CONTEXT_ACCESS_POLICY.md, docs/adr/ADR-002-task-intelligence-orchestration.md). Adapter-derived aggregate cohort values are permitted. This evidence audit does not infer a system-wide retention rule beyond that approved boundary.",
+        "sensitive": true
+      },
+      {
+        "data_category": "staff_personal_data",
+        "source_authority": "PostgreSQL Canonical Mapping",
+        "retention_duration": "UNRESOLVED",
+        "retention_policy": "TENANT / CUSTOMER / LEGAL POLICY DRIVEN",
+        "classification": "REQUIRES_BUSINESS_CONFIRMATION",
+        "governance_rule": "Staff names used as sanitized display labels or opaque references. Retained in accordance with tenant employment master data agreements.",
+        "sensitive": true
+      }
+    ]
+  },
+  "first_tenant_scale_evidence": {
+    "identity_users": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Source documents establish tenant isolation and principal derivation but specify zero active or concurrent user numbers.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "task_intelligence": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Reference exam scenario breaks down into 9 work categories and ~10-30 tasks for test gold sets. Production goal/task volume is unstated.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "workflow": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Flowable BPMN execution verified for single workflow scenario cases (happy path, reject, SLA breach). Production process instance volume is unstated.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "scheduling": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Test fixtures exercise 2 cohorts, 5 exams, 10 sessions. Production timetable/exam problem scale (number of rooms, faculty, slots) is unstated.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "resources": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Test catalog RS-SYNTH-001 contains 14 resources. Production institutional resource scale is unstated.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "integrations": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Upstream MySQL schema inventory catalogues 247 tables, 2,637 columns, and 307 foreign keys. This defines SCHEMA COMPLEXITY ONLY, not production database row volume or integration traffic.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "events": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Four canonical event types verified from source event model. Daily message publication rate is unstated.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "storage": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "PostgreSQL database storage growth and document attachment storage requirements are unstated in sources.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "ai_inference": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Daily AI request volume, concurrent inference calls, and token consumption budgets are unstated in sources.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    },
+    "concurrency": {
+      "status": "NO_PRODUCTION_VALUE_FOUND",
+      "source_evidence": "Horizontal scalability of API workers and queue isolation of solver jobs are mandated architecture rules, but peak concurrent requests/sec are unstated.",
+      "classification": "REQUIRES_BUSINESS_CONFIRMATION"
+    }
+  },
+  "first_tenant_scale_profile": "REQUIRES_BUSINESS_CONFIRMATION",
+  "rto": "NOT_FOUND_IN_AVAILABLE_SOURCES",
+  "rpo": "NOT_FOUND_IN_AVAILABLE_SOURCES",
+  "decision_gaps": [
+    {
+      "gap_id": "GAP-SLO-01",
+      "area": "API Responsiveness & Latency Tiers",
+      "description": "Confirmation of whether proposed p95 < 500 ms target for CRUD APIs and asynchronous execution for LLM/solver jobs should become the formal candidate SLO.",
+      "owner": "BUSINESS / PLATFORM INPUT REQUIRED"
+    },
+    {
+      "gap_id": "GAP-SLO-02",
+      "area": "Availability Target Tier",
+      "description": "Confirmation of target monthly uptime tier (e.g., 99.9% proposed) for production pilot.",
+      "owner": "BUSINESS / PLATFORM INPUT REQUIRED"
+    },
+    {
+      "gap_id": "GAP-SCALE-01",
+      "area": "First-Tenant Production Scale Profile",
+      "description": "Definition of representative first-tenant parameters: active users, faculty headcount, student cohort size, and peak concurrent users.",
+      "owner": "BUSINESS INPUT REQUIRED"
+    },
+    {
+      "gap_id": "GAP-SCALE-02",
+      "area": "Workload & Problem Horizon Envelope",
+      "description": "Definition of expected operational volume: daily goals, active workflows, and scheduling problem dimensions (courses, exams, room count).",
+      "owner": "BUSINESS INPUT REQUIRED"
+    },
+    {
+      "gap_id": "GAP-SCALE-03",
+      "area": "AI Planning & Solver Budget Limits",
+      "description": "Specification of acceptable solve duration ceiling (SOLVER_MAX_SECONDS), LLM response timeout (LLM_TIMEOUT), and token cost limits.",
+      "owner": "PLATFORM INPUT REQUIRED"
+    },
+    {
+      "gap_id": "GAP-RET-01",
+      "area": "Data Class Retention Durations",
+      "description": "Specification of retention periods for operational history, completed workflow instances, audit ledgers (AUDIT_RETENTION_DAYS), and telemetry logs.",
+      "owner": "COMPLIANCE INPUT REQUIRED"
+    },
+    {
+      "gap_id": "GAP-DR-01",
+      "area": "Disaster Recovery Objectives (RTO / RPO)",
+      "description": "Determination of whether formal Recovery Time Objective (RTO) and Recovery Point Objective (RPO) are required for pilot rollout and definition of target intervals.",
+      "owner": "PLATFORM INPUT REQUIRED"
+    }
+  ],
+  "inputs_required_for_0h2": [
+    "Task 0H.2 may formulate candidate engineering baselines once the missing business/platform/compliance inputs are explicitly documented. Task 0H.1 itself does not select them.",
+    "Business and platform input on desired API responsiveness and confirmation of proposed CRUD p95 < 500 ms target",
+    "Business and platform input on required uptime/availability tier (evaluating proposed 99.9% monthly validation status)",
+    "Business input on pilot institutional user count and peak concurrent user envelope",
+    "Business input on expected daily operations volume (goals created, workflows launched, schedules published)",
+    "Business input on expected scheduling problem size (courses, sections, rooms, examination horizon)",
+    "Platform input on AI token cost tolerance and solver solve budget (SOLVER_MAX_SECONDS)",
+    "Compliance input on retention policy by data class (operational records, audit trails, telemetry)",
+    "Platform input on disaster recovery objectives (RTO / RPO definitions if mandatory for pilot)"
+  ],
+  "change_scope_history": {
+    "final_repository_state": "Only the requested directory and files (docs/phase-0/SLO_RETENTION_SCALE_EVIDENCE_AUDIT.md and docs/phase-0/SLO_RETENTION_SCALE_EVIDENCE_AUDIT.json) remain as Task 0H.1/0H.1A outputs.",
+    "execution_history": "During Task 0H.1 execution, two temporary scratch extraction files (scratch_spec_p8.txt and scratch_plan_extract.txt) were transiently created in the repository root and subsequently deleted. Existing pre-task repository artifacts were not modified.",
+    "classification": "MINOR CHANGE-CONTROL DEVIATION \u2014 CLEANED UP",
+    "confirmation": "Neither file was recreated. Final repository state contains no scratch files. All subsequent temporary scripts and data remain strictly in external IDE artifact storage."
+  },
+  "next_task": "0H.2",
+  "next_task_status": "NOT_STARTED"
+}

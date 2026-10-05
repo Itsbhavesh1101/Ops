@@ -1,0 +1,102 @@
+{
+  "dataset_id": "TI-GOLD-003",
+  "dataset_version": "1.0.0",
+  "fixture_type": "task_intelligence_gold_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "benchmark_extension": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "input_case": {
+    "input_mode": "STRUCTURED",
+    "submitted_at": "2026-11-06T09:00:00+05:30",
+    "objective": "Prepare the approved Grade 10 semester examination operation for the examination window beginning on 2026-11-09.",
+    "preparation_deadline": "2026-11-08T17:00:00+05:30",
+    "target_window": {
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30"
+    },
+    "constraints": [
+      "readiness/approval work required before downstream scheduling readiness",
+      "no impossible date ordering",
+      "deadline risk must not be hidden",
+      "model may recommend mitigation but cannot relax policy automatically"
+    ]
+  },
+  "authorized_context": {
+    "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+    "allowed_resource_ids": [
+      "res-inv-001",
+      "res-inv-002",
+      "res-inv-003",
+      "res-inv-004",
+      "res-room-001",
+      "res-room-002",
+      "res-room-003"
+    ],
+    "source_work_categories": [
+      "PLANNING",
+      "QUESTION_PAPER_READINESS",
+      "APPROVALS",
+      "ROOM_PREPARATION",
+      "INVIGILATOR_PREPARATION",
+      "SCHEDULING",
+      "EXAM_EXECUTION",
+      "INCIDENT_HANDLING",
+      "CLOSURE"
+    ],
+    "synthetic_estimation_reference": {
+      "fixture_only": true,
+      "reference_medians_minutes": {
+        "PLANNING": 120,
+        "QUESTION_PAPER_READINESS": 360,
+        "APPROVALS": 180,
+        "ROOM_PREPARATION": 120,
+        "INVIGILATOR_PREPARATION": 120,
+        "SCHEDULING": 180
+      },
+      "evaluation_note": "Synthetic reference medians for preparation phase only. Evaluation evidence only, not production defaults."
+    }
+  },
+  "expected_plan_properties": {
+    "hierarchical_wbs_required": true,
+    "dependency_graph_must_be_acyclic": true,
+    "critical_path_required": true,
+    "deadline_risk_evaluation_required": true,
+    "risk_evidence_must_be_inspectable": true,
+    "mitigation_recommendation_explanation_required": true,
+    "mitigation_recommendation_confidence_required": true,
+    "automatic_policy_relaxation_forbidden": true,
+    "effort_estimate_required": true,
+    "effort_confidence_required": true,
+    "effort_basis_required": true,
+    "impossible_temporal_ordering_forbidden": true,
+    "human_review_required_before_activation": true
+  },
+  "forbidden_plan_properties": [
+    "claiming_deadline_safely_achievable_without_evidence",
+    "hiding_negative_or_zero_slack_evidence",
+    "silently_deleting_required_preparation_work",
+    "changing_the_deadline",
+    "relaxing_approvals_automatically",
+    "invented_resources",
+    "cyclic_dependencies",
+    "direct_activation_without_approval"
+  ],
+  "evaluation_expectations": {
+    "structured_output_validity": true,
+    "required_work_category_coverage": 1.0,
+    "dependency_validity": true,
+    "estimate_field_completeness": true,
+    "synthetic_reference_estimates_available": true,
+    "estimate_error_metric_for_fixture": "MAE_MINUTES",
+    "estimate_error_is_evaluation_only": true,
+    "risk_signal_quality": true,
+    "recommendation_explainability": true,
+    "hallucinated_entity_count": 0,
+    "human_correction_required": false,
+    "exact_wording_scored": false
+  },
+  "common_evaluation_note": "Gold evaluation assesses semantic, structural, and dependency properties rather than exact wording or ordering. Different valid task breakdowns or titles are acceptable if they satisfy the required properties and categories. Output must be treated as a non-authoritative proposal requiring human/policy review before canonical activation. Zero model or provider names are encoded; fixture values are regression benchmarks and never production defaults."
+}

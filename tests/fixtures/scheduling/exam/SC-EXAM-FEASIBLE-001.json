@@ -1,0 +1,556 @@
+{
+  "dataset_id": "SC-EXAM-FEASIBLE-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "education_exam_scheduling_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "variant_id": "EX-SCHED-FEASIBLE-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+  "horizon": {
+    "start_at": "2026-11-09T08:00:00+05:30",
+    "end_at": "2026-11-13T17:00:00+05:30"
+  },
+  "cohorts": [
+    {
+      "id": "cohort-g10-a",
+      "display_label": "Grade 10 A",
+      "student_count": 24
+    },
+    {
+      "id": "cohort-g10-b",
+      "display_label": "Grade 10 B",
+      "student_count": 30
+    }
+  ],
+  "exams": [
+    {
+      "id": "exam-g10-math",
+      "title": "Mathematics",
+      "duration_minutes": 120,
+      "major_subject": true,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": [
+        "MATHEMATICS"
+      ]
+    },
+    {
+      "id": "exam-g10-social",
+      "title": "Social Studies",
+      "duration_minutes": 120,
+      "major_subject": false,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": []
+    },
+    {
+      "id": "exam-g10-science",
+      "title": "Science",
+      "duration_minutes": 120,
+      "major_subject": true,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": [
+        "SCIENCE"
+      ]
+    },
+    {
+      "id": "exam-g10-computer",
+      "title": "Computer Applications",
+      "duration_minutes": 120,
+      "major_subject": false,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": []
+    },
+    {
+      "id": "exam-g10-language",
+      "title": "Language",
+      "duration_minutes": 120,
+      "major_subject": true,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": [
+        "LANGUAGE"
+      ]
+    }
+  ],
+  "major_subject_gap_policy": {
+    "scope": "PER_COHORT",
+    "minimum_clear_calendar_days_between": 1
+  },
+  "exam_sessions": [
+    {
+      "id": "session-math-g10a",
+      "exam_id": "exam-g10-math",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-002"
+      ]
+    },
+    {
+      "id": "session-math-g10b",
+      "exam_id": "exam-g10-math",
+      "cohort_id": "cohort-g10-b",
+      "minimum_room_capacity": 30,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-002",
+        "res-room-001"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-002"
+      ]
+    },
+    {
+      "id": "session-social-g10a",
+      "exam_id": "exam-g10-social",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-004"
+      ]
+    },
+    {
+      "id": "session-social-g10b",
+      "exam_id": "exam-g10-social",
+      "cohort_id": "cohort-g10-b",
+      "minimum_room_capacity": 30,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-002",
+        "res-room-001"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-004"
+      ]
+    },
+    {
+      "id": "session-science-g10a",
+      "exam_id": "exam-g10-science",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-001"
+      ]
+    },
+    {
+      "id": "session-science-g10b",
+      "exam_id": "exam-g10-science",
+      "cohort_id": "cohort-g10-b",
+      "minimum_room_capacity": 30,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-002",
+        "res-room-001"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-001"
+      ]
+    },
+    {
+      "id": "session-computer-g10a",
+      "exam_id": "exam-g10-computer",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-004"
+      ]
+    },
+    {
+      "id": "session-computer-g10b",
+      "exam_id": "exam-g10-computer",
+      "cohort_id": "cohort-g10-b",
+      "minimum_room_capacity": 30,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-002",
+        "res-room-001"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-004"
+      ]
+    },
+    {
+      "id": "session-language-g10a",
+      "exam_id": "exam-g10-language",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-003"
+      ]
+    },
+    {
+      "id": "session-language-g10b",
+      "exam_id": "exam-g10-language",
+      "cohort_id": "cohort-g10-b",
+      "minimum_room_capacity": 30,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-12T09:00:00+05:30",
+          "end_at": "2026-11-12T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-13T09:00:00+05:30",
+          "end_at": "2026-11-13T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-002",
+        "res-room-001"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-003"
+      ]
+    }
+  ],
+  "hard_constraint_expectations": [
+    "NO_COHORT_DOUBLE_BOOKING",
+    "NO_ROOM_DOUBLE_BOOKING",
+    "NO_INVIGILATOR_DOUBLE_BOOKING",
+    "RESOURCE_AVAILABILITY",
+    "ROOM_CAPACITY",
+    "INVIGILATOR_ROLE_ELIGIBILITY",
+    "DURATION_WITHIN_WINDOW",
+    "MAJOR_SUBJECT_MIN_GAP"
+  ],
+  "soft_constraint_expectations": [
+    {
+      "kind": "PREFERRED_INVIGILATOR",
+      "weight": 2
+    },
+    {
+      "kind": "PREFERRED_ROOM",
+      "weight": 1
+    },
+    {
+      "kind": "INVIGILATOR_WORKLOAD_BALANCE",
+      "weight": 1
+    }
+  ],
+  "feasibility_witness": [
+    {
+      "assignment_id": "assign-exam-001",
+      "session_id": "session-math-g10a",
+      "room_resource_id": "res-room-003",
+      "invigilator_resource_id": "res-inv-002",
+      "start_at": "2026-11-09T09:00:00+05:30",
+      "end_at": "2026-11-09T11:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-002",
+      "session_id": "session-math-g10b",
+      "room_resource_id": "res-room-002",
+      "invigilator_resource_id": "res-inv-002",
+      "start_at": "2026-11-09T13:00:00+05:30",
+      "end_at": "2026-11-09T15:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-003",
+      "session_id": "session-social-g10a",
+      "room_resource_id": "res-room-002",
+      "invigilator_resource_id": "res-inv-004",
+      "start_at": "2026-11-10T09:00:00+05:30",
+      "end_at": "2026-11-10T11:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-004",
+      "session_id": "session-social-g10b",
+      "room_resource_id": "res-room-001",
+      "invigilator_resource_id": "res-inv-004",
+      "start_at": "2026-11-10T13:00:00+05:30",
+      "end_at": "2026-11-10T15:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-005",
+      "session_id": "session-science-g10a",
+      "room_resource_id": "res-room-003",
+      "invigilator_resource_id": "res-inv-001",
+      "start_at": "2026-11-11T09:00:00+05:30",
+      "end_at": "2026-11-11T11:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-006",
+      "session_id": "session-science-g10b",
+      "room_resource_id": "res-room-001",
+      "invigilator_resource_id": "res-inv-001",
+      "start_at": "2026-11-11T13:00:00+05:30",
+      "end_at": "2026-11-11T15:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-007",
+      "session_id": "session-computer-g10a",
+      "room_resource_id": "res-room-002",
+      "invigilator_resource_id": "res-inv-004",
+      "start_at": "2026-11-12T09:00:00+05:30",
+      "end_at": "2026-11-12T11:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-008",
+      "session_id": "session-computer-g10b",
+      "room_resource_id": "res-room-001",
+      "invigilator_resource_id": "res-inv-004",
+      "start_at": "2026-11-12T13:00:00+05:30",
+      "end_at": "2026-11-12T15:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-009",
+      "session_id": "session-language-g10a",
+      "room_resource_id": "res-room-002",
+      "invigilator_resource_id": "res-inv-003",
+      "start_at": "2026-11-13T09:00:00+05:30",
+      "end_at": "2026-11-13T11:00:00+05:30"
+    },
+    {
+      "assignment_id": "assign-exam-010",
+      "session_id": "session-language-g10b",
+      "room_resource_id": "res-room-001",
+      "invigilator_resource_id": "res-inv-003",
+      "start_at": "2026-11-13T13:00:00+05:30",
+      "end_at": "2026-11-13T15:00:00+05:30"
+    }
+  ],
+  "expected_properties": {
+    "expected_outcome": "FEASIBLE",
+    "hard_constraint_violations": 0,
+    "candidate_requires_review": true,
+    "must_not_auto_publish": true,
+    "feasibility_witness_is_only_proof": true,
+    "major_subject_gap_days": 1
+  }
+}

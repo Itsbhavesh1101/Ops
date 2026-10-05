@@ -1,0 +1,315 @@
+{
+  "mock_version": "1.0.0",
+  "synthetic_only": true,
+  "production_transport": "UNRESOLVED",
+  "status_disclaimer": "CRITICAL GOVERNANCE NOTE: mock_acceptance_status represents TEST HARNESS contract validation outcome ONLY. It MUST NOT be construed as, or substituted for, an actual production E-8 delivery status. E-8 owns downstream notification/engagement delivery behavior assigned to it by the source contract. Downstream delivery status and delivery tracking remain assigned to E-8 as defined by the source contract, while E-8 to E-7 delivery receipt reporting is UNRESOLVED / NOT_YET_REQUIRED.",
+  "mock_acceptance_statuses": [
+    "MOCK_ACCEPTED",
+    "MOCK_REJECTED"
+  ],
+  "accepted_command_examples": [
+    {
+      "example_id": "EX-ACCEPTED-001",
+      "scenario": "Workflow human approval assignment triggered by workflow engine",
+      "trigger_classification": "SOURCE_VERIFIED_EVENT",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_001>",
+        "correlation_reference": "<synthetic_correlation_ref_001>",
+        "causation_reference": "<synthetic_causation_ref_001>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_VERIFIED_EVENT",
+          "source_event_name": "workflow.task.created",
+          "source_entity_reference": "<canonical_task_ref_001>"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_approver_1>",
+          "<opaque_recipient_ref_approver_2>"
+        ],
+        "notification_context": {
+          "workflow_instance_reference": "<canonical_workflow_ref_001>",
+          "task_title": "<synthetic_task_title_approval>",
+          "approval_deadline_utc": "<synthetic_timestamp_utc_deadline>",
+          "approval_step_number": 2,
+          "action_required": "REVIEW_AND_APPROVE"
+        },
+        "requested_at": "<synthetic_timestamp_utc_created>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_ACCEPTED",
+        "matched_trigger_kind": "SOURCE_VERIFIED_EVENT",
+        "validation_notes": "All required fields present; contract version valid; recipient references opaque; payload bounded and privacy-compliant."
+      }
+    },
+    {
+      "example_id": "EX-ACCEPTED-002",
+      "scenario": "Examination timetable published after constraint solver optimization",
+      "trigger_classification": "SOURCE_VERIFIED_EVENT",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_002>",
+        "correlation_reference": "<synthetic_correlation_ref_002>",
+        "causation_reference": "<synthetic_causation_ref_002>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_VERIFIED_EVENT",
+          "source_event_name": "schedule.published",
+          "source_entity_reference": "<canonical_schedule_ref_001>"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_faculty_group>",
+          "<opaque_recipient_ref_student_cohort_rep>"
+        ],
+        "notification_context": {
+          "schedule_version": "v1.0.0",
+          "schedule_title": "<synthetic_schedule_title_exam>",
+          "published_at_utc": "<synthetic_timestamp_utc_published>",
+          "effective_start_date": "<synthetic_date_start>",
+          "effective_end_date": "<synthetic_date_end>",
+          "calendar_sync_initiated": true
+        },
+        "requested_at": "<synthetic_timestamp_utc_published>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_ACCEPTED",
+        "matched_trigger_kind": "SOURCE_VERIFIED_EVENT",
+        "validation_notes": "Valid schedule publication event; recipient group references are opaque; context contains only high-level operational facts."
+      }
+    },
+    {
+      "example_id": "EX-ACCEPTED-003",
+      "scenario": "Workflow SLA breached requiring escalation notice to department supervisor",
+      "trigger_classification": "SOURCE_BACKED_BUSINESS_CONDITION",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_003>",
+        "correlation_reference": "<synthetic_correlation_ref_003>",
+        "causation_reference": "<synthetic_causation_ref_003>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_BACKED_BUSINESS_CONDITION",
+          "business_condition": "SLA_BREACH_ESCALATION",
+          "source_entity_reference": "<canonical_task_ref_002>"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_department_lead>",
+          "<opaque_recipient_ref_escalation_manager>"
+        ],
+        "notification_context": {
+          "workflow_instance_reference": "<canonical_workflow_ref_002>",
+          "task_reference": "<canonical_task_ref_002>",
+          "breach_timestamp_utc": "<synthetic_timestamp_utc_breached>",
+          "sla_limit_hours": 24,
+          "elapsed_hours": 26.5,
+          "escalation_level": 1
+        },
+        "requested_at": "<synthetic_timestamp_utc_breached>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_ACCEPTED",
+        "matched_trigger_kind": "SOURCE_BACKED_BUSINESS_CONDITION",
+        "validation_notes": "Valid source-backed business condition SLA_BREACH_ESCALATION; exact canonical event name is UNRESOLVED in Phase 0; context payload conveys necessary escalation metrics."
+      }
+    },
+    {
+      "example_id": "EX-ACCEPTED-004",
+      "scenario": "Timetable disruption repair modifies published schedule assignments",
+      "trigger_classification": "SOURCE_BACKED_BUSINESS_CONDITION",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_004>",
+        "correlation_reference": "<synthetic_correlation_ref_004>",
+        "causation_reference": "<synthetic_causation_ref_004>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_BACKED_BUSINESS_CONDITION",
+          "business_condition": "SCHEDULE_CHANGE_NOTICE",
+          "source_entity_reference": "<canonical_schedule_ref_002>"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_affected_instructor_1>",
+          "<opaque_recipient_ref_affected_instructor_2>"
+        ],
+        "notification_context": {
+          "superseding_schedule_version": "v1.1.0",
+          "disruption_reason": "FACULTY_UNAVAILABLE",
+          "repaired_at_utc": "<synthetic_timestamp_utc_repaired>",
+          "affected_slots_count": 2
+        },
+        "requested_at": "<synthetic_timestamp_utc_repaired>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_ACCEPTED",
+        "matched_trigger_kind": "SOURCE_BACKED_BUSINESS_CONDITION",
+        "validation_notes": "Valid schedule modification notice originating from disruption repair; context carries non-PII operational summary."
+      }
+    }
+  ],
+  "rejected_command_examples": [
+    {
+      "example_id": "EX-REJECTED-001",
+      "scenario": "Command missing contract_version header",
+      "rejected_reason_code": "INVALID_CONTRACT_VERSION",
+      "command": {
+        "command_id": "<synthetic_command_ref_005>",
+        "correlation_reference": "<synthetic_correlation_ref_005>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_VERIFIED_EVENT",
+          "source_event_name": "task.blocked"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_pm>"
+        ],
+        "notification_context": {
+          "task_id": "<canonical_task_ref_003>"
+        },
+        "requested_at": "<synthetic_timestamp_utc>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_REJECTED",
+        "error_code": "INVALID_CONTRACT_VERSION",
+        "error_message": "Missing mandatory contract_version field. Contract version 1.0.0 required."
+      }
+    },
+    {
+      "example_id": "EX-REJECTED-002",
+      "scenario": "Command missing command_id required for tracking and idempotency",
+      "rejected_reason_code": "MISSING_COMMAND_IDENTITY",
+      "command": {
+        "contract_version": "1.0.0",
+        "correlation_reference": "<synthetic_correlation_ref_006>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_VERIFIED_EVENT",
+          "source_event_name": "workflow.sla.warning"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_owner>"
+        ],
+        "notification_context": {
+          "warning_threshold": "80%"
+        },
+        "requested_at": "<synthetic_timestamp_utc>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_REJECTED",
+        "error_code": "MISSING_COMMAND_IDENTITY",
+        "error_message": "Missing mandatory command_id. Unique command identity is required for idempotent deduplication."
+      }
+    },
+    {
+      "example_id": "EX-REJECTED-003",
+      "scenario": "Raw contact PII (email/phone) supplied in recipient_references where opaque reference is required",
+      "rejected_reason_code": "PAYLOAD_NOT_ALLOWED",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_007>",
+        "correlation_reference": "<synthetic_correlation_ref_007>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_VERIFIED_EVENT",
+          "source_event_name": "workflow.task.created"
+        },
+        "recipient_references": [
+          "<synthetic_raw_email_endpoint_001>",
+          "<synthetic_raw_phone_endpoint_001>"
+        ],
+        "notification_context": {
+          "action": "APPROVE"
+        },
+        "requested_at": "<synthetic_timestamp_utc>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_REJECTED",
+        "error_code": "PAYLOAD_NOT_ALLOWED",
+        "error_message": "Recipient references contain raw personal contact endpoints. E-7 must provide approved opaque recipient references; raw contact endpoints are forbidden."
+      }
+    },
+    {
+      "example_id": "EX-REJECTED-004",
+      "scenario": "Raw source database identifier supplied as canonical reference",
+      "rejected_reason_code": "INVALID_RECIPIENT_REFERENCE",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_008>",
+        "correlation_reference": "<synthetic_correlation_ref_008>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_VERIFIED_EVENT",
+          "source_event_name": "schedule.published"
+        },
+        "recipient_references": [
+          "<raw_mysql_students_pk_ref>",
+          "<raw_mysql_staff_pk_ref>"
+        ],
+        "notification_context": {
+          "schedule": "published"
+        },
+        "requested_at": "<synthetic_timestamp_utc>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_REJECTED",
+        "error_code": "INVALID_RECIPIENT_REFERENCE",
+        "error_message": "Raw database primary key references from mysql_iredu detected. External database IDs must not bleed across the clean-room integration boundary into public contracts."
+      }
+    },
+    {
+      "example_id": "EX-REJECTED-005",
+      "scenario": "Unsupported / unverified trigger specification",
+      "rejected_reason_code": "UNSUPPORTED_TRIGGER",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_009>",
+        "correlation_reference": "<synthetic_correlation_ref_009>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "PROPOSED_SPECULATIVE_EVENT",
+          "source_event_name": "marketing.lead.converted"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_lead>"
+        ],
+        "notification_context": {
+          "lead_score": 90
+        },
+        "requested_at": "<synthetic_timestamp_utc>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_REJECTED",
+        "error_code": "UNSUPPORTED_TRIGGER",
+        "error_message": "Unrecognized trigger_kind 'PROPOSED_SPECULATIVE_EVENT' and unverified event name 'marketing.lead.converted'. E-7 only triggers operational and institutional workflow events."
+      }
+    },
+    {
+      "example_id": "EX-REJECTED-006",
+      "scenario": "Unrestricted context payload containing sensitive credentials and raw student records",
+      "rejected_reason_code": "PAYLOAD_NOT_ALLOWED",
+      "command": {
+        "contract_version": "1.0.0",
+        "command_id": "<synthetic_command_ref_010>",
+        "correlation_reference": "<synthetic_correlation_ref_010>",
+        "organization_scope_reference": "<synthetic_organization_scope_ref>",
+        "trigger": {
+          "trigger_kind": "SOURCE_VERIFIED_EVENT",
+          "source_event_name": "workflow.sla.warning"
+        },
+        "recipient_references": [
+          "<opaque_recipient_ref_admin>"
+        ],
+        "notification_context": {
+          "db_password": "<raw_password_secret>",
+          "student_health_records": "<unredacted_student_medical_info>",
+          "staff_salary_amount": 85000
+        },
+        "requested_at": "<synthetic_timestamp_utc>"
+      },
+      "mock_validation_result": {
+        "status": "MOCK_REJECTED",
+        "error_code": "PAYLOAD_NOT_ALLOWED",
+        "error_message": "Notification context contains forbidden sensitive elements (passwords, health data, compensation). Strict context minimization violated."
+      }
+    }
+  ]
+}

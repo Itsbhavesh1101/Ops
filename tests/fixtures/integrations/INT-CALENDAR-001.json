@@ -1,0 +1,70 @@
+{
+  "dataset_id": "INT-CALENDAR-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "calendar_sync_contract_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "variant_id": "EX-HAPPY-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "source_event": {
+    "event_name": "schedule.published",
+    "event_id": "evt-synth-schedule-published-001",
+    "schema_version": "1.0.0",
+    "correlation_id": "corr-calendar-001",
+    "tenant_id": "tenant-synth-001",
+    "schedule_dataset_ref": "SC-EXAM-FEASIBLE-001@1.0.0",
+    "assignment_id": "assign-exam-001"
+  },
+  "calendar_operation": {
+    "operation": "CREATE",
+    "idempotency_key": "idem-calendar-create-001",
+    "canonical_schedule_id": "schedule-synth-exam-001",
+    "canonical_assignment_id": "assign-exam-001",
+    "start_at": "2026-11-09T09:00:00+05:30",
+    "end_at": "2026-11-09T11:00:00+05:30",
+    "timezone": "Asia/Kolkata",
+    "summary": "Grade 10 Mathematics Examination",
+    "location_resource_id": "res-room-003",
+    "participant_resource_ids": [
+      "res-inv-002"
+    ]
+  },
+  "provider_result": {
+    "provider": "synthetic-calendar",
+    "external_event_id": "SYN-CAL-EVENT-001",
+    "external_version": "v1",
+    "sync_token": "SYN-CAL-SYNC-001",
+    "status": "SYNCED"
+  },
+  "expected_mapping": {
+    "canonical_assignment_id": "assign-exam-001",
+    "provider": "synthetic-calendar",
+    "external_event_id": "SYN-CAL-EVENT-001",
+    "external_version": "v1",
+    "sync_token": "SYN-CAL-SYNC-001"
+  },
+  "expected_audit": {
+    "source_event_reference": "evt-synth-schedule-published-001",
+    "source_event_name": "schedule.published",
+    "operation": "CREATE",
+    "canonical_assignment_id": "assign-exam-001",
+    "provider": "synthetic-calendar",
+    "external_event_id": "SYN-CAL-EVENT-001",
+    "external_version": "v1",
+    "idempotency_key": "idem-calendar-create-001",
+    "correlation_id": "corr-calendar-001",
+    "attempt_timestamp": "2026-11-09T08:00:00+05:30",
+    "final_synchronization_status": "SYNCED"
+  },
+  "expected_properties": {
+    "expected_sync_status": "SYNCED",
+    "idempotent_operation_required": true,
+    "external_mapping_required": true,
+    "external_id_must_not_become_canonical_id": true,
+    "timezone_preservation_required": true,
+    "audit_required": true,
+    "fake_success_forbidden": true
+  }
+}

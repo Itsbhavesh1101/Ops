@@ -1,0 +1,31 @@
+# OpenAI Python SDK License Provenance & Compliance Evidence
+
+Project: OpenAI Python SDK
+Component Family: OpenAI API Client
+Verified License Identifier: Apache-2.0 (Apache License, Version 2.0)
+Verification Date: 2026-10-02
+Compliance Disposition: ACCEPTABLE (Permissive open source; approved for Phase-2 Task Intelligence adoption)
+
+## Verified Upstream Source
+
+1. OpenAI Python Client Library
+   - Package Name: openai
+   - Official Upstream Repository: https://github.com/openai/openai-python
+   - Official LICENSE Location: https://github.com/openai/openai-python/blob/main/LICENSE
+   - License: Apache-2.0
+   - Phase-2 Role: Wire protocol and HTTP transport client consumed by PydanticAI's `OpenAIProvider`. Enables hosted model communication with any standard OpenAI-compatible API gateway (e.g. Sarvam AI, vLLM, hosted inference endpoints) without vendor lock-in.
+
+## Direct Dependency Necessity Rationale
+- PydanticAI's official `OpenAIProvider` dynamically instantiates `openai.AsyncOpenAI` for streaming and completions.
+- Declared directly in `pyproject.toml` per repository convention for explicit dependency tracking and reproducible build locking.
+- Not used for proprietary OpenAI lock-in; configured with neutral `base_url` pointing to authorized hosted gateways.
+
+## Architectural Boundaries & Isolation
+- Consumed strictly as an in-process library dependency behind PydanticAI model abstractions.
+- Never directly called from domain or business logic; all interactions flow through `get_llm_model` and `PydanticAiPlanner`.
+- Zero credentials committed; API keys resolved strictly via `SecretStr` from environment variables.
+
+## Attribution & Usage Policy
+- Import and consume unmodified binary wheels as versioned package dependencies.
+- Retain standard Apache-2.0 copyright and NOTICE files in external release distribution manifests.
+- Zero copying of upstream source code into IR application core.

@@ -1,0 +1,216 @@
+{
+  "manifest_id": "E7-PHASE0-FIXTURE-MANIFEST",
+  "manifest_version": "1.0.0",
+  "fixture_only": true,
+  "dataset_count": 18,
+  "family_counts": {
+    "resources": 1,
+    "task_intelligence": 5,
+    "workflow": 3,
+    "exam_scheduling": 3,
+    "maintenance_scheduling": 3,
+    "integration": 3
+  },
+  "datasets": [
+    {
+      "dataset_id": "INT-CALENDAR-001",
+      "dataset_version": "1.0.0",
+      "family": "integration",
+      "relative_path": "tests/fixtures/integrations/INT-CALENDAR-001.json",
+      "fixture_type": "calendar_sync_contract_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "c4eda2204d716a650af29365a5edc0f9064d5967c9aa4ce7d9b0271af3b8cd52"
+    },
+    {
+      "dataset_id": "INT-CALENDAR-DUP-001",
+      "dataset_version": "1.0.0",
+      "family": "integration",
+      "relative_path": "tests/fixtures/integrations/INT-CALENDAR-DUP-001.json",
+      "fixture_type": "calendar_callback_deduplication_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "3a8f0fc915adb00854dbee7b8a2193753ae23106e8565f7071f14fd7fef26b52"
+    },
+    {
+      "dataset_id": "INT-NOTIFY-001",
+      "dataset_version": "1.0.0",
+      "family": "integration",
+      "relative_path": "tests/fixtures/integrations/INT-NOTIFY-001.json",
+      "fixture_type": "notification_command_contract_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "b8e8ccdc12d1eabc45cc691d08f6e8601a4847de80159dc1c57b3aee50027058"
+    },
+    {
+      "dataset_id": "RS-SYNTH-001",
+      "dataset_version": "1.0.0",
+      "family": "resources",
+      "relative_path": "tests/fixtures/resources/RS-SYNTH-001.json",
+      "fixture_type": "resource_catalog",
+      "scenario_ids": [
+        "E7-REF-EXAM-001",
+        "E7-REF-MAINT-001"
+      ],
+      "sha256": "a85fed2b6069000bcbaa27c897483bff5a70aee9c00f5f25568a812df1609fb6"
+    },
+    {
+      "dataset_id": "SC-EXAM-FEASIBLE-001",
+      "dataset_version": "1.0.0",
+      "family": "exam_scheduling",
+      "relative_path": "tests/fixtures/scheduling/exam/SC-EXAM-FEASIBLE-001.json",
+      "fixture_type": "education_exam_scheduling_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "afa37a4c329cd84285d014b57d6fa6904bc1c64be1c817c78d94430840e98781"
+    },
+    {
+      "dataset_id": "SC-EXAM-INFEASIBLE-001",
+      "dataset_version": "1.0.0",
+      "family": "exam_scheduling",
+      "relative_path": "tests/fixtures/scheduling/exam/SC-EXAM-INFEASIBLE-001.json",
+      "fixture_type": "education_exam_scheduling_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "f9f7d824a43ff67cacad389f887416d683c11580afc4a411d102277cb2c99279"
+    },
+    {
+      "dataset_id": "SC-EXAM-REPAIR-001",
+      "dataset_version": "1.0.0",
+      "family": "exam_scheduling",
+      "relative_path": "tests/fixtures/scheduling/exam/SC-EXAM-REPAIR-001.json",
+      "fixture_type": "education_exam_scheduling_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "0b7f1cd1446ed0feb2876af107e86716e62f8e09786332d983dc55004e5a4748"
+    },
+    {
+      "dataset_id": "SC-MAINT-FEASIBLE-001",
+      "dataset_version": "1.0.0",
+      "family": "maintenance_scheduling",
+      "relative_path": "tests/fixtures/scheduling/maintenance/SC-MAINT-FEASIBLE-001.json",
+      "fixture_type": "generic_scheduling_case",
+      "scenario_ids": [
+        "E7-REF-MAINT-001"
+      ],
+      "sha256": "99d9f72fac2f3bfd218fa2caf443baf629c16a2bedbafda9ff4d151f736c654c"
+    },
+    {
+      "dataset_id": "SC-MAINT-INFEASIBLE-001",
+      "dataset_version": "1.0.0",
+      "family": "maintenance_scheduling",
+      "relative_path": "tests/fixtures/scheduling/maintenance/SC-MAINT-INFEASIBLE-001.json",
+      "fixture_type": "generic_scheduling_case",
+      "scenario_ids": [
+        "E7-REF-MAINT-001"
+      ],
+      "sha256": "289f7127786c9a85d0bd93cdd870faa98ee28793cb43c6b3cb1f2df222cfda10"
+    },
+    {
+      "dataset_id": "SC-MAINT-REPAIR-001",
+      "dataset_version": "1.0.0",
+      "family": "maintenance_scheduling",
+      "relative_path": "tests/fixtures/scheduling/maintenance/SC-MAINT-REPAIR-001.json",
+      "fixture_type": "generic_scheduling_case",
+      "scenario_ids": [
+        "E7-REF-MAINT-001"
+      ],
+      "sha256": "0d6a22429a99e1c539fab5978eece0acd1c7bc59892af1dae70a271384da30cd"
+    },
+    {
+      "dataset_id": "TI-GOLD-001",
+      "dataset_version": "1.0.0",
+      "family": "task_intelligence",
+      "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-001.json",
+      "fixture_type": "task_intelligence_gold_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "092a4e84b1d71b53de88ca7643e1a6472d4c55d4660fd5fce9269546b5bdaf91"
+    },
+    {
+      "dataset_id": "TI-GOLD-002",
+      "dataset_version": "1.0.0",
+      "family": "task_intelligence",
+      "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-002.json",
+      "fixture_type": "task_intelligence_gold_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "8084fe2c725d3869754c6df1d6327509103a39c40d61e4e9740f670261c6c09f"
+    },
+    {
+      "dataset_id": "TI-GOLD-003",
+      "dataset_version": "1.0.0",
+      "family": "task_intelligence",
+      "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-003.json",
+      "fixture_type": "task_intelligence_gold_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "801ec1b93037d0ae608445a64fdbbed62b173aa46bf009f68eba1197dfdb3252"
+    },
+    {
+      "dataset_id": "TI-GOLD-004",
+      "dataset_version": "1.0.0",
+      "family": "task_intelligence",
+      "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-004.json",
+      "fixture_type": "task_intelligence_gold_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "91efd3e6e69c8d1d762dbf6aa8cefbc64d08e084c5484e6b8fda3f910fbbbdbf"
+    },
+    {
+      "dataset_id": "TI-GOLD-005",
+      "dataset_version": "1.0.0",
+      "family": "task_intelligence",
+      "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-005.json",
+      "fixture_type": "task_intelligence_gold_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "81fee9c138786c6a641727673cea4a2e389edb3684863026555b069f075cfef3"
+    },
+    {
+      "dataset_id": "WF-EXAM-HAPPY-001",
+      "dataset_version": "1.0.0",
+      "family": "workflow",
+      "relative_path": "tests/fixtures/workflows/WF-EXAM-HAPPY-001.json",
+      "fixture_type": "workflow_scenario_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "6a1a0541c593743012a83f4338fad54b879435f163cacddf5da3102808131c71"
+    },
+    {
+      "dataset_id": "WF-EXAM-REJECT-001",
+      "dataset_version": "1.0.0",
+      "family": "workflow",
+      "relative_path": "tests/fixtures/workflows/WF-EXAM-REJECT-001.json",
+      "fixture_type": "workflow_scenario_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "4d20c6ea5b35044ce6f70b72b9764c4d1ab2c8f832d1906b30ffd1b46e50ff67"
+    },
+    {
+      "dataset_id": "WF-EXAM-SLA-001",
+      "dataset_version": "1.0.0",
+      "family": "workflow",
+      "relative_path": "tests/fixtures/workflows/WF-EXAM-SLA-001.json",
+      "fixture_type": "workflow_scenario_case",
+      "scenario_ids": [
+        "E7-REF-EXAM-001"
+      ],
+      "sha256": "19bad551e3ef7fb9b9892a7461e85af7b9c0fa026f3c67913c7dbac6e4b46bb8"
+    }
+  ],
+  "validation_status": "PASS"
+}

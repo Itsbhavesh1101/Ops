@@ -1,0 +1,27 @@
+# PydanticAI License Provenance & Compliance Evidence
+
+Project: PydanticAI (pydantic-ai-slim)
+Component Family: PydanticAI Agent Framework
+Verified License Identifier: MIT (MIT License)
+Verification Date: 2026-10-02
+Compliance Disposition: ACCEPTABLE (Permissive open source; approved for Phase-2 Task Intelligence adoption)
+
+## Verified Upstream Source
+
+1. PydanticAI Core Library
+   - Package Name: pydantic-ai-slim
+   - Official Upstream Repository: https://github.com/pydantic/pydantic-ai
+   - Official LICENSE Location: https://github.com/pydantic/pydantic-ai/blob/main/LICENSE
+   - License: MIT
+   - Phase-2 Role: In-process agentic planner orchestration for Task Intelligence (Phase 2B); structured output generation into PlanSchema; targeted repair loop execution.
+
+## Architectural Boundaries & Isolation
+- Consumed as an in-process library dependency (`pydantic-ai-slim`).
+- Strictly isolated behind `PlannerProtocol` and `PydanticAiPlanner` domain abstractions.
+- Model generation produces non-authoritative `PlanSchema` proposals; never bypasses deterministic validation (`PlanValidator`).
+- No vendor lock-in: provider integration operates via neutral abstraction.
+
+## Attribution & Usage Policy
+- Import and consume unmodified binary wheels as versioned package dependencies.
+- Retain standard MIT copyright notice in release documentation and third-party manifests.
+- Zero copy-pasting of upstream framework internals into IR application core.

@@ -1,0 +1,63 @@
+{
+  "dataset_id": "INT-CALENDAR-DUP-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "calendar_callback_deduplication_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "variant_id": "EX-CALENDAR-DUPLICATE-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "existing_mapping": {
+    "canonical_assignment_id": "assign-exam-001",
+    "provider": "synthetic-calendar",
+    "external_event_id": "SYN-CAL-EVENT-001",
+    "external_version": "v1",
+    "sync_token": "SYN-CAL-SYNC-001"
+  },
+  "callback_first": {
+    "callback_fixture_id": "callback-calendar-001",
+    "provider": "synthetic-calendar",
+    "external_event_id": "SYN-CAL-EVENT-001",
+    "external_version": "v2",
+    "internal_idempotency_key": "idem-calendar-callback-001",
+    "received_at": "2026-11-09T11:05:00+05:30",
+    "change_type": "UPDATED"
+  },
+  "callback_duplicate": {
+    "callback_fixture_id": "callback-calendar-002",
+    "provider": "synthetic-calendar",
+    "external_event_id": "SYN-CAL-EVENT-001",
+    "external_version": "v2",
+    "internal_idempotency_key": "idem-calendar-callback-001",
+    "received_at": "2026-11-09T11:05:30+05:30",
+    "change_type": "UPDATED"
+  },
+  "expected_first_effect": {
+    "accepted": true,
+    "mapping_external_version_after": "v2",
+    "committed_side_effect_count": 1,
+    "audit_entry_required": true
+  },
+  "expected_duplicate_effect": {
+    "recognized_as_duplicate": true,
+    "additional_committed_side_effect_count": 0,
+    "mapping_external_version_after": "v2",
+    "duplicate_audit_or_observability_evidence_required": true
+  },
+  "deduplication_basis": {
+    "provider": "synthetic-calendar",
+    "external_event_id": "SYN-CAL-EVENT-001",
+    "external_version": "v2",
+    "internal_idempotency_key": "idem-calendar-callback-001"
+  },
+  "deduplication_delivery_note": "This is an integration callback idempotency fixture. It does NOT claim network-level single delivery. The required property is idempotent committed side-effect processing.",
+  "expected_properties": {
+    "first_delivery_committed_side_effect_count": 1,
+    "duplicate_delivery_additional_side_effect_count": 0,
+    "duplicate_committed_effect_forbidden": true,
+    "provider_version_mapping_required": true,
+    "idempotency_required": true,
+    "audit_or_observability_evidence_required": true
+  }
+}

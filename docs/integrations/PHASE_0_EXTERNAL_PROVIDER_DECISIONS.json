@@ -1,0 +1,255 @@
+{
+  "document_name": "PHASE_0_EXTERNAL_PROVIDER_DECISIONS",
+  "document_version": "1.0.0",
+  "status": "RESOLVED",
+  "governance_classification": "DECISION REQUEST PACKET",
+  "description": "Concise, source-grounded decision packet defining the required business and platform owner inputs for the two remaining unresolved Phase-0 external provider selections.",
+  "current_phase_0_integration_status": {
+    "exact_idp": "RESOLVED",
+    "first_erp_sis": "RESOLVED",
+    "first_erp_sis_details": {
+      "source_system": "mysql_iredu",
+      "runtime_adapter": "NOT_IMPLEMENTED",
+      "live_production_retrieval": "BLOCKED_BY_BLK_01"
+    },
+    "first_calendar_provider": "RESOLVED",
+    "e8_contract_mock": "RESOLVED"
+  },
+  "decisions": [
+    {
+      "decision_id": "D-EXT-01",
+      "decision": "Confirm the exact production Identity Provider used by the organization/customer environment for E-7 authentication.",
+      "previous_status": "PHASE_0_EXIT_DECISION_REQUIRED",
+      "status": "RESOLVED",
+      "selected_provider": "GOOGLE_CLOUD_IDENTITY_GOOGLE_WORKSPACE",
+      "display_name": "Google Cloud Identity / Google Workspace managed organizational identity",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "target_phase": "PHASE_0_EXIT",
+      "owner_class": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "authentication_protocol": "OpenID Connect / OAuth 2.0",
+      "token_model": "Human authentication uses Google OpenID Connect. Google ID tokens are signed JWT identity assertions. OAuth access tokens are separate bearer credentials for calling authorized Google APIs and are not used as the canonical E-7 identity assertion.",
+      "verification": "Signature validation using keys obtained through dynamic OIDC discovery/JWKS; issuer validation (https://accounts.google.com); audience validation (matched to approved OAuth 2.0 client ID(s) for the E-7 application/client configuration); expiration validation; nonce/replay protection where applicable to the authentication flow; hosted-domain validation only where deployment policy restricts access to approved Google Workspace / Cloud Identity domains. JWKS URI is discovered dynamically via provider discovery metadata and is not hardcoded in domain/business logic.",
+      "deployment_boundary": "Organization-managed Google Workspace / Cloud Identity domain. Exact production organization/domain identifiers remain deployment configuration and MUST NOT be hardcoded in business logic.",
+      "architecture_boundary": {
+        "adapter_boundary": "Preserve app/integrations/... adapter boundary. Google-specific identity mechanisms remain encapsulated behind provider-neutral interfaces.",
+        "canonical_entity_isolation": "Zero Google-specific fields in canonical E-7 public entities. Do not introduce google_user_id or google_tenant_id as canonical domain IDs. Google identifiers remain strictly external mappings.",
+        "principal_mapping": "Google sub remains the stable external Google account identifier mapped via provider-neutral external_identity_mapping (provider/issuer, external_subject sub, E-7 principal reference). Exact persistence schema will be defined during the appropriate foundation implementation/data-model task; users.idp_sub is not frozen as a physical schema field; email is not used as the canonical identity identifier.",
+        "tenant_authorization_boundary": "hd claim may be validated when restricting access to approved Google Workspace / Cloud Identity domains, but hd != canonical E-7 tenant_id. Tenant derivation follows: verified Google identity -> provider-neutral external identity mapping -> approved organization/tenant mapping -> authorized E-7 principal context. A valid Google hosted-domain claim alone MUST NOT grant arbitrary E-7 tenant access.",
+        "service_authentication_baseline": "Selecting Google as the human IdP does not replace the frozen Phase-1 machine-authentication baseline (OIDC/JWT + service API key). Google OIDC is the first human/user identity integration; service API key is the initial E-7 service/machine credential mechanism. Google Service Accounts / Workload Identity Federation are classified as OPTIONAL_FUTURE_PROVIDER_CAPABILITY and are not required for Phase 1 service authentication.",
+        "provider_neutrality": "Provider-neutral architecture is strictly maintained."
+      },
+      "secret_boundary": {
+        "secret_policy": "Zero credentials, client secrets, passwords, private keys, access tokens, refresh tokens, or production tenant credentials are documented, handled, or stored.",
+        "runtime_secrets": "Production credentials and secrets MUST be managed through an approved secure secret-management mechanism and MUST NOT be stored in source control or decision documents."
+      },
+      "evidence_already_established": [
+        "Authentication integration is required for all human and machine principals (Complete Implementation Plan, Sec. 14, p. 15; Implementation Guardrails, Sec. 3; Canonical Ownership, Sec. 4.1).",
+        "OIDC, OAuth 2.0, and JWT standards are source-backed protocol requirements (Complete Implementation Plan, Sec. 14).",
+        "Cryptographic token verification via JWKS or equivalent verification metadata endpoint is required at API ingress (Complete Implementation Plan, Sec. 14).",
+        "Verified identity claims must drive authenticated principal context (Complete Specification, Sec. 23; Implementation Guardrails, Sec. 3).",
+        "Tenant/organization scope must never be accepted from unverified request payloads without cryptographic validation (Implementation Guardrails, Sec. 3).",
+        "The exact provider product name was unstated in source documents; selection confirmed via project-authorized provider decision (Complete Specification, Sec. 39; Complete Implementation Plan, Sec. 18, Step 7)."
+      ],
+      "required_input_resolution": [
+        {
+          "parameter_id": "IDP-PARAM-01",
+          "name": "Exact IdP product/system/provider name",
+          "status": "RESOLVED",
+          "resolved_value": "Google Cloud Identity / Google Workspace managed organizational identity"
+        },
+        {
+          "parameter_id": "IDP-PARAM-02",
+          "name": "Authoritative environment / customer organization",
+          "status": "RESOLVED",
+          "resolved_value": "Organization-managed Google Workspace / Cloud Identity domain (deployment configuration)"
+        },
+        {
+          "parameter_id": "IDP-PARAM-03",
+          "name": "Deployment topology",
+          "status": "RESOLVED",
+          "resolved_value": "Organization-managed enterprise domain integration"
+        }
+      ],
+      "follow_up_configuration": [
+        {
+          "parameter_id": "IDP-CFG-01",
+          "name": "OIDC issuer/discovery metadata",
+          "description": "OIDC discovery issuer URI (https://accounts.google.com) and dynamic metadata endpoints. Deployment-time configuration; not hardcoded."
+        },
+        {
+          "parameter_id": "IDP-CFG-02",
+          "name": "JWKS location discovered through provider metadata",
+          "description": "Public key set URL discovered dynamically via Google OIDC discovery document (certs endpoint). Not hardcoded in domain/business logic."
+        },
+        {
+          "parameter_id": "IDP-CFG-03",
+          "name": "Client/application registration",
+          "description": "Google Cloud console OAuth 2.0 client registration for E-7 application/client configuration. Exact client ID is deployment configuration; not hardcoded."
+        },
+        {
+          "parameter_id": "IDP-CFG-04",
+          "name": "Expected audience",
+          "description": "Google ID-token aud claim must match an approved OAuth 2.0 client ID for the E-7 application/client configuration. Not an E-7 API resource-server identifier."
+        },
+        {
+          "parameter_id": "IDP-CFG-05",
+          "name": "Stable subject mapping",
+          "description": "Google stable subject claim (sub) mapped via provider-neutral external_identity_mapping (provider/issuer, external_subject, E-7 principal reference). Exact persistence schema defined in implementation data-model task; users.idp_sub is not frozen; email is not canonical ID."
+        },
+        {
+          "parameter_id": "IDP-CFG-06",
+          "name": "Organization/domain scope validation",
+          "description": "Hosted domain (hd) validated only where deployment policy restricts access to approved Google Workspace / Cloud Identity domains. hd != canonical E-7 tenant_id. Tenant scope remains an E-7 authorization decision."
+        },
+        {
+          "parameter_id": "IDP-CFG-07",
+          "name": "Role / RBAC mapping follow-up",
+          "description": "E-7 RBAC / institutional-role mapping is an IMPLEMENTATION / CONFIGURATION FOLLOW-UP. Standard Google OIDC claims do not provide E-7 application roles or institutional RBAC policy. Possible future sources: internal role assignments, Google directory/group mapping, ERP/SIS role mapping. Does not reopen D-EXT-01."
+        },
+        {
+          "parameter_id": "IDP-CFG-08",
+          "name": "Service authentication baseline",
+          "description": "Service API key is the initial E-7 service/machine credential mechanism according to frozen Phase-1 baseline (OIDC/JWT + service API key). Google Service Accounts / Workload Identity Federation are classified as OPTIONAL_FUTURE_PROVIDER_CAPABILITY and are not mandatory for Phase 1 service auth."
+        }
+      ],
+      "resolution_summary": "Google Cloud Identity / Google Workspace organizational identity selected as first production IdP. D-EXT-01 is RESOLVED based on PROJECT_AUTHORIZED_PROVIDER_SELECTION."
+    },
+    {
+      "decision_id": "D-EXT-02",
+      "decision": "Confirm the first production calendar system/provider that E-7 must integrate with.",
+      "previous_status": "PHASE_0_EXIT_DECISION_REQUIRED",
+      "status": "RESOLVED",
+      "selected_provider": "GOOGLE_WORKSPACE_CALENDAR",
+      "display_name": "Google Calendar under Google Workspace",
+      "initial_integration_direction": "BIDIRECTIONAL",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "target_phase": "PHASE_0_EXIT",
+      "owner_class": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "primary_provider_integration": "Google Calendar REST API",
+      "standards_interoperability_boundary": [
+        "CalDAV",
+        "RFC 5545 / iCalendar"
+      ],
+      "conceptual_capabilities": [
+        "outbound event publication",
+        "inbound event/availability synchronization",
+        "event create/update/delete lifecycle",
+        "external event ID mapping",
+        "UTC-safe timestamp handling",
+        "idempotent synchronization",
+        "incremental synchronization",
+        "provider change notifications",
+        "reconciliation after missed notifications"
+      ],
+      "sync_reliability_rule": "Google Calendar change notifications are an optimization and change signal, not the sole source of synchronization correctness. Notifications do not contain event payloads and Google does not guarantee delivery of every notification. Provider adapter design combines: (1) push notifications to reduce polling latency, (2) incremental synchronization via nextSyncToken as primary delta-retrieval mechanism (with HTTP 410 invalid sync token triggering full re-sync), and (3) optional periodic reconciliation/recovery as an E-7 resilience mechanism. E-7 scheduling remains canonical for E-7-owned scheduling state. Google Calendar remains authoritative for its native external calendar state. Synchronization must preserve the frozen external-ID mapping boundary in calendar_links.",
+      "architecture_boundary": {
+        "adapter_boundary": "Preserve app/integrations/... adapter boundary. Google Calendar REST API integration is encapsulated behind provider-neutral calendar interfaces.",
+        "canonical_entity_isolation": "Zero Google-specific fields in canonical E-7 public entities. Do not introduce google_calendar_id as a canonical domain ID. Google Calendar event identifiers remain strictly secondary external mappings in calendar_links.",
+        "provider_neutrality": "Provider-neutral architecture is strictly maintained; CalDAV and RFC 5545 interoperability preserved."
+      },
+      "secret_boundary": {
+        "secret_policy": "Zero credentials, client secrets, passwords, private keys, access tokens, refresh tokens, or production calendar IDs are documented, handled, or stored.",
+        "runtime_secrets": "Production credentials and secrets MUST be managed through an approved secure secret-management mechanism and MUST NOT be stored in source control or decision documents."
+      },
+      "evidence_already_established": [
+        "Calendar synchronization is required for timetable slots, exam timetables, and availability schedules (RTM FR-SC-05; Complete Specification, Sec. 9, p. 7).",
+        "RFC 5545 (iCalendar) and CalDAV compatibility are established as the baseline interchange standards (RTM FR-SC-05; Complete Implementation Plan, Sec. 12.4 & 13.2).",
+        "External calendar state remains external; E-7 maintains mappings to canonical scheduling state in PostgreSQL calendar_links (Canonical Ownership, Sec. 4.1 & 4.2).",
+        "Calendar links store external_event_id, sync_status, sync_token, and tenant_id; external IDs are never canonical E-7 IDs (Canonical Ownership, Sec. 4.1).",
+        "Exact first calendar provider confirmed via project-authorized provider selection with BIDIRECTIONAL synchronization direction (Complete Specification, Sec. 39; Complete Implementation Plan, Sec. 18, Step 7)."
+      ],
+      "required_input_resolution": [
+        {
+          "parameter_id": "CAL-PARAM-01",
+          "name": "Exact first calendar product/system/provider name",
+          "status": "RESOLVED",
+          "resolved_value": "Google Calendar under Google Workspace"
+        },
+        {
+          "parameter_id": "CAL-PARAM-02",
+          "name": "Organization / customer environment",
+          "status": "RESOLVED",
+          "resolved_value": "Organization-managed Google Workspace environment (deployment configuration)"
+        },
+        {
+          "parameter_id": "CAL-PARAM-03",
+          "name": "Initial integration direction",
+          "status": "RESOLVED",
+          "resolved_value": "BIDIRECTIONAL"
+        }
+      ],
+      "follow_up_configuration": [
+        {
+          "parameter_id": "CAL-CFG-01",
+          "name": "Calendar authorization topology",
+          "description": "CALENDAR_AUTHORIZATION_TOPOLOGY = TO_BE_CONFIRMED_DURING_IMPLEMENTATION. Delegated per-user OAuth, admin-authorized service account with domain-wide delegation, or another Google-supported model. Domain-wide delegation is not mandatory. Least privilege + admin policy + approved scopes."
+        },
+        {
+          "parameter_id": "CAL-CFG-02",
+          "name": "Approved calendar/account scopes",
+          "description": "Least-privilege Google Calendar OAuth scopes (e.g., https://www.googleapis.com/auth/calendar.events or read-only/availability scopes where appropriate)."
+        },
+        {
+          "parameter_id": "CAL-CFG-03",
+          "name": "External calendar IDs",
+          "description": "External calendar identifiers configured per deployment environment; never hardcoded in domain logic."
+        },
+        {
+          "parameter_id": "CAL-CFG-04",
+          "name": "Push notification channel lifecycle",
+          "description": "Google Calendar push notification webhook channel creation, renewal, and stop operations. HTTPS callback endpoint required. Notifications are change signals, not full event payloads."
+        },
+        {
+          "parameter_id": "CAL-CFG-05",
+          "name": "Incremental sync token lifecycle",
+          "description": "nextSyncToken persistence for incremental synchronization. HTTP 410 invalid sync token triggers full re-sync. Not described as token rotation."
+        },
+        {
+          "parameter_id": "CAL-CFG-06",
+          "name": "Event version/ETag handling",
+          "description": "ETag concurrency control for event create/update/delete lifecycle. E-7 owns synchronization idempotency; Google Calendar does not provide generic idempotency keys."
+        },
+        {
+          "parameter_id": "CAL-CFG-07",
+          "name": "Webhook callback verification",
+          "description": "Callback endpoint uses HTTPS. Track issued channel IDs. Use unpredictable channel token (X-Goog-Channel-Token) verified against expected stored value. X-Goog-Resource-State is resource-state metadata, not authentication. Retrieve state via API."
+        },
+        {
+          "parameter_id": "CAL-CFG-08",
+          "name": "Reconciliation and resilience strategy",
+          "description": "Push notifications reduce polling latency; incremental sync is primary delta-retrieval mechanism; periodic reconciliation scan acts as an E-7 resilience mechanism to recover from dropped or delayed notifications."
+        }
+      ],
+      "resolution_summary": "Google Calendar under Google Workspace selected as first production calendar provider with BIDIRECTIONAL integration direction. D-EXT-02 is RESOLVED based on PROJECT_AUTHORIZED_PROVIDER_SELECTION.",
+      "calendar_authorization_topology": "CALENDAR_AUTHORIZATION_TOPOLOGY = TO_BE_CONFIRMED_DURING_IMPLEMENTATION. Valid implementation approaches include delegated per-user OAuth, organization/admin-authorized service account with domain-wide delegation, or another Google-supported least-privilege authorization model. Domain-wide delegation is not mandatory. Requirement: least privilege + approved Google Workspace administrator policy + approved OAuth scopes. D-EXT-02 remains RESOLVED.",
+      "time_handling": "UTC_SAFE_TIME_HANDLING: Canonical scheduling instants may be normalized to UTC internally; original provider timezone metadata is preserved when synchronization requires it; Google Calendar all-day event date semantics are preserved; timezone/DST conversions handled explicitly; all-day dates are never converted into arbitrary UTC instants.",
+      "idempotency_architecture": "E-7 owns synchronization idempotency via operation/command identity, external event mappings, persisted synchronization state, deterministic duplicate detection where designed, and conditional/version-aware update semantics where applicable. Google Calendar does not provide generic idempotency keys; no Google Calendar idempotency-key API is fabricated.",
+      "sync_token_lifecycle": "1. Perform initial synchronization. 2. Persist returned nextSyncToken. 3. Use nextSyncToken for subsequent incremental delta synchronization. 4. Persist newly returned nextSyncToken. 5. If Google returns HTTP 410 / invalid sync token: invalidate local provider-sync cursor/state as appropriate, perform new full synchronization, and obtain fresh nextSyncToken. This lifecycle is provider delta-cursor management and is not described as security-token rotation.",
+      "push_notification_validation": "Callback endpoint must use HTTPS; track issued channel IDs and expected resource IDs/metadata; use unpredictable channel token (X-Goog-Channel-Token) verified against expected stored value; treat X-Goog-Resource-State as resource-state metadata, not as authentication. Notifications are change signals and do not contain complete event data; after valid notification, retrieve/synchronize provider state through Google Calendar API."
+    }
+  ],
+  "secret_handling": {
+    "boundary_policy": "Zero credentials, client secrets, passwords, private keys, or access tokens are requested, handled, or stored within decision packets.",
+    "non_secret_configuration_metadata": [
+      "issuer identifier / issuer URL",
+      "JWKS or equivalent verification metadata location",
+      "expected audience / resource identifier",
+      "stable subject claim",
+      "organization / scope-resolution mechanism",
+      "role / group mapping source",
+      "service-to-service authentication mechanism",
+      "calendar provider scope and synchronization direction"
+    ],
+    "prohibited_secret_credential_material": [
+      "passwords",
+      "client secrets",
+      "private keys",
+      "access tokens",
+      "refresh tokens",
+      "API keys"
+    ],
+    "configuration_only": "All parameters represent abstract configuration concepts, metadata endpoints, or claim mappings only.",
+    "runtime_secrets": "Production credentials and secrets MUST be managed through an approved secure secret-management mechanism and MUST NOT be stored in source control or decision documents."
+  },
+  "next_task": "0G.7"
+}

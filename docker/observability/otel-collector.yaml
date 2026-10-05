@@ -1,0 +1,35 @@
+# OpenTelemetry Collector configuration for local observability runtime
+# Part of Task 1K.6 (Phase 1 Observability)
+# Receives OTLP/HTTP traces and metrics from e7-api and e7-worker
+# Emits traces to local debug exporter and metrics to Prometheus exporter
+
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 1s
+    send_batch_size: 256
+
+exporters:
+  debug:
+    verbosity: detailed
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: ""
+    send_timestamps: true
+    metric_expiration: 180m
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [debug, prometheus]

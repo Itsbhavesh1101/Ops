@@ -1,0 +1,80 @@
+{
+  "dataset_id": "INT-NOTIFY-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "notification_command_contract_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "variant_id": "EX-HAPPY-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "source_event": {
+    "event_name": "schedule.published",
+    "event_id": "evt-synth-schedule-published-001",
+    "schema_version": "1.0.0",
+    "correlation_id": "corr-notify-001",
+    "tenant_id": "tenant-synth-001",
+    "schedule_dataset_ref": "SC-EXAM-FEASIBLE-001@1.0.0"
+  },
+  "notification_command": {
+    "command_id": "notify-cmd-synth-001",
+    "command_type": "SCHEDULE_PUBLISHED_NOTICE",
+    "command_version": "1.0.0",
+    "tenant_id": "tenant-synth-001",
+    "correlation_id": "corr-notify-001",
+    "idempotency_key": "idem-notify-001",
+    "destination_adapter": "synthetic-e8-mock",
+    "audience": {
+      "type": "AFFECTED_SCHEDULE_PARTICIPANTS",
+      "canonical_resource_ids": [
+        "res-inv-001",
+        "res-inv-002",
+        "res-inv-003",
+        "res-inv-004"
+      ]
+    },
+    "subject": "Grade 10 examination schedule published",
+    "template_data": {
+      "schedule_dataset_ref": "SC-EXAM-FEASIBLE-001@1.0.0",
+      "published": true
+    }
+  },
+  "adapter_expectation": {
+    "e7_canonical_command_is_provider_independent": true,
+    "destination_adapter_translates_later": true,
+    "provider_wire_contract_defined_here": false,
+    "real_destination_address_defined_here": false,
+    "real_credentials_defined_here": false
+  },
+  "expected_delivery_semantics": {
+    "idempotent_dispatch_required": true,
+    "duplicate_committed_notification_forbidden": true,
+    "provider_failure_must_be_visible": true,
+    "fake_success_forbidden": true,
+    "correlation_must_be_preserved": true,
+    "audit_required": true
+  },
+  "expected_audit": {
+    "source_event_reference": "evt-synth-schedule-published-001",
+    "source_event_name": "schedule.published",
+    "command_id": "notify-cmd-synth-001",
+    "command_version": "1.0.0",
+    "destination_adapter": "synthetic-e8-mock",
+    "correlation_id": "corr-notify-001",
+    "idempotency_key": "idem-notify-001",
+    "dispatch_attempt_recorded": true,
+    "resulting_delivery_state_recorded": true,
+    "retry_policy_recorded": true,
+    "external_provider_reference_policy": "RECORD_ONLY_WHEN_RETURNED_LATER"
+  },
+  "expected_properties": {
+    "notification_command_required": true,
+    "source_event": "schedule.published",
+    "provider_specific_payload_forbidden": true,
+    "provider_specific_endpoint_forbidden": true,
+    "real_recipient_address_forbidden": true,
+    "real_credentials_forbidden": true,
+    "idempotency_required": true,
+    "audit_required": true
+  }
+}

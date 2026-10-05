@@ -1,0 +1,3638 @@
+{
+  "mapping_version": "1.1.0",
+  "task": "Task 0G.2A Source-Fidelity and Mapping-Semantics Correction",
+  "source": "company_mysql_iredu",
+  "scope": "task_intelligence",
+  "provenance_summary": {
+    "task_0g1_preliminary_ti_tagged_tables": 61,
+    "task_0g1_core_academic_tables": 37,
+    "task_0g1_auxiliary_lms_tables": 24,
+    "focus_domain_dependency_tables_added": 9,
+    "total_tables_evaluated": 70,
+    "provenance_notes": "In Task 0G.1, exactly 61 tables carried the preliminary Task Intelligence relevance tag (37 core academic/institutional tables and 24 auxiliary LMS tables). In Task 0G.2, 9 additional tables from the 10 Focus Domains and foreign-key dependencies were evaluated (roles, staff_leave_request, staff_leave_details, staff_attendance, staff_attendence_schedules, exam_groups, exam_schedules, students, student_session). The previous prompt's reference to '39 preliminary candidates' derived from the 37 core TI-tagged tables plus 2 focus tables (roles, staff_leave_request). All 70 evaluated tables have verified non-overlapping provenance."
+  },
+  "source_category_counts": {
+    "required_for_initial_ti": 14,
+    "optional_later": 13,
+    "validation_only": 5,
+    "aggregate_only": 2,
+    "unresolved": 1,
+    "excluded": 35,
+    "total_evaluated": 70
+  },
+  "restricted_column_counts_by_scope": {
+    "scope_1_required_for_initial_ti_14_tables": {
+      "total_columns": 148,
+      "restricted_forbidden_columns": 31,
+      "highly_sensitive_columns": 9,
+      "personal_data_columns": 20,
+      "notes": "31 columns in staff are strictly forbidden from AI context. staff.name and staff.surname are personal data admitted only as sanitized display labels or opaque references."
+    },
+    "scope_2_all_70_evaluated_tables": {
+      "total_columns": 727,
+      "highly_sensitive_columns": 14,
+      "personal_data_columns": 60,
+      "total_sensitive_columns": 74
+    },
+    "scope_3_global_mysql_schema_inventory_247_tables": {
+      "total_columns": 2637,
+      "highly_sensitive_columns": 49,
+      "personal_data_columns": 237,
+      "total_sensitive_columns": 286
+    }
+  },
+  "initial_sources": [
+    "annual_calendar",
+    "class_sections",
+    "classes",
+    "department",
+    "events",
+    "sections",
+    "sessions",
+    "staff",
+    "staff_designation",
+    "subject_group_class_sections",
+    "subject_group_subjects",
+    "subject_groups",
+    "subject_timetable",
+    "subjects"
+  ],
+  "optional_sources": [
+    "cbse_exams",
+    "cbse_terms",
+    "class_teacher",
+    "daily_assignment",
+    "exam_groups",
+    "exam_schedules",
+    "homework",
+    "lesson",
+    "staff_attendence_schedules",
+    "staff_leave_details",
+    "staff_leave_request",
+    "subject_syllabus",
+    "topic"
+  ],
+  "validation_only_sources": [
+    "cbse_template_class_sections",
+    "class_section_times",
+    "holiday_type",
+    "roles",
+    "staff_roles"
+  ],
+  "aggregate_only_sources": [
+    "student_session",
+    "students"
+  ],
+  "excluded_sources": [
+    "certificates",
+    "content_for",
+    "content_types",
+    "contents",
+    "course_category",
+    "course_lesson_quiz_order",
+    "course_progress",
+    "course_quiz_answer",
+    "course_quiz_question",
+    "course_rating",
+    "fee_session_groups",
+    "gmeet_sections",
+    "gmeet_staff",
+    "homework_evaluation",
+    "lesson_plan_forum",
+    "online_course_class_sections",
+    "online_course_lesson",
+    "online_course_payment",
+    "online_course_processing_payment",
+    "online_course_quiz",
+    "online_course_section",
+    "online_course_settings",
+    "online_courses",
+    "school_houses",
+    "share_content_for",
+    "share_contents",
+    "share_upload_contents",
+    "staff_id_card",
+    "staff_rating",
+    "staff_timeline",
+    "student_quiz_status",
+    "submit_assignment",
+    "upload_contents",
+    "video_tutorial",
+    "video_tutorial_class_sections"
+  ],
+  "unresolved_sources": [
+    "staff_attendance"
+  ],
+  "tables": [
+    {
+      "table_name": "annual_calendar",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-06"
+      ],
+      "context_categories": [
+        "calendar_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, annual_calendar, id)"
+        },
+        {
+          "column_name": "session_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to sessions.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Filter to current active session"
+        },
+        {
+          "column_name": "holiday_type",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK / lookup to holiday_type.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Resolved via join to holiday_type.type"
+        },
+        {
+          "column_name": "from_date",
+          "sql_type": "datetime",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Holiday start datetime boundary",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Informational date context for calendar display"
+        },
+        {
+          "column_name": "to_date",
+          "sql_type": "datetime",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Holiday end datetime boundary",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Informational date context for calendar display"
+        },
+        {
+          "column_name": "description",
+          "sql_type": "text",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Holiday title / description",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active holiday entry flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic query filter"
+        },
+        {
+          "column_name": "holiday_color",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "UI display hex color code",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "front_site",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Public portal display flag",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "created_by",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "User ID of creator",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "annual_calendar.session_id -> sessions.id",
+        "annual_calendar.holiday_type -> holiday_type.id"
+      ],
+      "business_confirmation": [
+        "INFORMATIONAL DATE VS HARD BLACKOUT: Holiday entries provide informational calendar context. Whether a holiday enforces a total operational shutdown requires E-7 institutional policy confirmation.",
+        "ACTIVE SEMANTICS: Confirm is_active filtering rules for calendar dates"
+      ]
+    },
+    {
+      "table_name": "class_sections",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02"
+      ],
+      "context_categories": [
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, class_sections, id)"
+        },
+        {
+          "column_name": "class_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to classes.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Resolved via join to classes.class"
+        },
+        {
+          "column_name": "section_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to sections.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Resolved via join to sections.section"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(255)",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active status flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic filter"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "class_sections.class_id -> classes.id",
+        "class_sections.section_id -> sections.id",
+        "Referenced by subject_group_class_sections.class_section_id -> class_sections.id",
+        "Referenced by subject_timetable.class_section_id -> class_sections.id"
+      ],
+      "business_confirmation": [
+        "COHORT IDENTIFIER: Confirm whether composite string 'Class X - Section Y' is the standard display format",
+        "ACTIVE SEMANTICS: Confirm whether class_sections.is_active disables the entire cohort"
+      ]
+    },
+    {
+      "table_name": "classes",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02"
+      ],
+      "context_categories": [
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, classes, id)"
+        },
+        {
+          "column_name": "class",
+          "sql_type": "varchar(60)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Grade level name",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(255)",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active status flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic query filter"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "Referenced by class_sections.class_id -> classes.id",
+        "Referenced by class_teacher.class_id -> classes.id"
+      ],
+      "business_confirmation": [
+        "TENANT/ORGANIZATION SCOPE: Campus-level grade structure confirmation",
+        "ACTIVE SEMANTICS: Confirm is_active filtering rules"
+      ]
+    },
+    {
+      "table_name": "department",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02",
+        "FR-TI-09"
+      ],
+      "context_categories": [
+        "organization_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, department, id)"
+        },
+        {
+          "column_name": "department_name",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Department display label for task assignment and routing",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Sanitized string exposed to planner"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Department active status flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic query filter; confirmation required on semantics"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required for operational task planning"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required for operational task planning"
+        }
+      ],
+      "joins": [
+        "Referenced by staff.department -> department.id"
+      ],
+      "business_confirmation": [
+        "TENANT/ORGANIZATION SCOPE: Multi-school or branch partitioning unsupported in schema",
+        "ACTIVE SEMANTICS: Confirm whether is_active=0 represents soft-deletion or temporary deactivation"
+      ]
+    },
+    {
+      "table_name": "events",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-06"
+      ],
+      "context_categories": [
+        "calendar_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, events, id)"
+        },
+        {
+          "column_name": "event_title",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Event title summary",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "event_description",
+          "sql_type": "text",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Event detailed description",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Contextual description for informational awareness"
+        },
+        {
+          "column_name": "start_date",
+          "sql_type": "datetime",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Event start datetime",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Informational event timing"
+        },
+        {
+          "column_name": "end_date",
+          "sql_type": "datetime",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Event end datetime",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Informational event timing"
+        },
+        {
+          "column_name": "event_type",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Event classification (e.g. public, task, academic)",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "event_color",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "UI display hex color code",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "event_for",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Audience filter code (e.g. all, staff, students)",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic query filter"
+        },
+        {
+          "column_name": "role_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to roles.id for role-specific events",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Deterministic role filter"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active status flag (varchar)",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Confirmation required on string values"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "events.role_id -> roles.id"
+      ],
+      "business_confirmation": [
+        "INFORMATIONAL DATE VS SCHEDULING CONFLICT: Events provide informational calendar context. They must NOT be treated as automated hard blackouts without E-7 policy confirmation.",
+        "ACTIVE SEMANTICS: is_active column is varchar(100) rather than integer flag; confirm allowed string values ('0', '1', 'yes', 'no')",
+        "EVENT SCOPE: Confirm event_for values ('all', 'role', 'class') to prevent leaking staff-only or private events to generalized planning"
+      ]
+    },
+    {
+      "table_name": "sections",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02"
+      ],
+      "context_categories": [
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, sections, id)"
+        },
+        {
+          "column_name": "section",
+          "sql_type": "varchar(60)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Section letter or name",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(255)",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active status flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic filter"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "Referenced by class_sections.section_id -> sections.id",
+        "Referenced by class_teacher.section_id -> sections.id"
+      ],
+      "business_confirmation": [
+        "TENANT/ORGANIZATION SCOPE: Section nomenclature rules across branches",
+        "ACTIVE SEMANTICS: Section activation flag rules"
+      ]
+    },
+    {
+      "table_name": "sessions",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-05",
+        "FR-TI-06"
+      ],
+      "context_categories": [
+        "academic_context",
+        "calendar_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, sessions, id)"
+        },
+        {
+          "column_name": "session",
+          "sql_type": "varchar(60)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Academic session name/code (e.g., 2026-2027)",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Primary temporal operational boundary for goals"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(255)",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active academic session flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Used to select current operational academic year"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "Referenced by subject_groups, subject_timetable, annual_calendar, class_teacher, student_session"
+      ],
+      "business_confirmation": [
+        "ACTIVE SESSION SEMANTICS: Confirm whether exactly one session has is_active=1 at any point in time",
+        "TENANT/ORGANIZATION SCOPE: Multi-branch academic session alignment"
+      ]
+    },
+    {
+      "table_name": "staff",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02",
+        "FR-TI-07",
+        "FR-TI-09"
+      ],
+      "context_categories": [
+        "resource_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, staff, id)"
+        },
+        {
+          "column_name": "employee_id",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Institutional staff code",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id tuple"
+        },
+        {
+          "column_name": "lang_id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "UI language preference",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "currency_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Currency preference",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "department",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to department.id",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Resolved via join to department.department_name"
+        },
+        {
+          "column_name": "designation",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to staff_designation.id",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Resolved via join to staff_designation.designation"
+        },
+        {
+          "column_name": "qualification",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Professional qualification for role capability matching",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "work_exp",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Work experience description for task suitability",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "name",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Staff first name for display/identification",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed as sanitized label or opaque reference"
+        },
+        {
+          "column_name": "surname",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Staff last name for display/identification",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed as sanitized label or opaque reference"
+        },
+        {
+          "column_name": "father_name",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Guardian/parent PII",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "mother_name",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Guardian/parent PII",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "contact_no",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Personal phone number",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "emergency_contact_no",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Emergency phone number",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "email",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Personal/work email address",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "dob",
+          "sql_type": "date",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Date of birth",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "marital_status",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Marital status personal PII",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "date_of_joining",
+          "sql_type": "date",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Employment start date",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Used for deterministic tenure checks only"
+        },
+        {
+          "column_name": "date_of_leaving",
+          "sql_type": "date",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Employment end date",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Used for deterministic tenure checks only"
+        },
+        {
+          "column_name": "local_address",
+          "sql_type": "varchar(300)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Residential address",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "permanent_address",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Residential address",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "note",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Unstructured HR notes",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "image",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Profile photograph filename",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "password",
+          "sql_type": "varchar(250)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Authentication password hash",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "CRITICAL SECURITY RISK: STRICTLY FORBIDDEN"
+        },
+        {
+          "column_name": "gender",
+          "sql_type": "varchar(50)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Demographic gender data",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "account_title",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Bank account holder title",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "bank_account_no",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Financial bank account number",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "CRITICAL PRIVACY: STRICTLY FORBIDDEN"
+        },
+        {
+          "column_name": "bank_name",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Bank financial institution name",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "ifsc_code",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Bank routing / IFSC code",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "bank_branch",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Bank branch location",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "payscale",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Compensation payscale",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "FINANCIAL/PAYROLL: STRICTLY FORBIDDEN"
+        },
+        {
+          "column_name": "basic_salary",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Compensation salary amount",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "FINANCIAL/PAYROLL: STRICTLY FORBIDDEN"
+        },
+        {
+          "column_name": "epf_no",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Provident fund / retirement tax ID",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "GOVERNMENT/TAX ID: STRICTLY FORBIDDEN"
+        },
+        {
+          "column_name": "contract_type",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Employment contract classification (e.g. permanent, contract)",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Used for deterministic capability validation"
+        },
+        {
+          "column_name": "shift",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Work shift code",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Deterministic operational shift filter"
+        },
+        {
+          "column_name": "location",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Campus office location",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Deterministic geographic filter"
+        },
+        {
+          "column_name": "facebook",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Social media URL",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "twitter",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Social media URL",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "linkedin",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Social media URL",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "instagram",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Social media URL",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "resume",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "HR resume document filename",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "joining_letter",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "HR joining document filename",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "resignation_letter",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "HR resignation document filename",
+          "sensitivity": "PERSONAL DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "other_document_name",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "HR document title",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "other_document_file",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "HR document filename",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "STRICTLY FORBIDDEN FROM AI CONTEXT"
+        },
+        {
+          "column_name": "user_id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to users.id",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Deterministic identity linkage"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Staff active employment status",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic active staff filter"
+        },
+        {
+          "column_name": "verification_code",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "RESTRICTED / FORBIDDEN_FROM_AI",
+          "purpose": "Account verification secret token",
+          "sensitivity": "HIGHLY SENSITIVE / RESTRICTED",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "CRITICAL SECURITY RISK: STRICTLY FORBIDDEN"
+        },
+        {
+          "column_name": "disable_at",
+          "sql_type": "date",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Account deactivation timestamp",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic active status verification"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "staff.department -> department.id",
+        "staff.designation -> staff_designation.id",
+        "Referenced by staff_roles.staff_id -> staff.id",
+        "Referenced by class_teacher.staff_id -> staff.id",
+        "Referenced by subject_timetable.staff_id -> staff.id"
+      ],
+      "business_confirmation": [
+        "STRICT PRIVACY ENFORCEMENT: Only name, surname, qualification, work_exp may enter planner context. All 31 sensitive/PII/payroll fields forbidden.",
+        "EXTERNAL ID OBFUSCATION: Raw staff IDs must be mapped to opaque references (e.g. StaffRef_42) before planner context intake",
+        "TENANT/ORGANIZATION SCOPE: Multi-school staff sharing or branch scoping rules",
+        "ACTIVE SEMANTICS: Confirm interplay between is_active=1 and disable_at date"
+      ]
+    },
+    {
+      "table_name": "staff_designation",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02",
+        "FR-TI-09"
+      ],
+      "context_categories": [
+        "organization_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, staff_designation, id)"
+        },
+        {
+          "column_name": "designation",
+          "sql_type": "varchar(200)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Professional title label for owner role suggestions",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Sanitized string exposed to planner"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active status flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic filter"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "Referenced by staff.designation -> staff_designation.id"
+      ],
+      "business_confirmation": [
+        "TENANT/ORGANIZATION SCOPE: Designation hierarchy scope across campuses",
+        "ACTIVE SEMANTICS: Confirm whether is_active filters inactive titles"
+      ]
+    },
+    {
+      "table_name": "subject_group_class_sections",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02"
+      ],
+      "context_categories": [
+        "subject_context",
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, subject_group_class_sections, id)"
+        },
+        {
+          "column_name": "subject_group_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to subject_groups.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Join key"
+        },
+        {
+          "column_name": "class_section_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to class_sections.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Join key"
+        },
+        {
+          "column_name": "session_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to sessions.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Join key"
+        },
+        {
+          "column_name": "description",
+          "sql_type": "text",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Curricular assignment notes",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Contextual notes"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active status flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic query filter"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "subject_group_class_sections.subject_group_id -> subject_groups.id",
+        "subject_group_class_sections.class_section_id -> class_sections.id",
+        "subject_group_class_sections.session_id -> sessions.id"
+      ],
+      "business_confirmation": [
+        "ACTIVE SEMANTICS: Confirm is_active filtering for subject assignments"
+      ]
+    },
+    {
+      "table_name": "subject_group_subjects",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02"
+      ],
+      "context_categories": [
+        "subject_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, subject_group_subjects, id)"
+        },
+        {
+          "column_name": "subject_group_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to subject_groups.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Join key"
+        },
+        {
+          "column_name": "session_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to sessions.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Join key"
+        },
+        {
+          "column_name": "subject_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to subjects.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Join key"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "subject_group_subjects.subject_group_id -> subject_groups.id",
+        "subject_group_subjects.session_id -> sessions.id",
+        "subject_group_subjects.subject_id -> subjects.id",
+        "Referenced by subject_timetable.subject_group_subject_id -> subject_group_subjects.id"
+      ],
+      "business_confirmation": [
+        "SESSION REDUNDANCY: Confirm purpose of session_id both in subject_groups and subject_group_subjects"
+      ]
+    },
+    {
+      "table_name": "subject_groups",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02"
+      ],
+      "context_categories": [
+        "subject_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, subject_groups, id)"
+        },
+        {
+          "column_name": "name",
+          "sql_type": "varchar(250)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Subject group name",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "description",
+          "sql_type": "text",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Curricular group description",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Provides contextual hints to planner"
+        },
+        {
+          "column_name": "session_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to sessions.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Filter to current active session"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "subject_groups.session_id -> sessions.id",
+        "Referenced by subject_group_subjects.subject_group_id -> subject_groups.id",
+        "Referenced by subject_group_class_sections.subject_group_id -> subject_groups.id"
+      ],
+      "business_confirmation": [
+        "TENANT/ORGANIZATION SCOPE: Multi-branch curriculum bundling",
+        "SESSION BINDING: Confirm whether subject groups are strictly session-bound"
+      ]
+    },
+    {
+      "table_name": "subject_timetable",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-07",
+        "FR-TI-09"
+      ],
+      "context_categories": [
+        "commitment_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, subject_timetable, id)"
+        },
+        {
+          "column_name": "session_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to sessions.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Session filter"
+        },
+        {
+          "column_name": "class_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to classes.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Class filter"
+        },
+        {
+          "column_name": "section_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to sections.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Section filter"
+        },
+        {
+          "column_name": "subject_group_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to subject_groups.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Curriculum group"
+        },
+        {
+          "column_name": "subject_group_subject_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to subject_group_subjects.id",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Subject link"
+        },
+        {
+          "column_name": "staff_id",
+          "sql_type": "int",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "FK to staff.id",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Teacher busy slot association"
+        },
+        {
+          "column_name": "day",
+          "sql_type": "varchar(20)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Day of week for commitment interval (e.g. Monday)",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized commitment schedule"
+        },
+        {
+          "column_name": "time_from",
+          "sql_type": "varchar(20)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Period start time string",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized commitment schedule"
+        },
+        {
+          "column_name": "time_to",
+          "sql_type": "varchar(20)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Period end time string",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized commitment schedule"
+        },
+        {
+          "column_name": "start_time",
+          "sql_type": "time",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Period start time (time datatype)",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Time window commitment boundary"
+        },
+        {
+          "column_name": "end_time",
+          "sql_type": "time",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Period end time (time datatype)",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Time window commitment boundary"
+        },
+        {
+          "column_name": "room_no",
+          "sql_type": "varchar(20)",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Informational room label only",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "UNRESOLVED PHYSICAL RESOURCE MODEL. Forbidden from AI room capacity inference."
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "subject_timetable.session_id -> sessions.id",
+        "subject_timetable.class_id -> classes.id",
+        "subject_timetable.section_id -> sections.id",
+        "subject_timetable.subject_group_id -> subject_groups.id",
+        "subject_timetable.subject_group_subject_id -> subject_group_subjects.id",
+        "subject_timetable.staff_id -> staff.id"
+      ],
+      "business_confirmation": [
+        "ROOM_NO SEMANTICS (CRITICAL): room_no is an unconstrained string label only (e.g. '101', 'Lab'). SCHEMA FACT: Lacks room capacity, room type, or physical inventory. MUST NOT BE INTERPRETED BY PLANNER AS ROOM MASTER OR CAPACITY.",
+        "COMMITMENT VS AVAILABILITY: Free timetable slots do NOT imply complete staff availability; non-teaching administrative duties, preparation hours, and leave govern actual availability.",
+        "TIMETABLE VERSIONING: Confirm effective date ranges or term-based timetable versions",
+        "TIME COLUMNS: Confirm usage differences between varchar time_from/time_to and time start_time/end_time"
+      ]
+    },
+    {
+      "table_name": "subjects",
+      "decision": "REQUIRED_FOR_INITIAL_TI",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-02",
+        "FR-TI-04"
+      ],
+      "context_categories": [
+        "subject_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "sql_type": "int",
+          "nullable": false,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Primary key identifier",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": true,
+          "business_confirmation_required": false,
+          "notes": "Mapped to external_id in (mysql_iredu, subjects, id)"
+        },
+        {
+          "column_name": "name",
+          "sql_type": "varchar(100)",
+          "nullable": true,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Subject title",
+          "sensitivity": "INTERNAL BUSINESS DATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "code",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Subject code",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Exposed in sanitized prompt"
+        },
+        {
+          "column_name": "type",
+          "sql_type": "varchar(100)",
+          "nullable": false,
+          "exposure_class": "PLANNER_CONTEXT_ALLOWED",
+          "purpose": "Instructional type: Theory vs Practical (contextual feature for effort estimation)",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Contextual feature for effort estimation (FR-TI-04)"
+        },
+        {
+          "column_name": "is_active",
+          "sql_type": "varchar(255)",
+          "nullable": true,
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY",
+          "purpose": "Active status flag",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": true,
+          "notes": "Deterministic query filter"
+        },
+        {
+          "column_name": "created_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        },
+        {
+          "column_name": "updated_at",
+          "sql_type": "timestamp",
+          "nullable": false,
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE",
+          "purpose": "Audit timestamp",
+          "sensitivity": "PUBLIC/NON-SENSITIVE METADATA",
+          "external_id": false,
+          "business_confirmation_required": false,
+          "notes": "Not required"
+        }
+      ],
+      "joins": [
+        "Referenced by subject_group_subjects.subject_id -> subjects.id"
+      ],
+      "business_confirmation": [
+        "SUBJECT TYPE SEMANTICS: Confirm 'Theory' vs 'Practical' values and impact on effort estimation formulas",
+        "SUBJECT CODES: Confirm institutional uniqueness of code column"
+      ]
+    },
+    {
+      "table_name": "cbse_exams",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-06"
+      ],
+      "context_categories": [
+        "exam_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "cbse_term_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "name",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "exam_code",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "session_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "description",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "is_publish",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "is_active",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "created_at",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "cbse_exams.cbse_term_id -> cbse_terms.id"
+      ],
+      "business_confirmation": [
+        "EXAMINATION SUBSYSTEM AUTHORITY: Clarify whether cbse_exams or legacy exam_groups is the authoritative exam master"
+      ],
+      "rationale": "CBSE-specific examination entity. Subsystem authority unresolved between CBSE exam system and legacy general exam system."
+    },
+    {
+      "table_name": "cbse_terms",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-06"
+      ],
+      "context_categories": [
+        "academic_context",
+        "exam_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "name",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "term_code",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "description",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "created_by",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "created_at",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "Referenced by cbse_exams.cbse_term_id -> cbse_terms.id"
+      ],
+      "business_confirmation": [
+        "CURRICULUM SPECIFICITY: Clarify whether school operates under pure CBSE or dual/multiple examination boards"
+      ],
+      "rationale": "Deferred from initial core intake because general academic intake is driven by sessions. Relevant when goals explicitly target CBSE examination workflows."
+    },
+    {
+      "table_name": "class_teacher",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-05"
+      ],
+      "context_categories": [
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "session_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "class_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "section_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "staff_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "class_teacher.session_id -> sessions.id",
+        "class_teacher.class_id -> classes.id",
+        "class_teacher.section_id -> sections.id",
+        "class_teacher.staff_id -> staff.id"
+      ],
+      "business_confirmation": [
+        "RELATIONSHIP VS ELIGIBILITY: Confirm whether class-teacher assignment has any mandatory operational role or if task suitability is governed by designations and subject specialties."
+      ],
+      "rationale": "Describes an administrative homeroom teacher-to-class relationship. It does NOT prove professional skill, capacity, availability, or general task eligibility. Downgraded from initial planner context to prevent unsupported assignment assumptions."
+    },
+    {
+      "table_name": "daily_assignment",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-04"
+      ],
+      "context_categories": [
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "student_session_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "subject_group_subject_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "title",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "description",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "date",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "daily_assignment.student_session_id -> student_session.id",
+        "daily_assignment.subject_group_subject_id -> subject_group_subjects.id"
+      ],
+      "business_confirmation": [
+        "COURSEWORK VS OPERATIONS: Confirm operational engine distinction"
+      ],
+      "rationale": "Classroom assignments. Deferred from initial operational planning."
+    },
+    {
+      "table_name": "exam_groups",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "MEDIUM",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-06"
+      ],
+      "context_categories": [
+        "exam_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "name",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "exam_type",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "is_active",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "description",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "Referenced by exam_group_class_batch_exams"
+      ],
+      "business_confirmation": [
+        "EXAM AUTHORITY: Resolve dual exam subsystem coexistence"
+      ],
+      "rationale": "Legacy exam module master. Subsystem authority unresolved relative to CBSE subsystem."
+    },
+    {
+      "table_name": "exam_schedules",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "MEDIUM",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-07"
+      ],
+      "context_categories": [
+        "exam_context",
+        "commitment_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "session_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "exam_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "date_of_exam",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "start_to",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "end_from",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "room_no",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "full_marks",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "passing_marks",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "is_active",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "exam_schedules.session_id -> sessions.id"
+      ],
+      "business_confirmation": [
+        "PHYSICAL RESOURCE: room_no in exam_schedules is a string label only; lacks room capacity/equipment"
+      ],
+      "rationale": "Provides legacy exam schedule windows. Contains unconstrained room_no label. Optional until exam scheduling workflow is activated."
+    },
+    {
+      "table_name": "homework",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-04",
+        "FR-TI-08"
+      ],
+      "context_categories": [
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "class_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "section_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "session_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "staff_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "subject_group_subject_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "homework_date",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "submit_date",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "evaluation_date",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "description",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "homework.class_id -> classes.id",
+        "homework.section_id -> sections.id",
+        "homework.staff_id -> staff.id"
+      ],
+      "business_confirmation": [
+        "TASK CLASSIFICATION: Confirm pedagogical homework is outside operational WBS scope"
+      ],
+      "rationale": "Pedagogical student assignments. Not operational adult tasks. May be referenced later as evidence of instructional workload."
+    },
+    {
+      "table_name": "lesson",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-02",
+        "FR-TI-04"
+      ],
+      "context_categories": [
+        "subject_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "subject_group_subject_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "name",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "subject_group_class_sections_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "lesson.subject_group_subject_id -> subject_group_subjects.id",
+        "lesson.subject_group_class_sections_id -> subject_group_class_sections.id"
+      ],
+      "business_confirmation": [
+        "CURRICULAR GRANULARITY: Clarify whether operational tasks require lesson-level breakdown or macro-subject milestones"
+      ],
+      "rationale": "Micro-curricular planning detail. Initial Task Intelligence focuses on macro-WBS and departmental/staff-level work packages rather than lesson-by-lesson pedagogical units."
+    },
+    {
+      "table_name": "staff_attendence_schedules",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "MEDIUM",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-07"
+      ],
+      "context_categories": [
+        "availability_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "staff_attendence_type_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "role_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "entry_time_from",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "entry_time_to",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "total_institute_hour",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "is_active",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "staff_attendence_schedules.role_id -> roles.id"
+      ],
+      "business_confirmation": [
+        "SHIFT ENFORCEMENT: Confirm whether staff attendance schedules strictly restrict task execution hours"
+      ],
+      "rationale": "Shift definitions. Useful for daily operational task windowing, but deferred until shift enforcement policy is confirmed."
+    },
+    {
+      "table_name": "staff_leave_details",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "MEDIUM",
+      "ti_requirements": [
+        "FR-TI-07"
+      ],
+      "context_categories": [
+        "availability_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "staff_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "leave_type_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "alloted_leave",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "staff_leave_details.staff_id -> staff.id",
+        "staff_leave_details.leave_type_id -> leave_types.id"
+      ],
+      "business_confirmation": [
+        "QUOTA RELEVANCE: Confirm whether remaining leave quota affects task suitability"
+      ],
+      "rationale": "HR quota balances. Does not specify temporal blackout dates. Validation/HR metric only."
+    },
+    {
+      "table_name": "staff_leave_request",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-07",
+        "FR-TI-09"
+      ],
+      "context_categories": [
+        "availability_context"
+      ],
+      "read_only": true,
+      "freshness_class": "NEAR_REAL_TIME",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "staff_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "leave_type_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "leave_from",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "leave_to",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "leave_days",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "status",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "applied_by",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "date",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "staff_leave_request.staff_id -> staff.id",
+        "staff_leave_request.leave_type_id -> leave_types.id"
+      ],
+      "business_confirmation": [
+        "LEAVE APPROVAL STATUS: Confirm status column values ('approved', 'pending', 'rejected') to avoid treating pending requests as definitive absences. No hardcoded status filter (e.g. approved=1) should be assumed without documented evidence.",
+        "REMARK/DOCUMENT PRIVACY: employee_remark, admin_remark, document_file contain sensitive medical/personal notes and MUST be forbidden from AI context"
+      ],
+      "rationale": "High-value availability source for resource blocker detection (FR-TI-07) and recommendations (FR-TI-09). Deferred until leave status filtering semantics and approval lifecycle are confirmed."
+    },
+    {
+      "table_name": "subject_syllabus",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "MEDIUM",
+      "ti_requirements": [
+        "FR-TI-04",
+        "FR-TI-08"
+      ],
+      "context_categories": [
+        "subject_context"
+      ],
+      "read_only": true,
+      "freshness_class": "DAILY_OR_PERIODIC",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "topic_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "session_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "date",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "time_from",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "time_to",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "sub_topic",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "status",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "subject_syllabus.topic_id -> topic.id"
+      ],
+      "business_confirmation": [
+        "PROGRESS AUTHORITY: E-7 PostgreSQL is canonical for operational progress; subject_syllabus is read-only pedagogical evidence only"
+      ],
+      "rationale": "Syllabus tracking records. Potentially useful later as historical evidence of instructional progress, but deferred until progress tracking integrations are implemented."
+    },
+    {
+      "table_name": "topic",
+      "decision": "OPTIONAL_LATER",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-02"
+      ],
+      "context_categories": [
+        "subject_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "session_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "lesson_id",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "name",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        },
+        {
+          "column_name": "status",
+          "exposure_class": "NOT_REQUIRED_FOR_TASK_INTELLIGENCE"
+        }
+      ],
+      "joins": [
+        "topic.lesson_id -> lesson.id"
+      ],
+      "business_confirmation": [
+        "PEDAGOGICAL GRANULARITY: Confirm exclusion from macro-operational engine"
+      ],
+      "rationale": "Fine-grained pedagogical detail. Unnecessary for institutional operational task planning and milestone DAGs."
+    },
+    {
+      "table_name": "cbse_template_class_sections",
+      "decision": "VALIDATION_ONLY",
+      "confidence": "MEDIUM",
+      "ti_requirements": [
+        "FR-TI-01"
+      ],
+      "context_categories": [
+        "academic_context",
+        "exam_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "cbse_template_id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "class_section_id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        }
+      ],
+      "joins": [
+        "cbse_template_class_sections.class_section_id -> class_sections.id"
+      ],
+      "business_confirmation": [
+        "TEMPLATE BINDING: Used only for validating curriculum applicability"
+      ],
+      "rationale": "Deterministic binding table between assessment templates and class cohorts. No direct planner text payload."
+    },
+    {
+      "table_name": "class_section_times",
+      "decision": "VALIDATION_ONLY",
+      "confidence": "MEDIUM",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-07"
+      ],
+      "context_categories": [
+        "academic_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "class_section_id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "time",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        }
+      ],
+      "joins": [
+        "class_section_times.class_section_id -> class_sections.id"
+      ],
+      "business_confirmation": [
+        "BELL SCHEDULE: Confirm whether bell timings are operational task boundaries"
+      ],
+      "rationale": "Daily timing boundaries. Used deterministically by scheduling validators to check bell-period compliance."
+    },
+    {
+      "table_name": "holiday_type",
+      "decision": "VALIDATION_ONLY",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-03"
+      ],
+      "context_categories": [
+        "calendar_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "type",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "is_default",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        }
+      ],
+      "joins": [
+        "Referenced by annual_calendar.holiday_type -> holiday_type.id"
+      ],
+      "business_confirmation": [
+        "HOLIDAY CATEGORIZATION: Confirm which holiday types enforce operational blackout"
+      ],
+      "rationale": "Provides human-readable category strings for annual_calendar.holiday_type. Used deterministically in joins."
+    },
+    {
+      "table_name": "roles",
+      "decision": "VALIDATION_ONLY",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01"
+      ],
+      "context_categories": [
+        "organization_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "name",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "slug",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "is_active",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "is_system",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "is_superadmin",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        }
+      ],
+      "joins": [
+        "Referenced by staff_roles.role_id -> roles.id",
+        "Referenced by events.role_id -> roles.id"
+      ],
+      "business_confirmation": [
+        "RBAC VS CAPABILITY: Confirm that system roles do not define operational task eligibility; professional capabilities reside in staff_designation and qualifications."
+      ],
+      "rationale": "Application authorization roles (Admin, Teacher, Accountant) reflect web interface access privileges, not professional capabilities or task suitability. Downgraded from initial planner context to validation only. Used deterministically by backend services (e.g. event audience filtering) and forbidden from direct task capability inference."
+    },
+    {
+      "table_name": "staff_roles",
+      "decision": "VALIDATION_ONLY",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01"
+      ],
+      "context_categories": [
+        "organization_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "role_id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "staff_id",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        },
+        {
+          "column_name": "is_active",
+          "exposure_class": "DETERMINISTIC_VALIDATION_ONLY"
+        }
+      ],
+      "joins": [
+        "staff_roles.role_id -> roles.id",
+        "staff_roles.staff_id -> staff.id"
+      ],
+      "business_confirmation": [
+        "APPLICATION PERMISSION BOUNDARY: System role mappings are restricted to access control validation."
+      ],
+      "rationale": "Associates staff members with application security roles. Downgraded from initial planner context to validation only. Used deterministically to validate system permissions; does not represent operational task assignments."
+    },
+    {
+      "table_name": "student_session",
+      "decision": "AGGREGATION_ONLY",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-04"
+      ],
+      "context_categories": [
+        "aggregate_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "AGGREGATE_ONLY"
+        },
+        {
+          "column_name": "session_id",
+          "exposure_class": "AGGREGATE_ONLY"
+        },
+        {
+          "column_name": "student_id",
+          "exposure_class": "AGGREGATE_ONLY"
+        },
+        {
+          "column_name": "class_id",
+          "exposure_class": "AGGREGATE_ONLY"
+        },
+        {
+          "column_name": "section_id",
+          "exposure_class": "AGGREGATE_ONLY"
+        }
+      ],
+      "joins": [
+        "student_session.session_id -> sessions.id",
+        "student_session.class_id -> classes.id",
+        "student_session.section_id -> sections.id",
+        "student_session.student_id -> students.id"
+      ],
+      "business_confirmation": [
+        "ENROLLMENT STATUS: Confirm whether student_session rows include transferred/inactive students"
+      ],
+      "rationale": "Primary table for adapter-derived aggregate cohort count queries grouped by (session_id, class_id, section_id). Result exposed to planner strictly as an integer (e.g. 'Grade 10-A: 38 students')."
+    },
+    {
+      "table_name": "students",
+      "decision": "AGGREGATION_ONLY",
+      "confidence": "HIGH",
+      "ti_requirements": [
+        "FR-TI-01",
+        "FR-TI-04"
+      ],
+      "context_categories": [
+        "aggregate_context"
+      ],
+      "read_only": true,
+      "freshness_class": "STATIC_OR_SLOW",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "AGGREGATE_ONLY"
+        },
+        {
+          "column_name": "is_active",
+          "exposure_class": "AGGREGATE_ONLY"
+        },
+        {
+          "column_name": "disable_at",
+          "exposure_class": "AGGREGATE_ONLY"
+        }
+      ],
+      "joins": [
+        "Referenced by student_session.student_id -> students.id"
+      ],
+      "business_confirmation": [
+        "STRICT PRIVACY POLICY: Zero student records may be selected or transmitted to LLM. Aggregation only at database adapter boundary.",
+        "ACTIVE STUDENT FILTER: Confirm is_active filtering for calculating active student headcounts"
+      ],
+      "rationale": "Individual student rows contain 69 columns of minors' personal PII and must NEVER enter planner context. Only used via upstream adapter-derived aggregate cohort count to derive cohort headcounts for exam seating scale."
+    },
+    {
+      "table_name": "staff_attendance",
+      "decision": "UNRESOLVED",
+      "confidence": "LOW",
+      "ti_requirements": [
+        "FR-TI-07",
+        "FR-TI-08"
+      ],
+      "context_categories": [
+        "availability_context"
+      ],
+      "read_only": true,
+      "freshness_class": "NEAR_REAL_TIME",
+      "columns": [
+        {
+          "column_name": "id",
+          "exposure_class": "REQUIRES_BUSINESS_CONFIRMATION"
+        },
+        {
+          "column_name": "staff_id",
+          "exposure_class": "REQUIRES_BUSINESS_CONFIRMATION"
+        },
+        {
+          "column_name": "staff_attendance_type_id",
+          "exposure_class": "REQUIRES_BUSINESS_CONFIRMATION"
+        },
+        {
+          "column_name": "date",
+          "exposure_class": "REQUIRES_BUSINESS_CONFIRMATION"
+        },
+        {
+          "column_name": "remark",
+          "exposure_class": "REQUIRES_BUSINESS_CONFIRMATION"
+        },
+        {
+          "column_name": "created_at",
+          "exposure_class": "REQUIRES_BUSINESS_CONFIRMATION"
+        },
+        {
+          "column_name": "updated_at",
+          "exposure_class": "REQUIRES_BUSINESS_CONFIRMATION"
+        }
+      ],
+      "joins": [
+        "staff_attendance.staff_id -> staff.id"
+      ],
+      "business_confirmation": [
+        "FUTURE AVAILABILITY SEMANTICS: Confirm whether historical attendance has any valid predictive role in E-7 planning or if only forward leave requests (staff_leave_request) and timetables govern availability",
+        "DATA VOLUME: High-frequency operational punch data creates unnecessary integration overhead if misapplied to macro-planning"
+      ],
+      "rationale": "CRITICAL ARCHITECTURAL DISTINCTION: Historical daily punch logs CANNOT be assumed to represent future operational availability. Using past punch logs for forward planning without clear business modeling creates significant scheduling failure risks."
+    },
+    {
+      "table_name": "certificates",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Document template generation: Template metadata for printing student/staff completion certificates. Not an operational planning input.",
+      "domain": "Academic Admin"
+    },
+    {
+      "table_name": "content_for",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Digital asset distribution: User distribution lists for content downloads.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "content_types",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Digital asset classification: Content type metadata lookup.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "contents",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Digital asset library: Uploaded educational files, assignments, and study materials.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "course_category",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning taxonomy: Online course subject categorization.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "course_lesson_quiz_order",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning navigation: Sequencing order for online lessons and quizzes.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "course_progress",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning analytics: Student video playback completion percentages.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "course_quiz_answer",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning quiz: Student submitted quiz responses and answers.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "course_quiz_question",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning quiz: Multiple choice quiz question definitions.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "course_rating",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning reviews: Public course star ratings and reviews.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "fee_session_groups",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Financial domain: Fee structure grouping by session. Zero relevance to operational task breakdown, WBS, or scheduling.",
+      "domain": "Finance"
+    },
+    {
+      "table_name": "gmeet_sections",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Teleconferencing integration: Join table linking class sections to Google Meet sessions.",
+      "domain": "Conferencing"
+    },
+    {
+      "table_name": "gmeet_staff",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Teleconferencing integration: Join table linking staff to Google Meet virtual sessions. External teleconference URL management.",
+      "domain": "Conferencing"
+    },
+    {
+      "table_name": "homework_evaluation",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Pedagogical assessment: Individual student homework evaluation and marks. Sensitive minor grading data.",
+      "domain": "Classroom Assessment"
+    },
+    {
+      "table_name": "lesson_plan_forum",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Discussion board: Unstructured forum commentary between teachers and students on lesson plans. Non-authoritative communication.",
+      "domain": "Communication"
+    },
+    {
+      "table_name": "online_course_class_sections",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning course mapping: Linking online courses to class sections.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "online_course_lesson",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning course unit: Video lesson metadata.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "online_course_payment",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning e-commerce: Online course payment transactions and gateway logs.",
+      "domain": "Finance / E-commerce"
+    },
+    {
+      "table_name": "online_course_processing_payment",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning e-commerce: In-flight payment gateway transactions.",
+      "domain": "Finance / E-commerce"
+    },
+    {
+      "table_name": "online_course_quiz",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning quiz: Online quiz master definitions.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "online_course_section",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning course module: Course module sections.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "online_course_settings",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning configuration: Payment gateway keys and course portal configuration.",
+      "domain": "Configuration"
+    },
+    {
+      "table_name": "online_courses",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning course catalogue: Asynchronous online video course metadata.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "school_houses",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Student grouping: Extracurricular student houses (e.g. Red House, Blue House). No operational workflow relevance.",
+      "domain": "Student Administration"
+    },
+    {
+      "table_name": "share_content_for",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Content sharing: Distribution recipients for shared content.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "share_contents",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Content sharing: Shared file bundles and download links.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "share_upload_contents",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Content sharing: Mapping shared files to uploaded content.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "staff_id_card",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Print layout template: Visual badge styling, background images, and header colors for ID printing. Zero operational relevance.",
+      "domain": "Print Management"
+    },
+    {
+      "table_name": "staff_rating",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Subjective feedback: Employee performance ratings and subjective student/peer comments. FORBIDDEN FROM AI PLANNING.",
+      "domain": "HR Feedback"
+    },
+    {
+      "table_name": "staff_timeline",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Personnel HR journal: Internal HR chronological notes, employee disciplinary logs, and personal documents. High privacy risk.",
+      "domain": "HR Private"
+    },
+    {
+      "table_name": "student_quiz_status",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "E-learning quiz: Student quiz attempt status.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "submit_assignment",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Student submission: Homework file uploads, messages, and student attachments. PII and media storage.",
+      "domain": "Classroom Assessment"
+    },
+    {
+      "table_name": "upload_contents",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "File storage: Storage metadata for uploaded educational media.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "video_tutorial",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Digital video library: Standalone video tutorial metadata.",
+      "domain": "LMS / Digital Content"
+    },
+    {
+      "table_name": "video_tutorial_class_sections",
+      "decision": "EXCLUDED",
+      "confidence": "HIGH",
+      "ti_requirements": [],
+      "context_categories": [],
+      "read_only": true,
+      "freshness_class": "NOT_APPLICABLE",
+      "columns": [],
+      "joins": [],
+      "business_confirmation": [],
+      "exclusion_reason": "Digital video distribution: Linking video tutorials to class sections.",
+      "domain": "LMS / Digital Content"
+    }
+  ],
+  "global_forbidden_categories": [
+    "passwords_and_hashes",
+    "authentication_tokens_and_secrets",
+    "bank_account_numbers_and_ifsc",
+    "basic_and_net_salaries_and_payscales",
+    "epf_pan_national_tax_identifiers",
+    "biometric_identifiers",
+    "personal_phone_and_emergency_numbers",
+    "personal_email_addresses",
+    "residential_local_and_permanent_addresses",
+    "personal_dates_of_birth",
+    "marital_status_and_demographic_traits",
+    "guardian_and_parent_names",
+    "social_media_profiles",
+    "resumes_and_hr_letters",
+    "subjective_ratings_and_disciplinary_timelines",
+    "individual_student_pii_and_assessments"
+  ],
+  "unresolved_business_questions": [
+    {
+      "id": "UBQ-TI-01",
+      "title": "Tenant / Organization Scoping",
+      "description": "Database iredu lacks tenant_id or branch partitioning. Confirm whether deployment is single-institution dedicated or requires tenant isolation logic.",
+      "status": "INTEGRATION_BLOCKER_BEFORE_LIVE_ACCESS"
+    },
+    {
+      "id": "UBQ-TI-02",
+      "title": "Active and Soft-Delete Semantics",
+      "description": "Tables use inconsistent active fields (is_active int, is_active varchar(100) in events, disable_at dates, status strings). Confirm authoritative active filtering per table.",
+      "status": "INTEGRATION_BLOCKER_BEFORE_LIVE_ACCESS"
+    },
+    {
+      "id": "UBQ-TI-03",
+      "title": "Examination Subsystem Authority",
+      "description": "Schema contains both CBSE examination tables (cbse_exams, cbse_terms) and general/legacy examination tables (exam_groups, exam_schedules). Confirm operational authority for reference use cases.",
+      "status": "INTEGRATION_BLOCKER_BEFORE_LIVE_ACCESS"
+    },
+    {
+      "id": "UBQ-TI-04",
+      "title": "Physical Academic Resource Source Authority",
+      "description": "As established in Task 0G.1A, MySQL iredu lacks room capacity, room equipment, or room master structures (room_no is unconstrained string label). Physical resource authority remains unresolved between Universal and Embedded modes.",
+      "status": "INTEGRATION_BLOCKER_BEFORE_LIVE_ACCESS"
+    },
+    {
+      "id": "UBQ-TI-05",
+      "title": "Future Staff Availability vs Historical Attendance Semantics",
+      "description": "Confirm whether historical daily punch records (staff_attendance) have any predictive role in planning or if future availability is strictly governed by approved leave (staff_leave_request) and timetables.",
+      "status": "INTEGRATION_BLOCKER_BEFORE_LIVE_ACCESS"
+    }
+  ]
+}

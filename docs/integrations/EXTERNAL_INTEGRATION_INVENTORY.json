@@ -1,0 +1,685 @@
+{
+  "inventory_version": "1.0.2",
+  "status": "phase_0_evidence_audit_corrected_0g6a2",
+  "phase": "Phase 0 \u2014 Governance, Architecture & Test Fixtures",
+  "audit_timestamp": "2026-09-24T23:48:00Z",
+  "source_corpus_audit": {
+    "physically_available_and_parsed": [
+      {
+        "filename": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "physical_path": "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+        "pages": 31,
+        "parsing_tool": "PyMuPDF (fitz)",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "physical_path": "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+        "pages": 26,
+        "parsing_tool": "PyMuPDF (fitz)",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "IR_Infotech_E7_Operations_Engine_Open_Source_Research_Report.pdf",
+        "physical_path": "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Open_Source_Research_Report.pdf",
+        "pages": 19,
+        "parsing_tool": "PyMuPDF (fitz)",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "opes eng.pdf",
+        "physical_path": "docs/source-of-truth/opes eng.pdf",
+        "pages": 4,
+        "parsing_tool": "PyMuPDF (fitz)",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "docs/SOURCE_OF_TRUTH.md",
+        "physical_path": "docs/SOURCE_OF_TRUTH.md",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "docs/IMPLEMENTATION_GUARDRAILS.md",
+        "physical_path": "docs/IMPLEMENTATION_GUARDRAILS.md",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md",
+        "physical_path": "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "docs/data-model/CANONICAL_OWNERSHIP_AND_SERVICE_BOUNDARIES.md",
+        "physical_path": "docs/data-model/CANONICAL_OWNERSHIP_AND_SERVICE_BOUNDARIES.md",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "docs/adr/ (ADR-000 through ADR-009)",
+        "physical_path": "docs/adr/",
+        "status": "PARSED_LOCALLY"
+      },
+      {
+        "filename": "docs/integrations/ (0G.1 through 0G.5 contracts)",
+        "physical_path": "docs/integrations/",
+        "status": "PARSED_LOCALLY"
+      }
+    ],
+    "expected_sources_not_locally_available": [
+      "Original uncompiled IR MAIN DOC",
+      "Consolidated Engine Directory",
+      "Standalone Engine Architecture \u2014 IR Infotech AI Ecosystem",
+      "Standalone Task Intelligence specification",
+      "Standalone Workflow specification",
+      "Standalone Scheduling specification"
+    ],
+    "corpus_limitation_note": "The local repository contains only the four compiled source PDFs listed above under docs/source-of-truth/. Absence of an explicit provider name in this local corpus establishes 'NOT FOUND IN AVAILABLE SOURCES', not exhaustive historical absence across uncompiled documents. Where an available authoritative document explicitly records that a provider decision is open, that finding is backed by direct evidence."
+  },
+  "integrations": [
+    {
+      "domain": "identity",
+      "display_name": "Google Cloud Identity / Google Workspace managed organizational identity",
+      "required": true,
+      "exact_provider": "GOOGLE_CLOUD_IDENTITY_GOOGLE_WORKSPACE",
+      "provider_status": "EXACT_PROVIDER_RESOLVED",
+      "integration_status": "SELECTION_RESOLVED",
+      "direction": "AUTHENTICATION_FLOW",
+      "direction_detail": "Inbound JWT Bearer tokens and JWKS public key rotation responses; token verification at API service ingress.",
+      "authority": [
+        {
+          "entity": "identity_authentication_assertion",
+          "authoritative_system": "external_idp",
+          "scope": "Authoritative for authentication and identity assertions presented to E-7",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        },
+        {
+          "entity": "tenant_context_resolution",
+          "authoritative_system": "e7_core_security_api_service",
+          "scope": "Authoritative for resolving and enforcing tenant context derived from verified JWT claims or authenticated machine credentials",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        },
+        {
+          "entity": "user_profile_and_role_mapping",
+          "authoritative_system": "postgresql_users_table",
+          "scope": "Authoritative for internal user mappings (idp_sub), tenant associations, and local RBAC role assignments",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        }
+      ],
+      "protocol_standards": [
+        "OIDC",
+        "OAuth2",
+        "JWT",
+        "JWKS"
+      ],
+      "configuration_parameters": [
+        "JWT_ISSUER",
+        "JWKS_URL"
+      ],
+      "technical_requirements": [
+        "OIDC/JWT Bearer token verification via JWKS endpoint for human users (Implementation Plan Sec. 14)",
+        "Scoped API keys / signed service identities for machine/service clients (Implementation Plan Sec. 14)",
+        "Mandatory cryptographic validation of issuer, audience, signature, and expiration",
+        "Tenant ID derived exclusively from verified JWT security context / authenticated principal; never trusted from request payload or URL path (Implementation Guardrails Sec. 3)",
+        "Coarse-grained RBAC enforced at api-service ingress and domain handlers; fine-grained ABAC for task eligibility (Complete Specification Sec. 23)",
+        "External IdP subject mapped to PostgreSQL users table via idp_sub column (Canonical Ownership Sec. 4.1)"
+      ],
+      "evidence": [
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 39 (p. 24)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Explicitly catalogs under Open Decisions Before Coding: 'Identity provider and RBAC/ABAC integration contract with the target ERP.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+          "location": "Section 14 (p. 15)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Specifies: 'Authentication: OIDC/JWT for users; scoped API keys/service identities for machine clients. Validate issuer, audience, expiry and key rotation. Token lifecycle standard Bearer token in Authorization header; refresh handled by client/IdP. Organization tenancy: Derive tenant from authenticated principal/API key. Never trust arbitrary tenant_id request fields.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+          "location": "Section 17.2 (p. 17)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Config variables table: 'JWT_ISSUER / JWKS_URL: Identity provider configuration.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 23 (p. 17)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Specifies: 'Tenant ID is derived from the authenticated principal/API key and applied to every database query. Use RBAC for coarse permissions and optional ABAC/policy checks for object/department/context restrictions.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+          "location": "Section 18, Phase 0, Step 7 (p. 19)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Phase 0 implementation step: 'Define exact identity provider, first ERP/SIS adapter, first calendar provider and E-8 notification contract or mock.'"
+        },
+        {
+          "source": "Local Source Corpus Scan",
+          "location": "docs/source-of-truth/ (all 4 PDFs)",
+          "classification": "NOT FOUND IN AVAILABLE SOURCES",
+          "confidence": "MEDIUM",
+          "detail": "Absence of specific commercial or open-source IdP brand names across the available local PDF corpus. Confidence is MEDIUM due to the local corpus limitation, but the open status is corroborated at HIGH confidence by the explicit statement in Complete Specification Section 39."
+        }
+      ],
+      "open_decisions": [
+        {
+          "id": "DEC-IDP-01",
+          "decision": "Confirm the exact production Identity Provider used by the organization/customer environment for E-7 authentication.",
+          "status": "RESOLVED",
+          "resolution": "Google Cloud Identity / Google Workspace managed organizational identity selected via project-authorized provider selection.",
+          "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+        },
+        {
+          "id": "DEC-IDP-02",
+          "decision": "Formalize exact JWT token claim schema for tenant_id and institutional roles.",
+          "status": "FOLLOW_UP_CONFIGURATION",
+          "resolution": "E-7 RBAC / institutional-role mapping is an IMPLEMENTATION / CONFIGURATION FOLLOW-UP. Standard Google OIDC claims do not provide E-7 application roles or institutional RBAC policy. Possible future sources: internal role assignments, Google directory/group mapping, ERP/SIS role mapping. Does not reopen D-EXT-01.",
+          "decision_basis": "CONFIGURATION_FOLLOW_UP"
+        }
+      ],
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "authentication_protocol": "OpenID Connect / OAuth 2.0",
+      "token_model": "Human authentication uses Google OpenID Connect. Google ID tokens are signed JWT identity assertions. OAuth access tokens are separate bearer credentials for calling authorized Google APIs and are not used as the canonical E-7 identity assertion.",
+      "verification": "Signature validation using keys obtained through dynamic OIDC discovery/JWKS; issuer validation (https://accounts.google.com); audience validation (matched to approved OAuth 2.0 client ID(s) for the E-7 application/client configuration); expiration validation; nonce/replay protection where applicable; hosted-domain validation only where deployment policy restricts access to approved Google Workspace / Cloud Identity domains. JWKS URI is discovered dynamically via provider discovery metadata and is not hardcoded in domain/business logic.",
+      "deployment_boundary": "Organization-managed Google Workspace / Cloud Identity domain. Exact production organization/domain identifiers remain deployment configuration and MUST NOT be hardcoded in business logic.",
+      "provider_neutrality": "Provider-neutral architecture is strictly preserved. app/integrations/... adapter boundary is preserved. Zero Google-specific fields in canonical E-7 public entities (no google_user_id or google_tenant_id as canonical domain IDs). Google sub remains stable external subject mapped via provider-neutral external_identity_mapping (provider/issuer, external_subject sub, E-7 principal reference). users.idp_sub is not frozen as a physical schema field; email is not used as canonical identity identifier. hd != canonical E-7 tenant_id. Tenant scope requires E-7 approved organization/tenant mapping and authorization.",
+      "secret_boundary": "Zero secrets, client secrets, access tokens, refresh tokens, private keys, or production tenant credentials documented or stored.",
+      "service_authentication_baseline": "Initial machine/service authentication mechanism uses service API keys in accordance with frozen Phase-1 baseline (OIDC/JWT + service API key). Google Service Accounts / Workload Identity Federation are classified as OPTIONAL_FUTURE_PROVIDER_CAPABILITY and are not required for Phase 1 service auth."
+    },
+    {
+      "domain": "erp_sis",
+      "display_name": "Institutional ERP / SIS (Student Information System)",
+      "required": true,
+      "exact_provider": "mysql_iredu",
+      "commercial_product_name": null,
+      "commercial_product_status": "NOT_FOUND_IN_AVAILABLE_SOURCES",
+      "provider_status": "EXACT_PROVIDER_VERIFIED",
+      "source_selection_status": "RESOLVED",
+      "runtime_adapter_status": "NOT_IMPLEMENTED",
+      "production_readiness_status": "BLOCKED_BY_BLK_01",
+      "integration_status": "PARTIALLY_VERIFIED",
+      "direction": "INBOUND",
+      "access_mode": "READ_ONLY",
+      "authority": [
+        {
+          "entity": "external_institutional_master_records",
+          "authoritative_system": "mysql_iredu",
+          "scope": "Authoritative for the upstream external/master records it owns (institutional curricula, course structures, student cohorts, HR records)",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED"
+        },
+        {
+          "entity": "e7_operational_state_wbs_tasks_workflows_schedules",
+          "authoritative_system": "postgresql_e7_sor",
+          "scope": "Authoritative System of Record for all E-7-owned operational state, WBS decomposition, workflow execution, solved schedules, and audit records",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED"
+        },
+        {
+          "entity": "external_id_mapping",
+          "authoritative_system": "postgresql_canonical_mapping_tables",
+          "scope": "Authoritative for linking external ERP entity identifiers to canonical internal entities (resources.external_id, tasks.external_id)",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED"
+        },
+        {
+          "entity": "ai_context_filtering_and_redaction",
+          "authoritative_system": "e7_context_builder",
+          "scope": "Authoritative for evaluating operational goals, applying privacy and redaction rules, and assembling bounded planning context",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED"
+        }
+      ],
+      "protocol_standards": [
+        "MySQL 8.0/MariaDB Wire Protocol",
+        "SQLAlchemy asyncpg/aiomysql (clean adapter boundary)"
+      ],
+      "configuration_parameters": [
+        "MYSQL_HOST",
+        "MYSQL_PORT",
+        "MYSQL_DATABASE",
+        "MYSQL_USER",
+        "MYSQL_PASSWORD"
+      ],
+      "technical_requirements": [
+        "Zero direct database writes; strictly READ_ONLY access mode for initial integration",
+        "Zero direct LLM or runtime prompt access to raw database tables or connections (AI Context Access Policy Sec. 4)",
+        "Full schema isolation: MySQL iredu schemas never bleed into E-7 domain entities or public APIs",
+        "PostgreSQL remains canonical System of Record (SoR) for all E-7 operational state (ADR-006)",
+        "Adapter boundary defined by Task 0G.4/0G.4A (MYSQL_ERP_ADAPTER_CONTRACT)",
+        "Context Builder boundary defined by Task 0G.5/0G.5A (CONTEXT_BUILDER_CONTRACT)",
+        "Support configurable mapping between E-7 canonical entities and external ERP IDs (FR-INT-02)"
+      ],
+      "current_contract_status": {
+        "schema_inventory": "COMPLETED (247 tables, 2,637 columns, 307 foreign keys under Task 0G.1/0G.1A)",
+        "task_intelligence_mapping": "COMPLETED (70 evaluated, 14 REQUIRED_FOR_INITIAL_TI, 28 allowed planner columns under Task 0G.2/0G.2B)",
+        "ai_context_access_policy": "COMPLETED (Strict privacy, no student records, staff capabilities as context not eligibility under Task 0G.3/0G.3B)",
+        "erp_adapter_contract": "COMPLETED (Provider-neutral interface, read-only extraction, degradation under Task 0G.4/0G.4A)",
+        "context_builder_contract": "COMPLETED (Goal-conditioned assembly, token budgeting, redaction under Task 0G.5/0G.5A)",
+        "runtime_adapter": "NOT_IMPLEMENTED (Scheduled for Phase 1 / Phase 7)"
+      },
+      "production_blockers": [
+        {
+          "id": "BLK-01",
+          "title": "Authoritative Tenant / Organization Scoping Unresolved Across 247 MySQL Tables",
+          "status": "OPEN",
+          "scope": "All live MySQL iredu extraction queries",
+          "detail": "None of the 247 MySQL tables contain an explicit tenant_id column; 10 tables have branch_id. Live production retrieval is blocked until business confirmation defines the exact multi-tenant partitioning predicate."
+        },
+        {
+          "id": "BLK-02",
+          "title": "Physical Academic Resource Authority Unresolved",
+          "status": "OPEN",
+          "scope": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+          "detail": "No authoritative academic physical-resource model suitable for E-7 scheduling has been established. Room-related data such as hostel room structures may exist, and scheduling/exam tables may contain free-text room_no, but authoritative room capacity, type, and equipment semantics remain unresolved."
+        }
+      ],
+      "evidence": [
+        {
+          "source": "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md",
+          "location": "FR-INT-02 (p. 23 / lines 562-580)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Requirement: 'Support configurable mapping between E-7 canonical entities and external ERP IDs.' Phase 1 mapping schema, Phase 7 adapter implementation."
+        },
+        {
+          "source": "docs/integrations/MYSQL_SCHEMA_INVENTORY.md",
+          "location": "Task 0G.1 Baseline",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED",
+          "confidence": "HIGH",
+          "detail": "Analyzed company MySQL database iredu containing 247 tables, 2,637 columns, and 307 foreign keys as first concrete upstream institutional source."
+        },
+        {
+          "source": "docs/integrations/MYSQL_ERP_ADAPTER_CONTRACT.md",
+          "location": "Task 0G.4/0G.4A Baseline",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED",
+          "confidence": "HIGH",
+          "detail": "Establishes provider-neutral interface ERPSourceAdapter with read-only extraction, error handling, and canonical entity mapping."
+        },
+        {
+          "source": "docs/adr/ADR-006-system-of-record.md",
+          "location": "Full Document",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED",
+          "confidence": "HIGH",
+          "detail": "Establishes PostgreSQL as the sole authoritative System of Record (SoR) for E-7 operational state. External ERP records are authoritative only for upstream master data."
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Open_Source_Research_Report.pdf",
+          "location": "Section 4.1 & 4.2 (p. 12)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Evaluated open-source ERP systems (Odoo Community, ERPNext) as secondary reference/adapter targets; highlights clean API-first integration boundary (Source-mentioned examples \u2014 not selected as primary institutional source)."
+        }
+      ],
+      "open_decisions": [
+        {
+          "id": "DEC-ERP-01",
+          "decision": "Confirm authoritative tenant/organization scoping rule (BLK-01) for production live MySQL database queries.",
+          "status": "PRODUCTION_BLOCKER_REQUIRES_BUSINESS_CONFIRMATION",
+          "rationale": "Prevents cross-tenant institutional data exposure during live database extraction."
+        },
+        {
+          "id": "DEC-ERP-02",
+          "decision": "Confirm academic physical-resource authority (BLK-02) for room and facility scheduling.",
+          "status": "SCHEDULING_GATE_REQUIRES_BUSINESS_CONFIRMATION",
+          "rationale": "Required before enabling automated physical room allocation in Scheduling Engine."
+        }
+      ],
+      "metadata_questions": [
+        {
+          "id": "META-ERP-01",
+          "question": "Confirm commercial product name and version corresponding to iredu upstream ERP/SIS system.",
+          "status": "INFORMATIONAL_METADATA_ONLY",
+          "rationale": "Commercial product branding is absent from schema dumps; this is an informational metadata question and NOT a Phase-0 exit blocker."
+        }
+      ]
+    },
+    {
+      "domain": "calendar",
+      "display_name": "Google Calendar under Google Workspace",
+      "required": true,
+      "exact_provider": "GOOGLE_WORKSPACE_CALENDAR",
+      "provider_status": "EXACT_PROVIDER_RESOLVED",
+      "integration_status": "SELECTION_RESOLVED",
+      "direction": "BIDIRECTIONAL",
+      "direction_detail": "Outbound export of published schedule assignments (schedule.published) as RFC 5545 VEVENTs; inbound import of resource availability intervals and blackout periods.",
+      "authority": [
+        {
+          "entity": "external_native_calendar_state",
+          "authoritative_system": "external_calendar_service",
+          "scope": "Authoritative for native external calendar events and external availability state",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        },
+        {
+          "entity": "e7_schedule_assignments_and_publication_state",
+          "authoritative_system": "postgresql_e7_sor",
+          "scope": "Authoritative for E-7 operational schedule assignments, time-slot bindings, and publication state",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        },
+        {
+          "entity": "external_event_mapping_and_sync_tokens",
+          "authoritative_system": "postgresql_calendar_links",
+          "scope": "Authoritative for mapping canonical schedule assignments to external calendar event IDs, sync status, and sync tokens",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        }
+      ],
+      "protocol_standards": [
+        "RFC 5545 (iCalendar)",
+        "CalDAV-compatible"
+      ],
+      "configuration_parameters": [
+        "CALENDAR_PROVIDER_*"
+      ],
+      "technical_requirements": [
+        "Outbound schedule synchronization: Export published schedule assignments (schedule.published) as standard RFC 5545 VEVENT entries (RTM FR-SC-05)",
+        "Inbound schedule synchronization: Import resource availability and blackout periods (Implementation Plan Sec. 12.2 & 13.2)",
+        "Secondary mapping table: PostgreSQL calendar_links stores external_event_id, sync_status, sync_token, tenant_id (Canonical Ownership Sec. 4.1)",
+        "Idempotent operations: Create, update, cancel calendar events using deterministic external event IDs and hashes (Implementation Plan Sec. 13.2)",
+        "Deduplicate external callbacks using external ID/version/ETag + internal idempotency key (Implementation Plan Sec. 13.2)",
+        "Normalize all time zones to UTC before comparison or solver ingestion (Implementation Plan Sec. 13.2)",
+        "Track auditable sync status rather than pretending success during external calendar outages (Implementation Plan Sec. 13.2)"
+      ],
+      "evidence": [
+        {
+          "source": "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md",
+          "location": "FR-SC-05 (p. 20 / lines 496-515)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Requirement: 'Import/export iCalendar/CalDAV-compatible events and retain mapping to internal schedule entities.' Primary domain owner: calendar-adapter. Canonical entities: calendar_links, schedule_assignments."
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 9 (FR-SC-05, p. 7)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "FR-SC-05: 'Calendar sync: Import/export iCalendar/CalDAV-compatible events and retain mapping to internal schedule entities.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+          "location": "Section 13.2 (p. 15)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Calendar adapter requirements: 'Use provider-specific adapters behind one canonical interface. Normalize time zones before comparison/solve. Maintain external event ID, version/etag where available and sync token. Use idempotent create/update/delete operations. Deduplicate callbacks using external ID/version + internal idempotency key. Published schedule changes create auditable calendar-sync status rather than pretending success during provider outage.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 27 (p. 19)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Config table: 'CALENDAR_PROVIDER_*: CalDAV/Google/Microsoft/ERP adapter settings as permitted' (Source-mentioned examples \u2014 not selected as primary provider)."
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 39 (p. 24)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Lists under Open Decisions Before Coding: 'Calendar providers required for first customer/School ERP.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+          "location": "Section 18, Phase 0, Step 7 (p. 19)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Phase 0 step: 'Define exact identity provider, first ERP/SIS adapter, first calendar provider and E-8 notification contract or mock.'"
+        },
+        {
+          "source": "Local Source Corpus Scan",
+          "location": "docs/source-of-truth/ (all 4 PDFs)",
+          "classification": "NOT FOUND IN AVAILABLE SOURCES",
+          "confidence": "MEDIUM",
+          "detail": "Absence of a specific approved production calendar provider in local source PDFs. Confidence is MEDIUM due to local corpus limitation, but the open status is corroborated at HIGH confidence by the explicit statement in Complete Specification Section 39."
+        }
+      ],
+      "open_decisions": [
+        {
+          "id": "DEC-CAL-01",
+          "decision": "Confirm the first production calendar provider/system.",
+          "status": "RESOLVED",
+          "resolution": "Google Calendar under Google Workspace selected with BIDIRECTIONAL integration direction via project-authorized provider selection.",
+          "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+        }
+      ],
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "primary_provider_integration": "Google Calendar REST API",
+      "standards_interoperability_boundary": [
+        "CalDAV",
+        "RFC 5545 / iCalendar"
+      ],
+      "conceptual_capabilities": [
+        "outbound event publication",
+        "inbound event/availability synchronization",
+        "event create/update/delete lifecycle",
+        "external event ID mapping",
+        "UTC-safe timestamp handling",
+        "idempotent synchronization",
+        "incremental synchronization",
+        "provider change notifications",
+        "reconciliation after missed notifications"
+      ],
+      "sync_reliability_rule": "Google Calendar change notifications are an optimization and change signal, not the sole source of synchronization correctness. Notifications do not contain event payloads and Google does not guarantee delivery of every notification. Provider adapter design combines: (1) push notifications to reduce polling latency, (2) incremental synchronization via nextSyncToken as primary delta-retrieval mechanism (with HTTP 410 invalid sync token triggering full re-sync), and (3) optional periodic reconciliation/recovery as an E-7 resilience mechanism. E-7 scheduling remains canonical for E-7-owned scheduling state. Google Calendar remains authoritative for its native external calendar state. Synchronization must preserve the frozen external-ID mapping boundary in calendar_links.",
+      "provider_neutrality": "Provider-neutral architecture is strictly preserved. app/integrations/... adapter boundary is preserved. No Google-specific canonical entity IDs introduced (no google_calendar_id). Google Calendar identifiers remain secondary external mappings in calendar_links within app/integrations/ adapter boundary.",
+      "secret_boundary": "Zero secrets, client secrets, access tokens, refresh tokens, private keys, or production credentials documented or stored.",
+      "calendar_authorization_topology": "CALENDAR_AUTHORIZATION_TOPOLOGY = TO_BE_CONFIRMED_DURING_IMPLEMENTATION. Valid approaches: delegated per-user OAuth, admin-authorized service account with domain-wide delegation, or another least-privilege model. Domain-wide delegation is not mandatory. Least privilege + admin policy + approved OAuth scopes.",
+      "time_handling": "UTC_SAFE_TIME_HANDLING: Canonical scheduling instants may be normalized to UTC internally; original provider timezone metadata is preserved when synchronization requires it; Google Calendar all-day event date semantics are preserved; timezone/DST conversions handled explicitly; all-day dates are never converted into arbitrary UTC instants.",
+      "idempotency_architecture": "E-7 owns synchronization idempotency (operation identity, external event mappings, persisted sync state, version-aware updates). Google Calendar does not provide generic idempotency keys; no Google Calendar idempotency-key API is fabricated.",
+      "sync_token_lifecycle": "Persist nextSyncToken after initial sync; use for incremental delta queries; persist new nextSyncToken. If Google returns HTTP 410 / invalid sync token, local sync cursor is invalidated and full re-sync is performed to obtain fresh nextSyncToken. Not described as security-token rotation.",
+      "push_notification_validation": "HTTPS callback endpoint; track issued channel IDs and expected resource IDs; unpredictable X-Goog-Channel-Token verified against expected stored value; X-Goog-Resource-State treated as resource-state metadata, not as authentication; notifications are change signals (do not contain complete event data); retrieve state via API."
+    },
+    {
+      "domain": "e8_notification_engagement",
+      "display_name": "E-8 Engagement Engine (Institutional Notifications & Multi-Channel Communications)",
+      "required": true,
+      "exact_provider": "Engine 8 (E-8 Engagement Engine)",
+      "provider_status": "EXACT_PROVIDER_VERIFIED",
+      "transport_status": "E8_TRANSPORT_PROTOCOL = UNRESOLVED",
+      "integration_status": "PARTIALLY_VERIFIED",
+      "direction": "OUTBOUND",
+      "direction_detail": "E-7 emits notification commands and domain events to E-8; E-8 owns downstream delivery.",
+      "authority": [
+        {
+          "entity": "operational_notification_trigger_decisions",
+          "authoritative_system": "e7_operations_engine",
+          "scope": "Sole authority for evaluating business conditions and deciding WHEN an operational event warrants notification",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        },
+        {
+          "entity": "downstream_notification_delivery_and_channels",
+          "authoritative_system": "e8_engagement_engine",
+          "scope": "Authoritative for notification delivery state and functions assigned to E-8 by the source contract, including channel dispatch (email, SMS, WhatsApp, in-app)",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        },
+        {
+          "entity": "event_emission_durability_and_audit",
+          "authoritative_system": "e7_postgresql_transactional_outbox",
+          "scope": "Authoritative for atomic persistence of outbound domain events and notification commands with operational state in PostgreSQL",
+          "classification": "ARCHITECTURE REQUIREMENT"
+        }
+      ],
+      "architectural_invariants": [
+        "E-7 is an operations and orchestration engine, NOT a notification delivery platform",
+        "E-7 must not integrate directly with SMS gateways, SMTP servers, push notification services, or WhatsApp BSPs",
+        "E-7 is authoritative for deciding WHEN an operational condition warrants a notification (approvals, SLA warnings, blockers, schedule changes)",
+        "E-8 owns downstream notification/engagement delivery behavior as defined by its contract, including multi-channel dispatch across email, SMS, WhatsApp, and in-app channels (Complete Specification Sec. 22)",
+        "E-7 emits notification commands and domain events via the E-7 transactional outbox persisted atomically with canonical state in PostgreSQL to guarantee consistency (ADR-005)",
+        "Notification commands must be idempotent using deterministic command/event IDs"
+      ],
+      "operational_triggers": {
+        "source_verified_event_names": [
+          {
+            "event_name": "task.blocked",
+            "source_citation": "Complete Specification Sec. 21 (Event Model table, p. 16)",
+            "target_in_source": "Risk monitor, manager dashboard, E-8 notifications",
+            "business_condition": "Task Intelligence detects blocker or unresolved dependency on critical path",
+            "classification": "SOURCE-VERIFIED EVENT NAME"
+          },
+          {
+            "event_name": "workflow.task.created",
+            "source_citation": "Complete Specification Sec. 21 (Event Model table, p. 16)",
+            "target_in_source": "Task inbox, E-8",
+            "business_condition": "Human approval or user task instance created in workflow engine",
+            "classification": "SOURCE-VERIFIED EVENT NAME"
+          },
+          {
+            "event_name": "workflow.sla.warning",
+            "source_citation": "Complete Specification Sec. 21 (Event Model table, p. 16)",
+            "target_in_source": "E-8, manager dashboard",
+            "business_condition": "Workflow task duration crosses SLA warning threshold",
+            "classification": "SOURCE-VERIFIED EVENT NAME"
+          },
+          {
+            "event_name": "schedule.published",
+            "source_citation": "Complete Specification Sec. 21 (Event Model table, p. 16)",
+            "target_in_source": "Calendar sync, E-8 notifications",
+            "business_condition": "New baseline schedule version approved and published",
+            "classification": "SOURCE-VERIFIED EVENT NAME"
+          }
+        ],
+        "source_backed_business_conditions": [
+          {
+            "condition": "Approval reminders",
+            "source_citation": "Complete Specification Sec. 22 (p. 17); Complete Implementation Plan Sec. 13.3 (p. 15)",
+            "associated_source_verified_event": "workflow.task.created",
+            "classification": "SOURCE-BACKED BUSINESS CONDITION"
+          },
+          {
+            "condition": "SLA warnings",
+            "source_citation": "Complete Specification Sec. 22 (p. 17); Complete Implementation Plan Sec. 13.3 (p. 15)",
+            "associated_source_verified_event": "workflow.sla.warning",
+            "classification": "SOURCE-BACKED BUSINESS CONDITION"
+          },
+          {
+            "condition": "Blocker alerts",
+            "source_citation": "Complete Specification Sec. 21 (p. 16)",
+            "associated_source_verified_event": "task.blocked",
+            "classification": "SOURCE-BACKED BUSINESS CONDITION"
+          },
+          {
+            "condition": "SLA breach / escalation notification",
+            "source_citation": "Complete Implementation Plan Sec. 13.3 (p. 15)",
+            "exact_canonical_event_name": "UNRESOLVED",
+            "possible_derived_proposed_label": "workflow.sla.breached",
+            "classification": "DERIVED / PROPOSED \u2014 NOT SOURCE-VERIFIED"
+          },
+          {
+            "condition": "Schedule-change notification",
+            "source_citation": "Complete Specification Sec. 22 (p. 17); Complete Implementation Plan Sec. 13.3 (p. 15)",
+            "exact_canonical_event_name": "UNRESOLVED",
+            "possible_derived_proposed_label": "schedule.changed",
+            "classification": "DERIVED / PROPOSED \u2014 NOT SOURCE-VERIFIED"
+          }
+        ]
+      },
+      "evidence": [
+        {
+          "source": "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md",
+          "location": "FR-INT-01 (p. 22 / lines 542-560)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Requirement: 'Emit notification commands/events for E-8 or external messaging adapters.' Primary domain owner: event-gateway. Note: 'E-7 emits notification commands; E-8 delivers messages.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 9 (FR-INT-01, p. 7)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "FR-INT-01: 'Notifications: Emit notification commands/events for E-8 or external messaging adapters.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 21 (p. 16)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Event Model table explicitly targets E-8 for task.blocked, workflow.task.created, workflow.sla.warning, and schedule.published."
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+          "location": "Section 22 (p. 17)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Integration with Other Unified Engines: 'E-8 Engagement: Send reminders, SLA warnings, approvals and schedule-change notifications over email/SMS/WhatsApp/in-app.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+          "location": "Section 13.3 (p. 15)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Unified engine integrations: 'E-8 Engagement: Deliver approval reminders, SLA warnings/breaches and schedule-change notifications.'"
+        },
+        {
+          "source": "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+          "location": "Section 18, Phase 0, Step 7 (p. 19)",
+          "classification": "SOURCE FACT",
+          "confidence": "HIGH",
+          "detail": "Phase 0 step: 'Define exact identity provider, first ERP/SIS adapter, first calendar provider and E-8 notification contract or mock.'"
+        },
+        {
+          "source": "docs/adr/ADR-005-event-broker.md",
+          "location": "Section 1 (Context)",
+          "classification": "ENGINEERING DECISION ALREADY APPROVED",
+          "confidence": "HIGH",
+          "detail": "Establishes: 'State transitions in goals, plans, workflows, tasks, SLAs, and schedules emit domain events to trigger downstream background jobs, notify external services (e.g., E-8 Engagement Engine), and synchronize calendars.'"
+        }
+      ],
+      "open_decisions": [
+        {
+          "id": "DEC-E8-01",
+          "decision": "Formalize the exact wire transport protocol for E-7 -> E-8 notification dispatch during Task 0G.6B.",
+          "status": "PHASE_0_EXIT_DECISION_REQUIRED",
+          "rationale": "Sources establish the functional command/event boundary, but do not mandate a specific wire protocol (e.g., RabbitMQ exchange/queue vs Kafka topic vs direct HTTP REST webhook). E8_TRANSPORT_PROTOCOL remains UNRESOLVED and must be defined in the Task 0G.6B contract."
+        },
+        {
+          "id": "DEC-E8-02",
+          "decision": "Draft and freeze the formal E-8 Notification Contract and Test Mock (Task 0G.6B).",
+          "status": "NEXT_TASK_0G6B",
+          "rationale": "Task 0G.6A is an evidence audit only; Task 0G.6B will construct the contract and test mock."
+        }
+      ]
+    }
+  ],
+  "phase_0_requirements": {
+    "exact_idp": "RESOLVED",
+    "first_erp_sis": "RESOLVED",
+    "first_calendar_provider": "RESOLVED",
+    "e8_contract_mock": "RESOLVED"
+  },
+  "production_blockers": [
+    {
+      "id": "BLK-01",
+      "title": "Authoritative Tenant / Organization Scoping Unresolved Across 247 MySQL Tables",
+      "scope": "All live MySQL iredu extraction queries",
+      "status": "OPEN",
+      "gated_operation": "Live production context retrieval from mysql_iredu",
+      "mitigation_status": "Context Builder requires pre-established organization scope; live queries blocked until tenant predicate is defined by business."
+    },
+    {
+      "id": "BLK-02",
+      "title": "Physical Academic Resource Authority Unresolved",
+      "scope": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "status": "OPEN",
+      "gated_operation": "Automated physical room allocation in Scheduling Engine",
+      "mitigation_status": "No authoritative academic physical-resource model suitable for E-7 scheduling has been established. Room-related data such as hostel rooms or free-text room_no may exist, but room capacity/type/equipment semantics are unresolved. Gated until business formalizes physical asset authority."
+    }
+  ],
+  "phase_0_exit_decisions_required": [
+    {
+      "domain": "identity",
+      "decision": "Confirm the organization's exact production IdP provider (D-EXT-01).",
+      "status": "RESOLVED",
+      "resolution": "Google Cloud Identity / Google Workspace managed organizational identity selected as first production IdP via project-authorized provider selection."
+    },
+    {
+      "domain": "calendar",
+      "decision": "Confirm the first production calendar provider/system (D-EXT-02).",
+      "status": "RESOLVED",
+      "resolution": "Google Calendar under Google Workspace selected as first production calendar provider with BIDIRECTIONAL integration direction via project-authorized provider selection."
+    }
+  ],
+  "security_rules": [
+    "No hardcoded credentials, passwords, tokens, API keys, DSNs, or production hostnames in repository code or documents",
+    "Strict clean-room isolation between external data models and E-7 canonical domain entities",
+    "Tenant context must always be derived from cryptographically verified authentication tokens (JWT claims / service identity); never trust payload tenant_id",
+    "External ERP/SIS database access is strictly READ_ONLY; zero writes or DDL modifications",
+    "Zero direct LLM or runtime prompt access to raw database connections or external integration credentials"
+  ]
+}

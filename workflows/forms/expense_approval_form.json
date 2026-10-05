@@ -1,0 +1,61 @@
+{
+  "id": "expense_approval_form",
+  "schemaVersion": 1,
+  "type": "default",
+  "components": [
+    {
+      "id": "comp_expense_id",
+      "key": "expense_id",
+      "type": "textfield",
+      "label": "Expense Reference",
+      "validate": {
+        "required": true,
+        "maxLength": 64
+      }
+    },
+    {
+      "id": "comp_amount",
+      "key": "amount",
+      "type": "number",
+      "label": "Claim Amount",
+      "validate": {
+        "required": true,
+        "min": 0
+      }
+    },
+    {
+      "id": "comp_category",
+      "key": "category",
+      "type": "select",
+      "label": "Expense Category",
+      "validate": {
+        "required": true
+      },
+      "values": [
+        { "label": "Travel", "value": "TRAVEL" },
+        { "label": "Meals & Entertainment", "value": "MEALS" },
+        { "label": "Office Equipment", "value": "EQUIPMENT" },
+        { "label": "Software Subscription", "value": "SOFTWARE" }
+      ]
+    },
+    {
+      "id": "comp_justification",
+      "key": "justification",
+      "type": "textarea",
+      "label": "Business Justification",
+      "validate": {
+        "required": true,
+        "maxLength": 1000
+      }
+    },
+    {
+      "id": "comp_urgent",
+      "key": "urgent",
+      "type": "checkbox",
+      "label": "Urgent Reimbursement Requested",
+      "validate": {
+        "required": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "dataset_id": "TI-GOLD-002",
+  "dataset_version": "1.0.0",
+  "fixture_type": "task_intelligence_gold_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "benchmark_extension": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "input_case": {
+    "input_mode": "STRUCTURED",
+    "objective": "Plan Grade 10 semester examinations with science-lab readiness and accessibility-support preparation",
+    "scope": "End-to-end semester examination operations with specialized readiness",
+    "target_window": {
+      "start_at": "2026-11-09T08:00:00+05:30",
+      "end_at": "2026-11-13T17:00:00+05:30"
+    },
+    "constraints": [
+      "Source-defined semester examination work categories remain required.",
+      "Science operational readiness must include verification of the available science-lab resource.",
+      "Accessibility-support readiness must be represented before examination execution where required.",
+      "Independent readiness activities may be planned in parallel where dependencies permit.",
+      "Human approval remains required."
+    ],
+    "resource_scope": [
+      "ROOM",
+      "INVIGILATOR"
+    ]
+  },
+  "authorized_context": {
+    "resource_dataset_ref": "RS-SYNTH-001@1.0.0",
+    "allowed_resource_ids": [
+      "res-inv-001",
+      "res-inv-002",
+      "res-inv-003",
+      "res-inv-004",
+      "res-room-001",
+      "res-room-002",
+      "res-room-003"
+    ],
+    "source_work_categories": [
+      "PLANNING",
+      "QUESTION_PAPER_READINESS",
+      "APPROVALS",
+      "ROOM_PREPARATION",
+      "INVIGILATOR_PREPARATION",
+      "SCHEDULING",
+      "EXAM_EXECUTION",
+      "INCIDENT_HANDLING",
+      "CLOSURE"
+    ],
+    "science_lab_resource_id": "res-room-003",
+    "accessibility_support_resource_id": "res-inv-004",
+    "context_note": "Resource IDs are planning-context evidence only; they do not dictate authoritative runtime assignments."
+  },
+  "expected_plan_properties": {
+    "required_work_categories": [
+      "PLANNING",
+      "QUESTION_PAPER_READINESS",
+      "APPROVALS",
+      "ROOM_PREPARATION",
+      "INVIGILATOR_PREPARATION",
+      "SCHEDULING",
+      "EXAM_EXECUTION",
+      "INCIDENT_HANDLING",
+      "CLOSURE"
+    ],
+    "extended_readiness_categories": [
+      "SCIENCE_LAB_READINESS",
+      "ACCESSIBILITY_READINESS"
+    ],
+    "parallel_readiness_branches_allowed": true,
+    "semantic_dependencies": {
+      "science_lab_readiness_precedes_science_exam_execution": true,
+      "accessibility_readiness_precedes_affected_exam_execution": true,
+      "independent_readiness_branches_not_artificially_serialized": true
+    },
+    "hierarchical_wbs_required": true,
+    "unique_temporary_task_ids_required": true,
+    "dependency_graph_must_be_acyclic": true,
+    "critical_path_must_be_computable": true,
+    "unresolved_resource_references_allowed": 0,
+    "human_review_required_before_activation": true
+  },
+  "forbidden_plan_properties": [
+    "inventing_second_science_laboratory",
+    "inventing_accessibility_personnel",
+    "turning_preferred_or_available_resources_into_guaranteed_assignments",
+    "artificial_dependencies_serializing_every_readiness_activity",
+    "cyclic_dependencies",
+    "unauthorized_resource_ids",
+    "direct_activation_without_approval"
+  ],
+  "evaluation_expectations": {
+    "structured_output_validity": true,
+    "required_work_category_coverage": 1.0,
+    "extended_readiness_coverage": 1.0,
+    "dependency_validity": true,
+    "hallucinated_entity_count": 0,
+    "parallelism_preservation": true,
+    "human_correction_required": false,
+    "exact_wording_scored": false
+  },
+  "common_evaluation_note": "Gold evaluation assesses semantic, structural, and dependency properties rather than exact wording or ordering. Different valid task breakdowns or titles are acceptable if they satisfy the required properties and categories. Output must be treated as a non-authoritative proposal requiring human/policy review before canonical activation. Zero model or provider names are encoded; fixture values are regression benchmarks and never production defaults."
+}

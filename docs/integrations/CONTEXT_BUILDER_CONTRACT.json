@@ -1,0 +1,304 @@
+{
+  "contract_version": "1.0.0",
+  "contract_identifier": "E7-CTR-CB-001",
+  "status": "phase_0_design_baseline",
+  "role": "Provider-Neutral Context Assembly, Policy Enforcement & Minimization Layer",
+  "target_consumer": "E-7 Task Intelligence Orchestration & Planning Layer",
+  "principles": {
+    "provider_neutral": true,
+    "default_deny": true,
+    "goal_scoped_minimization": true,
+    "raw_source_rows_model_visible": false,
+    "validation_evidence_model_visible": false,
+    "llm_can_expand_access_scope": false,
+    "whitelist_not_automatic_inclusion": true,
+    "no_silent_default_fabrication": true,
+    "untrusted_source_text": true,
+    "no_prompt_construction_in_builder": true
+  },
+  "boundary_separation": {
+    "upstream_adapters": "Provider-specific integration boundaries (e.g. ERPSourceAdapter) executing approved, read-only parameterized source queries, normalizing records, stamping provenance, and returning typed SourceContextBundle objects.",
+    "context_builder": "Provider-neutral assembly, policy evaluation, and data-minimization layer. Verifies organization scope, selects approved adapters, enforces field access policies, minimizes context strictly to goal needs, isolates validation evidence, handles aggregates, and produces structured ContextAssemblyResult.",
+    "task_intelligence_orchestration": "Consumes structured model_context from ContextAssemblyResult. Formats serialized model prompt templates, handles LLM API communication, and passes model proposals to deterministic validators.",
+    "deterministic_validators": "Validates PlanSchema compliance, resolves opaque references against internal validation_context through validated E-7 canonical/source mappings, executes dependency-reference validation, DAG cycle detection, and computes CPM/slack/critical-path analysis.",
+    "postgresql": "Canonical System of Record for persisted operational state, canonical/source mappings, outbox/inbox events, and audit ledgers."
+  },
+  "supported_context_categories": [
+    {
+      "category_name": "organization_context",
+      "status": "SUPPORTED",
+      "model_visible_fields_count": 2,
+      "validation_only_fields_count": 4,
+      "description": "Organizational department association and job designations. Descriptive context only; does not establish operational eligibility, capability, or authorization."
+    },
+    {
+      "category_name": "academic_context",
+      "status": "SUPPORTED",
+      "model_visible_fields_count": 3,
+      "validation_only_fields_count": 10,
+      "description": "Academic sessions, classes, sections, and class-section cohort structures. Bounded strictly to goal-relevant target cohorts."
+    },
+    {
+      "category_name": "subject_context",
+      "status": "SUPPORTED",
+      "model_visible_fields_count": 6,
+      "validation_only_fields_count": 11,
+      "description": "Course catalogue, subject codes, instructional types (Theory vs Practical), and curricular groupings."
+    },
+    {
+      "category_name": "staff_resource_context",
+      "status": "SUPPORTED",
+      "model_visible_fields_count": 4,
+      "validation_only_fields_count": 6,
+      "description": "Relevant normalized staff context, qualifications, work experience, and opaque reference tokens (<opaque_staff_ref>). Human names conditional under policy. Descriptive attributes do NOT prove task eligibility, capability, or invigilator suitability. RBAC roles (roles, staff_roles) are validation-only."
+    },
+    {
+      "category_name": "commitment_context",
+      "status": "SUPPORTED",
+      "model_visible_fields_count": 5,
+      "validation_only_fields_count": 5,
+      "description": "Published timetable periods representing known busy windows. Scheduled period = known busy commitment; absence of timetable entry != complete availability."
+    },
+    {
+      "category_name": "calendar_context",
+      "status": "SUPPORTED",
+      "model_visible_fields_count": 8,
+      "validation_only_fields_count": 7,
+      "description": "Informational holiday and academic event schedules. Informational dates do not constitute automated hard constraints or blackouts without explicit business policy."
+    },
+    {
+      "category_name": "aggregate_context",
+      "status": "SUPPORTED",
+      "model_visible_fields_count": 0,
+      "validation_only_fields_count": 6,
+      "description": "Approved adapter-derived mathematical headcounts (e.g. cohort student count). Individual student rows and columns are not exposed to the model for the current Task Intelligence scope and policy version."
+    }
+  ],
+  "deferred_or_gated_categories": [
+    {
+      "category_name": "authoritative_future_availability",
+      "status": "DEFERRED",
+      "reason": "Forward staff availability modeling deferred to Phase 2/4. Historical attendance daily punch logs (staff_attendance) are not exposed to the model and do not establish future availability."
+    },
+    {
+      "category_name": "physical_room_master",
+      "status": "UNSUPPORTED",
+      "reason": "Upstream ERP schema lacks canonical physical academic room masters. Gated by BLK-02."
+    },
+    {
+      "category_name": "room_capacity",
+      "status": "UNSUPPORTED",
+      "reason": "Upstream ERP schema contains zero room or seating capacity fields. Must not be fabricated. Gated by BLK-02."
+    },
+    {
+      "category_name": "equipment_capability",
+      "status": "UNSUPPORTED",
+      "reason": "Upstream ERP schema contains zero laboratory or instructional equipment inventory."
+    },
+    {
+      "category_name": "authoritative_invigilator_eligibility",
+      "status": "UNSUPPORTED",
+      "reason": "Upstream ERP schema lacks invigilation certification, training, or examination duty eligibility models."
+    },
+    {
+      "category_name": "authoritative_exam_resource_rules",
+      "status": "REQUIRES_BUSINESS_CONFIRMATION",
+      "reason": "Operational authority between CBSE and Legacy exam subsystems unresolved (UBQ-TI-03). Physical room scheduling gated by BLK-02."
+    }
+  ],
+  "assembly_request": {
+    "required_concepts": [
+      "context_request_id: Globally unique request identifier.",
+      "correlation_id: Distributed tracing correlation identifier linking context assembly to high-level goal workflow.",
+      "authenticated_actor_reference: Authenticated caller/principal reference established by core security.",
+      "organization_scope_reference: Authoritative tenant/organization scope partition. Mandatory for production context assembly (BLK-01).",
+      "goal_reference: Operational goal identifier or goal input reference.",
+      "bounded_goal_scope: Operational goal descriptor bounding retrieval scope.",
+      "requested_context_categories: Explicit list of logical context categories requested.",
+      "mapping_version: Task 0G.2 source mapping version applied.",
+      "access_policy_version: Task 0G.3 AI Context Access Policy version applied."
+    ],
+    "optional_concepts": [
+      "normalized_selectors: Provider-neutral domain selectors (e.g. normalized academic session reference, normalized class references, normalized section references, normalized department references, normalized subject references, opaque staff references).",
+      "temporal_scope: Operational planning window (planning_window_start, planning_window_end in ISO-8601 UTC).",
+      "requested_as_of: Point-in-time timestamp for historical or temporal context where applicable.",
+      "freshness_tolerance: Maximum allowable freshness class threshold before context is flagged DEGRADED."
+    ],
+    "disallowed_concepts": [
+      "Raw database table names or column names.",
+      "Raw database primary keys or SQL fragments.",
+      "Arbitrary SQL queries or dynamic WHERE clauses.",
+      "Database host, port, credentials, or DSN parameters.",
+      "Unbounded requests ('give me all data', 'dump all staff').",
+      "LLM system or developer prompt templates."
+    ]
+  },
+  "assembly_result": {
+    "sections": [
+      {
+        "section_name": "model_context",
+        "description": "Structured domain data permitted for model exposure. Bounded strictly to goal scope, whitelisted fields, opaque references, and sanitized text."
+      },
+      {
+        "section_name": "validation_context",
+        "description": "Internal-only evidence for deterministic validators (raw source IDs, relational bindings, status/lifecycle flags, timing metadata). Strictly isolated from LLM visibility."
+      },
+      {
+        "section_name": "aggregates",
+        "description": "Approved mathematical headcount calculations (e.g. cohort student count). Zero individual student records exposed."
+      },
+      {
+        "section_name": "provenance",
+        "description": "Audit metadata detailing source systems, entity types, external references, timestamps, freshness classes, mapping versions, and policy decisions."
+      },
+      {
+        "section_name": "omissions",
+        "description": "Explicit record of requested or available fields/categories intentionally omitted, including policy denial reasons and minimization rules applied."
+      },
+      {
+        "section_name": "warnings",
+        "description": "Structured diagnostic alerts detailing non-fatal issues (stale optional context, missing non-critical records, partial category availability)."
+      },
+      {
+        "section_name": "unresolved_questions",
+        "description": "Ambiguities, conflicting source claims, or missing critical parameters requiring human review or administrative clarification."
+      },
+      {
+        "section_name": "assembly_status",
+        "description": "Provider-neutral operational assembly outcome enum: READY, DEGRADED, BLOCKED, or REQUIRES_CLARIFICATION."
+      }
+    ]
+  },
+  "assembly_statuses": [
+    {
+      "status": "READY",
+      "definition": "All required context for this goal was successfully assembled, validated against policy, and minimized within approved rules. Safe for Task Intelligence planning."
+    },
+    {
+      "status": "DEGRADED",
+      "definition": "Planning may proceed under approved policy, but non-critical context is incomplete, stale, or partially unavailable. Condition explicitly surfaced in warnings."
+    },
+    {
+      "status": "BLOCKED",
+      "definition": "A mandatory security prerequisite, organization scope rule, source connectivity, schema compatibility, or critical context condition prevents safe planning."
+    },
+    {
+      "status": "REQUIRES_CLARIFICATION",
+      "definition": "The system cannot safely resolve source conflicts, ambiguous mappings, or policy gates using available evidence alone. Human or administrative clarification is required."
+    }
+  ],
+  "policy_precedence": [
+    "1. Authenticated Principal & Scope Verification: Must possess verified organization_scope_reference (BLK-01).",
+    "2. Source Adapter Capability & Health Validation: Category must be marked SUPPORTED by an approved adapter, and adapter/source health state must be acceptable for the current category and goal under policy.",
+    "3. Task 0G.2 Mapping Authorization: Source table and fields must be mapped as REQUIRED_FOR_INITIAL_TI or AGGREGATE_ONLY.",
+    "4. Task 0G.3 Access Policy Whitelisting (Model Context): Field must be classified as PLANNER_CONTEXT_ALLOWED (max 28 fields) or AGGREGATE_ONLY for model-visible inclusion. (DETERMINISTIC_VALIDATION_ONLY fields remain authorized strictly for internal validation_context).",
+    "5. Context Category Goal Relevance: Category must be demonstrably relevant to the operational goal.",
+    "6. Goal-Scoped Minimization: Records must be filtered strictly to the bounded target cohorts, departments, or temporally scoped window relevant to the active goal.",
+    "7. Conditional Identity Rules: Personal identifiers (name, surname) masked to opaque tokens (<opaque_staff_ref>) unless explicitly authorized.",
+    "8. Freshness & Staleness Policy: Context freshness must satisfy goal tolerance; required stale context may result in BLOCKED or DEGRADED according to policy and goal criticality.",
+    "9. Untrusted Text Handling: Approved free text enters model context as untrusted data literals without instruction authority; suspicious text is quarantined or omitted."
+  ],
+  "failure_semantics": [
+    {
+      "trigger": "Missing or unverified organization_scope_reference",
+      "resulting_status": "BLOCKED",
+      "action": "Reject request immediately; fail closed without querying adapters (BLK-01)."
+    },
+    {
+      "trigger": "Required source adapter UNAVAILABLE or MISCONFIGURED",
+      "resulting_status": "BLOCKED",
+      "action": "Halt context assembly for goals dependent on critical source."
+    },
+    {
+      "trigger": "Upstream schema drift or SCHEMA_INCOMPATIBLE",
+      "resulting_status": "BLOCKED",
+      "action": "Fail closed on affected categories; emit schema drift security alert."
+    },
+    {
+      "trigger": "Requested category marked DEFERRED or UNSUPPORTED",
+      "resulting_status": "BLOCKED_OR_DEGRADED",
+      "action": "Block if category is required for goal; omit with warning if optional."
+    },
+    {
+      "trigger": "Policy denial on restricted or forbidden field",
+      "resulting_status": "PROCEED_WITH_OMISSION",
+      "action": "Omit field immediately; record in omissions ledger; fail closed if field was mandatory."
+    },
+    {
+      "trigger": "Missing required entity (e.g. session or cohort not found)",
+      "resulting_status": "BLOCKED",
+      "action": "Halt assembly; do not synthesize or fabricate missing entities."
+    },
+    {
+      "trigger": "Stale required context exceeding operational tolerance",
+      "resulting_status": "BLOCKED_OR_DEGRADED",
+      "action": "Halt planning if freshness is declared critical by policy; otherwise omit or degrade per policy."
+    },
+    {
+      "trigger": "Stale optional context",
+      "resulting_status": "DEGRADED_OR_OMIT",
+      "action": "Include with structured warning in warnings section or omit per policy."
+    },
+    {
+      "trigger": "Unavailable cohort headcount aggregate",
+      "resulting_status": "DEGRADED_OR_BLOCKED",
+      "action": "Block if headcount is mandatory for capacity/effort; otherwise omit with warning."
+    },
+    {
+      "trigger": "Conflicting authoritative records between sources",
+      "resulting_status": "REQUIRES_CLARIFICATION_OR_BLOCKED",
+      "action": "Do not silently merge or pick arbitrary winner; record conflict in unresolved_questions; block if clarification is required."
+    },
+    {
+      "trigger": "Suspicious upstream text or prompt injection attempt",
+      "resulting_status": "DEGRADED_OR_BLOCKED",
+      "action": "Quarantine suspicious text; treat approved free text as untrusted data; emit security audit evidence."
+    }
+  ],
+  "production_blockers": [
+    {
+      "blocker_id": "BLK-01",
+      "title": "Tenant / Organization Partitioning Rule Unresolved",
+      "status": "ACTIVE_PRODUCTION_BLOCKER",
+      "impact": "Live production context retrieval against upstream MySQL remains strictly blocked until authoritative tenant/organization scoping mechanism is defined. Synthetic/mock scope references permitted for testing."
+    },
+    {
+      "blocker_id": "BLK-02",
+      "title": "SCHEDULING / EXAM RESOURCE PRODUCTION GATE: Physical Academic Resource Authority Unresolved",
+      "status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "impact": "Unresolved room capacity and equipment authority blocks production capabilities requiring authoritative physical resource scheduling (e.g. automated room/seat allocation). Does NOT block general Task Intelligence goal decomposition, WBS generation, or academic context retrieval."
+    }
+  ],
+  "unresolved_decisions": [
+    {
+      "gate_id": "UBQ-TI-01",
+      "title": "Tenant / Organization Scoping Blocker",
+      "status": "UNRESOLVED_PRODUCTION_BLOCKER",
+      "rule": "Production context retrieval remains blocked until an authoritative organization/tenant partition rule is defined."
+    },
+    {
+      "gate_id": "UBQ-TI-02",
+      "title": "Active and Soft-Delete Semantics",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "rule": "Allowed active/status flag semantics must follow authoritative business mappings; where status semantics are unresolved, Context Builder must report ambiguity or a business-confirmation gate; no universal is_active meaning is invented."
+    },
+    {
+      "gate_id": "UBQ-TI-03",
+      "title": "Examination Subsystem Operational Authority",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "rule": "Designate whether CBSE exam subsystem or Legacy exam subsystem is authoritative for curriculum workflows before exam context integration."
+    },
+    {
+      "gate_id": "UBQ-TI-04",
+      "title": "Physical Academic Resource Source Authority",
+      "status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "rule": "Confirm whether physical resources are owned in E-7 PostgreSQL (Universal Mode) or supplied by external facilities systems (Embedded Mode) before exam room scheduling."
+    },
+    {
+      "gate_id": "UBQ-TI-05",
+      "title": "Future Staff Availability vs Historical Attendance Semantics",
+      "status": "UNRESOLVED_SEMANTIC_GATE",
+      "rule": "Forward availability relies strictly on approved leave requests and published timetables; historical attendance punch logs excluded."
+    }
+  ]
+}

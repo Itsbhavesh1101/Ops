@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/"
+             xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+             xmlns:flowable="http://flowable.org/dmn"
+             id="definitions_approval_routing"
+             name="Approval Routing Decision"
+             namespace="http://flowable.org/dmn">
+  <decision id="approval_routing" name="Approval Routing Decision Table">
+    <decisionTable id="decisionTable_approval_routing" hitPolicy="FIRST">
+      <input id="input_risk_band" label="Risk Band">
+        <inputExpression id="inputExpression_risk_band" typeRef="string">
+          <text>risk_band</text>
+        </inputExpression>
+      </input>
+      <input id="input_amount_band" label="Amount Band">
+        <inputExpression id="inputExpression_amount_band" typeRef="string">
+          <text>amount_band</text>
+        </inputExpression>
+      </input>
+      <output id="output_approval_path" label="Approval Path" name="approval_path" typeRef="string" />
+      <output id="output_required_approvals" label="Required Approvals" name="required_approvals" typeRef="number" />
+      <rule id="rule_high_risk">
+        <inputEntry id="entry_risk_high"><text>== "HIGH"</text></inputEntry>
+        <inputEntry id="entry_amount_any_high"><text>-</text></inputEntry>
+        <outputEntry id="out_path_quorum"><text>"QUORUM"</text></outputEntry>
+        <outputEntry id="out_count_3"><text>3</text></outputEntry>
+      </rule>
+      <rule id="rule_med_tier3">
+        <inputEntry id="entry_risk_med_3"><text>== "MEDIUM"</text></inputEntry>
+        <inputEntry id="entry_amount_tier3"><text>== "TIER_3"</text></inputEntry>
+        <outputEntry id="out_path_quorum_med"><text>"QUORUM"</text></outputEntry>
+        <outputEntry id="out_count_2_q"><text>2</text></outputEntry>
+      </rule>
+      <rule id="rule_med_standard">
+        <inputEntry id="entry_risk_med"><text>== "MEDIUM"</text></inputEntry>
+        <inputEntry id="entry_amount_any_med"><text>-</text></inputEntry>
+        <outputEntry id="out_path_seq"><text>"SEQUENTIAL"</text></outputEntry>
+        <outputEntry id="out_count_2_s"><text>2</text></outputEntry>
+      </rule>
+      <rule id="rule_low_tier3">
+        <inputEntry id="entry_risk_low_3"><text>== "LOW"</text></inputEntry>
+        <inputEntry id="entry_amount_low_3"><text>== "TIER_3"</text></inputEntry>
+        <outputEntry id="out_path_seq_low"><text>"SEQUENTIAL"</text></outputEntry>
+        <outputEntry id="out_count_2_l"><text>2</text></outputEntry>
+      </rule>
+      <rule id="rule_low_default">
+        <inputEntry id="entry_risk_low"><text>== "LOW"</text></inputEntry>
+        <inputEntry id="entry_amount_any_low"><text>-</text></inputEntry>
+        <outputEntry id="out_path_single"><text>"SINGLE"</text></outputEntry>
+        <outputEntry id="out_count_1"><text>1</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

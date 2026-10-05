@@ -1,0 +1,30 @@
+"""Phase 2B Task Intelligence constants and governance markers.
+
+Preserves architectural boundaries, authority partitioning, and benchmark statuses.
+"""
+
+from typing import Final
+
+# Governance and benchmark gate statuses
+FALLBACK_MODEL_SELECTION: Final[str] = "UNRESOLVED_ADR_BENCHMARK_DECISION"
+FALLBACK_LIVE_BENCHMARK: Final[str] = "NOT_RUN"
+PRODUCTION_LLM_SELECTION: Final[str] = "PENDING_BENCHMARK_AND_ADR"
+MYSQL_PRODUCTION_CONTEXT_RETRIEVAL: Final[str] = "DISABLED_BY_GOVERNANCE"
+SARVAM_LIVE_BENCHMARK_BLOCKED: Final[str] = "BLOCKED_EXTERNAL_ACCESS"
+
+# Deferred boundaries
+TASK_INTELLIGENCE_API_PRODUCTION_MOUNT: Final[str] = (
+    "DEFERRED_PENDING_TRUSTED_HTTP_TENANT_DEPENDENCY"
+)
+TASK_INTELLIGENCE_ASYNC_PLANNER_RUNTIME: Final[str] = (
+    "DEFERRED_PENDING_EXPLICIT_JOB_EXECUTION_CONTRACT"
+)
+BLK_01_STATUS: Final[str] = (
+    "LIVE MYSQL PRODUCTION CONTEXT RETRIEVAL BLOCKED PENDING AUTHORITATIVE "
+    "TENANT/ORGANIZATION SCOPING"
+)
+BLK_02_STATUS: Final[str] = "PHYSICAL_RESOURCE_SCHEDULING_GATE"
+
+# Approved Phase-0 context categories count & field count
+FROZEN_CONTEXT_CATEGORIES_COUNT: Final[int] = 7
+FROZEN_PLANNER_ALLOWED_FIELDS_COUNT: Final[int] = 28

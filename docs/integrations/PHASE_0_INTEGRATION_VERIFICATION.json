@@ -1,0 +1,422 @@
+{
+  "verification_version": "1.0.0",
+  "document_name": "PHASE_0_INTEGRATION_VERIFICATION",
+  "status": "phase_0_integration_audit",
+  "audit_type": "READ_ONLY_INTEGRATION_VERIFICATION_AND_EXIT_GAP_AUDIT",
+  "timestamp": "2026-09-25T01:25:00Z",
+  "governance_classification": "OFFICIAL PHASE-0 AUDIT REPORT",
+  "source_corpus_limitation": {
+    "physically_present_sources": [
+      "IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+      "IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "IR_Infotech_E7_Operations_Engine_Open_Source_Research_Report.pdf",
+      "opes eng.pdf"
+    ],
+    "corpus_boundary_note": "Audit is strictly bounded to physically available project source documents under docs/source-of-truth/ and frozen Phase-0 artifacts. Absence of provider selections in local documents reflects genuine source reality and is not extrapolated to uninspected external or historical company repositories."
+  },
+  "artifact_completeness": {
+    "expected_0g_artifacts_count": 17,
+    "verified_0g_artifacts_count": 17,
+    "missing_artifacts": [],
+    "audit_artifacts": [
+      {
+        "file_name": "MYSQL_SCHEMA_INVENTORY.md",
+        "task": "0G.1",
+        "status": "VERIFIED_PRESENT",
+        "role": "MySQL 8.0 schema extraction and catalog of 247 tables"
+      },
+      {
+        "file_name": "MYSQL_SCHEMA_INVENTORY.json",
+        "task": "0G.1",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable schema inventory metadata"
+      },
+      {
+        "file_name": "MYSQL_TASK_INTELLIGENCE_DATA_MAPPING.md",
+        "task": "0G.2",
+        "status": "VERIFIED_PRESENT",
+        "role": "70 evaluated tables classified into 6 operational tiers"
+      },
+      {
+        "file_name": "MYSQL_TASK_INTELLIGENCE_DATA_MAPPING.json",
+        "task": "0G.2",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable field-level provenance and sensitivity classifications"
+      },
+      {
+        "file_name": "AI_CONTEXT_ACCESS_POLICY.md",
+        "task": "0G.3",
+        "status": "VERIFIED_PRESENT",
+        "role": "Default-deny policy, 28 allowed fields, 74 validation-only fields, aggregate boundaries"
+      },
+      {
+        "file_name": "AI_CONTEXT_ACCESS_POLICY.json",
+        "task": "0G.3",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable field access rules and operational gating definitions"
+      },
+      {
+        "file_name": "MYSQL_ERP_ADAPTER_CONTRACT.md",
+        "task": "0G.4",
+        "status": "VERIFIED_PRESENT",
+        "role": "Provider-neutral read-only adapter contract across 7 supported context categories"
+      },
+      {
+        "file_name": "MYSQL_ERP_ADAPTER_CONTRACT.json",
+        "task": "0G.4",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable adapter interface schema and operational bounds"
+      },
+      {
+        "file_name": "CONTEXT_BUILDER_CONTRACT.md",
+        "task": "0G.5",
+        "status": "VERIFIED_PRESENT",
+        "role": "Provider-neutral Context Builder contract, boundary separation, model vs validation context"
+      },
+      {
+        "file_name": "CONTEXT_BUILDER_CONTRACT.json",
+        "task": "0G.5",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable Context Builder assembly request/response schema"
+      },
+      {
+        "file_name": "EXTERNAL_INTEGRATION_INVENTORY.md",
+        "task": "0G.6A",
+        "status": "VERIFIED_PRESENT",
+        "role": "External integration evidence audit across 4 domains (Identity, ERP, Calendar, E-8)"
+      },
+      {
+        "file_name": "EXTERNAL_INTEGRATION_INVENTORY.json",
+        "task": "0G.6A",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable external system inventory and source-fact matrix"
+      },
+      {
+        "file_name": "E8_NOTIFICATION_ENGAGEMENT_CONTRACT.md",
+        "task": "0G.6B",
+        "status": "VERIFIED_PRESENT",
+        "role": "Transport-neutral E-7 to E-8 notification command contract and responsibility boundary"
+      },
+      {
+        "file_name": "E8_NOTIFICATION_ENGAGEMENT_CONTRACT.json",
+        "task": "0G.6B",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable NotificationCommand schema and trigger definitions"
+      },
+      {
+        "file_name": "E8_NOTIFICATION_ENGAGEMENT_MOCK.json",
+        "task": "0G.6B",
+        "status": "VERIFIED_PRESENT",
+        "role": "Synthetic test-only mock acceptance fixture for contract testing"
+      },
+      {
+        "file_name": "PHASE_0_EXTERNAL_PROVIDER_DECISIONS.md",
+        "task": "0G.6C",
+        "status": "VERIFIED_PRESENT",
+        "role": "Decision request packet for D-EXT-01 (IdP) and D-EXT-02 (Calendar)"
+      },
+      {
+        "file_name": "PHASE_0_EXTERNAL_PROVIDER_DECISIONS.json",
+        "task": "0G.6C",
+        "status": "VERIFIED_PRESENT",
+        "role": "Machine-readable decision metadata, non-secret parameters, and secret mandate"
+      }
+    ],
+    "supporting_fixtures": [
+      {
+        "file_path": "tests/fixtures/integrations/INT-NOTIFY-001.json",
+        "status": "VERIFIED_PRESENT",
+        "compatibility_status": "PARTIALLY_COMPATIBLE"
+      }
+    ]
+  },
+  "verification_domains": {
+    "mysql_erp": {
+      "first_concrete_source": "mysql_iredu",
+      "source_technology": "MySQL 8.0",
+      "database_logical_name": "iredu",
+      "access_mode": "READ_ONLY",
+      "runtime_adapter_status": "NOT_IMPLEMENTED",
+      "system_of_record_operational_state": "PostgreSQL (E-7 owned)",
+      "external_record_governance": "Upstream MySQL owns institutional master records; E-7 never mutates MySQL tables",
+      "llm_database_access": "FORBIDDEN (No direct database access, no LLM-generated SQL, no text-to-SQL)",
+      "arbitrary_sql_access": "FORBIDDEN (Queries strictly bounded to pre-parameterized adapter retrieval routines)",
+      "operational_gates": {
+        "blk_01": {
+          "id": "BLK-01",
+          "gate_id": "UBQ-TI-01",
+          "title": "Tenant / Organization Scoping Unresolved",
+          "classification": "UNRESOLVED_PRODUCTION_BLOCKER",
+          "scope": "Live MySQL production context retrieval only",
+          "impact": "Blocks live production extraction against mysql_iredu. Does NOT block generic E-7 planning, development, synthetic testing, or non-MySQL operations."
+        },
+        "blk_02": {
+          "id": "BLK-02",
+          "gate_id": "UBQ-TI-04",
+          "title": "Academic Physical Resource Source Authority Unresolved",
+          "classification": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+          "scope": "Automated physical room capacity and facility scheduling",
+          "impact": "Blocks automated physical exam room and facility scheduling. Does NOT block general Task Intelligence planning, WBS generation, curricular timelines, or staff role assignment."
+        }
+      }
+    },
+    "task_intelligence_mapping": {
+      "total_evaluated_tables": 70,
+      "source_category_counts": {
+        "required_for_initial_ti": 14,
+        "optional_later": 13,
+        "validation_only": 5,
+        "aggregate_only": 2,
+        "unresolved": 1,
+        "excluded": 35
+      },
+      "sum_check": 70,
+      "consistency_status": "CONSISTENT_AND_VERIFIED",
+      "notes": "Table counts across all categories exactly match across 0G.2 mapping and 0G.3 access policy."
+    },
+    "ai_context_access": {
+      "default_decision": "DENY",
+      "planner_context_allowed_fields_count": 28,
+      "deterministic_validation_only_fields_count": 74,
+      "aggregate_only_tables": [
+        "students",
+        "student_session"
+      ],
+      "model_visibility_constraints": {
+        "individual_student_rows": "FORBIDDEN (Zero student rows model-visible; aggregate headcount only)",
+        "staff_descriptive_data": "DESCRIPTIVE_ONLY (Does not establish operational capability, certification, or eligibility)",
+        "timetable_gaps": "BUSY_WINDOW_ONLY (Free timetable gaps do not establish complete availability)",
+        "historical_attendance": "EXCLUDED (Historical punch logs do not establish future operational availability)",
+        "calendar_entries": "INFORMATIONAL_ONLY (Dates and events do not automatically create operational hard blackouts)"
+      }
+    },
+    "erp_adapter": {
+      "interface_type": "PROVIDER_NEUTRAL",
+      "access_mode": "READ_ONLY",
+      "supported_context_categories_count": 7,
+      "supported_context_categories": [
+        "organization_context",
+        "academic_context",
+        "subject_context",
+        "staff_resource_context",
+        "commitment_context",
+        "calendar_context",
+        "aggregate_context"
+      ],
+      "arbitrary_sql": "PROHIBITED",
+      "llm_generated_sql": "PROHIBITED",
+      "raw_mysql_pk_semantics": "EXCLUDED_FROM_PUBLIC_CONTRACT",
+      "canonical_id_generation": "UNSPECIFIED (Decoupled from adapter layer)",
+      "least_privilege_model": "OPERATION_DRIVEN (Scoped to requested categories and goal parameters)",
+      "rbac_roles_visibility": "VALIDATION_ONLY (roles and staff_roles excluded from planner model context)",
+      "source_context_bundle_semantics": "NORMALIZED_AND_INTACT"
+    },
+    "context_builder": {
+      "architectural_role": "ASSEMBLER_AND_POLICY_ENFORCER",
+      "design_type": "PROVIDER_NEUTRAL",
+      "default_policy": "DEFAULT_DENY",
+      "supported_categories_count": 7,
+      "supported_categories": [
+        "organization_context",
+        "academic_context",
+        "subject_context",
+        "staff_resource_context",
+        "commitment_context",
+        "calendar_context",
+        "aggregate_context"
+      ],
+      "user_authentication": "OUT_OF_SCOPE (Context Builder does not authenticate users or verify tokens)",
+      "organization_scope_prerequisite": "MANDATORY_PRE_ESTABLISHED (Caller must provide verified organization scope)",
+      "goal_scoped_minimization": "ENFORCED",
+      "context_separation": "SEPARATED (model_context separated from validation_context)",
+      "aggregate_privacy_preservation": "ENFORCED (Aggregates derived in adapter boundary; zero student rows visible)",
+      "autonomous_scope_expansion": "FORBIDDEN (LLM cannot expand data retrieval scope)",
+      "raw_source_rows_visibility": "FORBIDDEN (Raw source records never enter model context)",
+      "hardcoded_operational_limits": "NONE (TTL, confidence, and context window limits remain external/configurable)",
+      "prompt_construction": "OUT_OF_SCOPE (Prompt engineering decoupled from Context Builder)"
+    },
+    "external_integration_inventory": {
+      "total_domains_count": 4,
+      "domains": [
+        {
+          "domain_name": "identity",
+          "provider_status": "UNRESOLVED",
+          "protocol_requirements": "OIDC / OAuth 2.0 / JWT / JWKS token verification",
+          "protocol_decoupled_from_provider": true
+        },
+        {
+          "domain_name": "erp_sis",
+          "provider_status": "RESOLVED",
+          "first_source": "mysql_iredu",
+          "gating": "BLK-01 (Tenant scoping) and BLK-02 (Physical resource authority)"
+        },
+        {
+          "domain_name": "calendar",
+          "provider_status": "UNRESOLVED",
+          "protocol_requirements": "RFC 5545 (iCalendar) / CalDAV",
+          "protocol_decoupled_from_provider": true
+        },
+        {
+          "domain_name": "e8_notification_engagement",
+          "functional_boundary": "ESTABLISHED",
+          "production_transport": "UNRESOLVED",
+          "contract_mock_status": "RESOLVED_TASK_0G_6B"
+        }
+      ]
+    },
+    "e8_contract_mock": {
+      "production_transport": "UNRESOLVED",
+      "transport_neutral": true,
+      "notification_command_classification": "ENGINEERING DECISION \u2014 TASK 0G.6B",
+      "notification_command_required_fields": [
+        "contract_version",
+        "command_id",
+        "correlation_reference",
+        "organization_scope_reference",
+        "trigger",
+        "recipient_references",
+        "notification_context",
+        "requested_at"
+      ],
+      "notification_command_optional_fields": [
+        "causation_reference"
+      ],
+      "prohibited_or_omitted_elements": {
+        "urgency_hint": "OMITTED",
+        "priority_enum": "OMITTED",
+        "prescribed_id_algorithm": "OMITTED (No UUID/ULID algorithm prescribed)",
+        "raw_contact_pii": "FORBIDDEN",
+        "raw_database_pks": "FORBIDDEN"
+      },
+      "recipient_resolution_status": "REQUIRES_BUSINESS_CONFIRMATION",
+      "channel_selection_status": "REQUIRES_BUSINESS_CONFIRMATION",
+      "template_rendering_boundary": "ASSIGNED_TO_E8_CONTRACT_BOUNDARY (Split is REQUIRES_BUSINESS_CONFIRMATION)",
+      "delivery_receipt_status": "UNRESOLVED_NOT_YET_REQUIRED",
+      "existing_fixture_status": "PARTIALLY_COMPATIBLE (INT-NOTIFY-001)",
+      "mock_status_classification": "TEST_ONLY (MOCK_ACCEPTED / MOCK_REJECTED)",
+      "source_verified_events": [
+        "task.blocked",
+        "workflow.task.created",
+        "workflow.sla.warning",
+        "schedule.published"
+      ],
+      "unsupported_event_names_invented": false
+    },
+    "provider_decisions": {
+      "packet_status": "AWAITING_EXTERNAL_DECISIONS",
+      "decisions_count": 2,
+      "decisions": [
+        {
+          "decision_id": "D-EXT-01",
+          "title": "Exact Production Identity Provider (IdP)",
+          "status": "PHASE_0_EXIT_DECISION_REQUIRED",
+          "owner_class": "BUSINESS / PLATFORM OWNER CONFIRMATION REQUIRED",
+          "provider_selected": false,
+          "shortlist_provided": false,
+          "recommendation_made": false,
+          "incorrect_fr_int_01_citation": false,
+          "evidence_grounding": "Complete Implementation Plan Sec. 14; Implementation Guardrails Sec. 3; Canonical Ownership Sec. 4.1"
+        },
+        {
+          "decision_id": "D-EXT-02",
+          "title": "First Production Calendar Provider/System",
+          "status": "PHASE_0_EXIT_DECISION_REQUIRED",
+          "owner_class": "BUSINESS / PLATFORM OWNER CONFIRMATION REQUIRED",
+          "provider_selected": false,
+          "shortlist_provided": false,
+          "recommendation_made": false,
+          "evidence_grounding": "RTM FR-SC-05; Complete Specification Sec. 9; Complete Implementation Plan Sec. 12.4 & 13.2; Canonical Ownership Sec. 4.1 & 4.2"
+        }
+      ],
+      "secret_handling": {
+        "provider_neutral_mandate": "Production credentials and secrets MUST be managed through an approved secure secret-management mechanism and MUST NOT be stored in source control or decision documents.",
+        "prescribed_secret_products": [],
+        "credentials_requested": false
+      }
+    }
+  },
+  "security_and_secret_audit": {
+    "total_files_scanned": 17,
+    "exposed_secrets_found_count": 0,
+    "findings": [],
+    "audit_verdict": "CLEAN \u2014 ZERO SECRET EXPOSURE"
+  },
+  "findings": [
+    {
+      "finding_id": "INFO-0G-01",
+      "severity": "INFO",
+      "artifact": "docs/integrations/PHASE_0_EXTERNAL_PROVIDER_DECISIONS.json",
+      "description": "Decision D-EXT-01 (Exact production Identity Provider) is RESOLVED: Google Cloud Identity / Google Workspace managed organizational identity selected via project-authorized provider selection. Google ID tokens are signed JWT identity assertions; OAuth access tokens are bearer credentials for Google APIs; audience matched to approved OAuth client ID(s); hd != canonical E-7 tenant_id; service API key remains frozen Phase-1 initial service-auth baseline.",
+      "requires_correction": false
+    },
+    {
+      "finding_id": "INFO-0G-02",
+      "severity": "INFO",
+      "artifact": "docs/integrations/PHASE_0_EXTERNAL_PROVIDER_DECISIONS.json",
+      "description": "Decision D-EXT-02 (First production calendar provider/system) is RESOLVED: Google Calendar under Google Workspace selected with BIDIRECTIONAL integration direction via project-authorized provider selection. CALENDAR_AUTHORIZATION_TOPOLOGY = TO_BE_CONFIRMED_DURING_IMPLEMENTATION (domain-wide delegation not mandatory); UTC_SAFE_TIME_HANDLING preserves timezone/all-day semantics; E-7 owns synchronization idempotency; nextSyncToken lifecycle with HTTP 410 full re-sync; HTTPS callbacks with unpredictable X-Goog-Channel-Token verification; notifications are change signals.",
+      "requires_correction": false
+    },
+    {
+      "finding_id": "INFO-0G-03",
+      "severity": "INFO",
+      "artifact": "docs/integrations/MYSQL_ERP_ADAPTER_CONTRACT.json",
+      "description": "Production Blocker BLK-01 (Tenant/Organization Scoping Unresolved) gates live production context extraction against mysql_iredu. It does not block generic E-7 planning or synthetic testing.",
+      "requires_correction": false
+    },
+    {
+      "finding_id": "INFO-0G-04",
+      "severity": "INFO",
+      "artifact": "docs/integrations/MYSQL_ERP_ADAPTER_CONTRACT.json",
+      "description": "Scheduling Resource Production Gate BLK-02 (Physical Academic Resource Authority Unresolved) gates automated room capacity scheduling. It does not block generic Task Intelligence planning.",
+      "requires_correction": false
+    },
+    {
+      "finding_id": "INFO-0G-05",
+      "severity": "INFO",
+      "artifact": "docs/integrations/E8_NOTIFICATION_ENGAGEMENT_CONTRACT.json",
+      "description": "E-8 production transport (DEC-E8-01), recipient resolution (DEC-E8-02), feedback contract (DEC-E8-03), template rendering boundary (DEC-E8-04), and channel selection (DEC-E8-05) remain open decisions for post-Phase-0 runtime implementation.",
+      "requires_correction": false
+    },
+    {
+      "finding_id": "INFO-0G-06",
+      "severity": "INFO",
+      "artifact": "docs/integrations/E8_NOTIFICATION_ENGAGEMENT_CONTRACT.json",
+      "description": "Existing fixture tests/fixtures/integrations/INT-NOTIFY-001.json is frozen and classified as PARTIALLY_COMPATIBLE with Task 0G.6B contract due to earlier contract top-level subject/command_type conventions.",
+      "requires_correction": false
+    },
+    {
+      "finding_id": "INFO-0G-07",
+      "severity": "INFO",
+      "artifact": "docs/integrations/EXTERNAL_INTEGRATION_INVENTORY.json",
+      "description": "Runtime adapter implementations for ERP (mysql_iredu), Identity, Calendar, and E-8 are NOT_IMPLEMENTED in Phase 0, in strict compliance with the architecture roadmap.",
+      "requires_correction": false
+    }
+  ],
+  "open_external_decisions": [
+    {
+      "decision_id": "D-EXT-01",
+      "title": "Exact Production Identity Provider (IdP)",
+      "status": "RESOLVED",
+      "selected_provider": "GOOGLE_CLOUD_IDENTITY_GOOGLE_WORKSPACE",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+    },
+    {
+      "decision_id": "D-EXT-02",
+      "title": "First Production Calendar Provider/System",
+      "status": "RESOLVED",
+      "selected_provider": "GOOGLE_WORKSPACE_CALENDAR",
+      "initial_integration_direction": "BIDIRECTIONAL",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+    }
+  ],
+  "integration_engineering_baseline": "COMPLETE",
+  "integration_engineering_baseline_justification": "All 17 required Phase-0 integration design artifacts exist across Tasks 0G.1 through 0G.6C. Contracts, schema mappings, access policies, mocks, and decision packets are fully drafted, verified, source-grounded, and mutually consistent. Zero BLOCKER or MAJOR issues exist in engineering artifacts. Open items are external business/platform ownership decisions rather than incomplete engineering designs.",
+  "phase_0_integration_exit_status": "PASS",
+  "phase_0_integration_exit_status_justification": "All Phase-0 integration design artifacts and provider selections are complete and verified. External provider decisions D-EXT-01 (Google Cloud Identity / Google Workspace) and D-EXT-02 (Google Calendar under Google Workspace, bidirectional) have been formally resolved via project-authorized provider selections without introducing architectural defects or secret exposures. Zero integration exit blockers remain.",
+  "remaining_phase_0_work": [
+    "0H \u2014 SLO, Retention & First-Tenant Scale Baseline",
+    "0I \u2014 Phase-0 Final Governance & Exit Gate Audit"
+  ],
+  "next_task": "0H",
+  "next_task_status": "NOT_STARTED"
+}

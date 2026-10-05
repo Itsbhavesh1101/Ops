@@ -1,0 +1,425 @@
+{
+  "audit_version": "1.3.0",
+  "document_name": "PHASE_0_FINAL_GOVERNANCE_AUDIT",
+  "audit_type": "FINAL_PHASE_0_GOVERNANCE_CONSOLIDATION_AND_EXIT_GATE_AUDIT",
+  "timestamp": "2026-09-25T16:45:00Z",
+  "phase": "PHASE_0",
+  "governance_classification": "PHASE_0_GOVERNANCE_AUDIT_RECORD",
+  "deliverable_status": {
+    "P0-D01_SOURCE_RECONCILIATION": {
+      "status": "VERIFIED_COMPLETE",
+      "artifacts": [
+        "docs/SOURCE_OF_TRUTH.md",
+        "docs/IMPLEMENTATION_GUARDRAILS.md",
+        "docs/adr/ADR-000-source-of-truth-and-reconciliation.md"
+      ],
+      "findings": "Document precedence established against authoritative PDFs; unavailable historical documents are not falsely represented as directly reviewed."
+    },
+    "P0-D02_REQUIREMENTS_TRACEABILITY": {
+      "status": "VERIFIED_COMPLETE",
+      "artifacts": [
+        "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md"
+      ],
+      "total_requirements": 25,
+      "functional_families": {
+        "task_intelligence": 9,
+        "workflow": 7,
+        "scheduling": 6,
+        "integration": 3
+      },
+      "findings": "Exactly 25 functional requirements mapped to source basis, phase ownership, and verification criteria with zero duplicates or missing items."
+    },
+    "P0-D03_ARCHITECTURE_DECISIONS": {
+      "status": "VERIFIED_COMPLETE",
+      "artifacts_count": 10,
+      "adr_files": [
+        "ADR-000-source-of-truth-and-reconciliation.md",
+        "ADR-001-workflow-runtime.md",
+        "ADR-002-task-intelligence-orchestration.md",
+        "ADR-003-scheduling-solver-strategy.md",
+        "ADR-004-business-rules.md",
+        "ADR-005-event-broker.md",
+        "ADR-006-sor-database-strategy.md",
+        "ADR-007-caching-strategy.md",
+        "ADR-008-external-integrations.md",
+        "ADR-009-workflow-authoring-and-management.md"
+      ],
+      "findings": "All 10 ADRs audited and mutually consistent. PostgreSQL is the canonical transactional SoR for E-7-owned operational state. Flowable remains authoritative for its native workflow-runtime execution state; E-7 stores only the canonical references, mappings, business-facing records, audit/evidence, and other E-7-owned state assigned by the ownership model. External systems retain authority over their native master data."
+    },
+    "P0-D04_LICENSE_COMPLIANCE": {
+      "status": "VERIFIED_COMPLETE",
+      "artifacts": [
+        "docs/OPEN_SOURCE_COMPLIANCE_REGISTER.md",
+        "LICENSES.md"
+      ],
+      "fet_evaluation": {
+        "license": "AGPL-3.0",
+        "classification": "BENCHMARK / FALLBACK",
+        "commercial_risk": "HIGH if embedded/distributed",
+        "status": "Isolated benchmark wrapper only; mandatory legal review before any distribution; rejected as primary production solver due to AGPL-3.0 viral copyleft risks"
+      },
+      "findings": "Comprehensive license review verified. Flowable OSS (Apache 2.0 runtime), OR-Tools (Apache 2.0 solver), UniTime (LGPL-3.0 decoupled service), FET (AGPL-3.0 benchmark only, legal review required, rejected as foundation), n8n and Camunda 8 Zeebe formally rejected."
+    },
+    "P0-D05_REFERENCE_USE_CASES": {
+      "status": "VERIFIED_COMPLETE",
+      "cases": [
+        "docs/use-cases/EXAM_OPERATIONS_REFERENCE_CASE.md",
+        "docs/use-cases/FACILITY_MAINTENANCE_REFERENCE_CASE.md"
+      ],
+      "findings": "Both reference use cases exist and are confirmed as test/reference benchmarks only, not contractual production commitments."
+    },
+    "P0-D06_FIXTURE_DATASETS": {
+      "status": "VERIFIED_COMPLETE",
+      "manifest_path": "tests/fixtures/MANIFEST.json",
+      "dataset_count": 18,
+      "family_counts": {
+        "task_intelligence": 5,
+        "workflow": 3,
+        "exam_scheduling": 3,
+        "maintenance_scheduling": 3,
+        "resources": 1,
+        "integration": 3
+      },
+      "all_files_present": true,
+      "findings": "All 18 logical fixture datasets were reconciled against tests/fixtures/MANIFEST.json using their exact dataset IDs and declared repository paths, and all declared files were verified present. 100% synthetic data, zero PII, zero credentials."
+    },
+    "P0-D07_HISTORICAL_VERIFICATION": {
+      "status": "VERIFIED_FROM_REPOSITORY_EVIDENCE",
+      "artifact": "docs/poc/PHASE_0_FIXTURE_CORPUS_AUDIT.md",
+      "historical_result": {
+        "pass_assertions": 642,
+        "errors": 0,
+        "blockers": 0
+      },
+      "findings": "Repository evidence records the prior fixture-corpus audit result (642 passed, 0 errors, 0 blockers in docs/poc/PHASE_0_FIXTURE_CORPUS_AUDIT.md). Task 0I.1/0I.1A/0I.1B/0I.1C did not rerun all 642 historical checks."
+    },
+    "P0-D08_INTEGRATION_BASELINE": {
+      "status": "VERIFIED_COMPLETE",
+      "artifact": "docs/integrations/PHASE_0_INTEGRATION_VERIFICATION.md",
+      "integration_engineering_baseline": "COMPLETE",
+      "phase_0_integration_exit_status": "PASS",
+      "findings": "First ERP source (mysql_iredu) contracted; runtime adapter intentionally NOT_IMPLEMENTED in Phase 0. Live retrieval gated by BLK-01 (authoritative organization / tenant scoping is unresolved for live MySQL production context retrieval) and BLK-02 (authoritative academic physical-resource model / authority is unresolved for resource/scheduling production use). E-8 contract and mock resolved. External provider decisions D-EXT-01 (Google Cloud Identity / Google Workspace) and D-EXT-02 (Google Calendar under Google Workspace, bidirectional) are formally resolved via project-authorized provider selections."
+    },
+    "P0-D09_SLO_RETENTION_SCALE_EVIDENCE": {
+      "status": "VERIFIED_COMPLETE",
+      "artifacts": [
+        "docs/phase-0/SLO_RETENTION_SCALE_EVIDENCE_AUDIT.json",
+        "docs/phase-0/SLO_RETENTION_SCALE_EVIDENCE_AUDIT.md"
+      ],
+      "findings": "SOURCE_NUMERIC_TARGET = 0 confirmed. RTO/RPO ungrounded in available sources. First-tenant scale profile requires business confirmation."
+    },
+    "P0-D10_CANDIDATE_BASELINE": {
+      "status": "VERIFIED_COMPLETE",
+      "artifacts": [
+        "docs/phase-0/CANDIDATE_SLO_RETENTION_SCALE_BASELINE.json",
+        "docs/phase-0/CANDIDATE_SLO_RETENTION_SCALE_BASELINE.md"
+      ],
+      "governance": {
+        "status": "PROPOSED_FOR_REVIEW",
+        "classification": "PHASE_0_ENGINEERING_PROPOSAL",
+        "validation_status": "NOT_YET_BENCHMARKED",
+        "contractual_sla": false,
+        "source_requirement": false
+      },
+      "findings": "All targets classified as engineering proposals. Zero targets promoted to contractual SLAs or approved baselines. Exact p95 < 500 ms inequality preserved; fallback-only retention precedence enforced."
+    },
+    "P0-D11_SECURITY_PRIVACY": {
+      "status": "VERIFIED_COMPLETE",
+      "secret_scan_result": "ZERO_EXPOSURES_FOUND",
+      "findings": "Bounded repository scan found 0 credential exposures. Tenant/organization scope must be derived from authenticated and authorized principal/service credentials according to approved authentication mechanisms (OIDC/JWT + API key) and not trusted from arbitrary request input. Strict aggregate-only context boundary enforced for AI."
+    },
+    "P0-D12_OBSERVABILITY_NFR": {
+      "status": "VERIFIED_COMPLETE",
+      "findings": "Observable telemetry candidate metrics fully defined across API, Task Intelligence, Workflow, Scheduling, Event Broker, Database, and Integrations."
+    },
+    "P0-D13_PHASE_1_DESIGN_READINESS": {
+      "status": "READY",
+      "findings": "Engineering design is completely specified and ready to implement upon Phase-0 gate clearance. No frozen runtime/application/dependency/ADR/fixture/source artifact was modified."
+    }
+  },
+  "requirements_traceability": {
+    "expected_total": 25,
+    "actual_total": 25,
+    "status": "VERIFIED_100_PERCENT",
+    "families": {
+      "task_intelligence": [
+        "FR-TI-01",
+        "FR-TI-02",
+        "FR-TI-03",
+        "FR-TI-04",
+        "FR-TI-05",
+        "FR-TI-06",
+        "FR-TI-07",
+        "FR-TI-08",
+        "FR-TI-09"
+      ],
+      "workflow": [
+        "FR-WF-01",
+        "FR-WF-02",
+        "FR-WF-03",
+        "FR-WF-04",
+        "FR-WF-05",
+        "FR-WF-06",
+        "FR-WF-07"
+      ],
+      "scheduling": [
+        "FR-SC-01",
+        "FR-SC-02",
+        "FR-SC-03",
+        "FR-SC-04",
+        "FR-SC-05",
+        "FR-SC-06"
+      ],
+      "integration": [
+        "FR-INT-01",
+        "FR-INT-02",
+        "FR-INT-03"
+      ]
+    }
+  },
+  "architecture_decisions": {
+    "adr_count": 10,
+    "status": "CONSISTENT_AND_FROZEN",
+    "core_invariants": [
+      "PostgreSQL is the canonical transactional SoR for E-7-owned operational state. Flowable remains authoritative for its native workflow-runtime execution state; E-7 stores only the canonical references, mappings, business-facing records, audit/evidence, and other E-7-owned state assigned by the ownership model.",
+      "External systems (ERP/SIS, external calendars, IdPs) retain exclusive authority over native master records, calendar states, and identity assertions; external IDs remain mappings only",
+      "LLMs restricted to non-authoritative planning/drafting subject to deterministic validation",
+      "Deterministic business rules and workflow execution",
+      "Mathematical constraint solvers (OR-Tools / UniTime) for scheduling",
+      "Adapter isolation shielding domain from external SDKs and IDs"
+    ]
+  },
+  "license_compliance": {
+    "status": "COMPLIANT_FOR_PHASE_0",
+    "fet_status": {
+      "license": "AGPL-3.0",
+      "classification": "BENCHMARK / FALLBACK",
+      "risk": "HIGH if embedded/distributed",
+      "disposition": "Isolated benchmark wrapper only; mandatory legal review before any distribution; rejected as primary production solver"
+    },
+    "commercial_safety": "HIGH",
+    "copyleft_isolation": "ENFORCED"
+  },
+  "reference_use_cases": {
+    "status": "ESTABLISHED",
+    "count": 2,
+    "cases": [
+      "Semester examination operations (E7-REF-EXAM-001)",
+      "Generic non-education facility maintenance scheduling (E7-REF-MAINT-001)"
+    ]
+  },
+  "fixture_dataset_status": {
+    "manifest_version": "1.0.0",
+    "dataset_count": 18,
+    "family_counts": {
+      "task_intelligence": 5,
+      "workflow": 3,
+      "exam_scheduling": 3,
+      "maintenance_scheduling": 3,
+      "resources": 1,
+      "integration": 3
+    },
+    "all_files_present": true,
+    "pii_leakage": false,
+    "secrets_present": false,
+    "reconciliation_summary": "All 18 logical fixture datasets were reconciled against tests/fixtures/MANIFEST.json using their exact dataset IDs and declared repository paths, and all declared files were verified present.",
+    "datasets": [
+      {
+        "dataset_id": "INT-CALENDAR-001",
+        "family": "integration",
+        "relative_path": "tests/fixtures/integrations/INT-CALENDAR-001.json"
+      },
+      {
+        "dataset_id": "INT-CALENDAR-DUP-001",
+        "family": "integration",
+        "relative_path": "tests/fixtures/integrations/INT-CALENDAR-DUP-001.json"
+      },
+      {
+        "dataset_id": "INT-NOTIFY-001",
+        "family": "integration",
+        "relative_path": "tests/fixtures/integrations/INT-NOTIFY-001.json"
+      },
+      {
+        "dataset_id": "RS-SYNTH-001",
+        "family": "resources",
+        "relative_path": "tests/fixtures/resources/RS-SYNTH-001.json"
+      },
+      {
+        "dataset_id": "SC-EXAM-FEASIBLE-001",
+        "family": "exam_scheduling",
+        "relative_path": "tests/fixtures/scheduling/exam/SC-EXAM-FEASIBLE-001.json"
+      },
+      {
+        "dataset_id": "SC-EXAM-INFEASIBLE-001",
+        "family": "exam_scheduling",
+        "relative_path": "tests/fixtures/scheduling/exam/SC-EXAM-INFEASIBLE-001.json"
+      },
+      {
+        "dataset_id": "SC-EXAM-REPAIR-001",
+        "family": "exam_scheduling",
+        "relative_path": "tests/fixtures/scheduling/exam/SC-EXAM-REPAIR-001.json"
+      },
+      {
+        "dataset_id": "SC-MAINT-FEASIBLE-001",
+        "family": "maintenance_scheduling",
+        "relative_path": "tests/fixtures/scheduling/maintenance/SC-MAINT-FEASIBLE-001.json"
+      },
+      {
+        "dataset_id": "SC-MAINT-INFEASIBLE-001",
+        "family": "maintenance_scheduling",
+        "relative_path": "tests/fixtures/scheduling/maintenance/SC-MAINT-INFEASIBLE-001.json"
+      },
+      {
+        "dataset_id": "SC-MAINT-REPAIR-001",
+        "family": "maintenance_scheduling",
+        "relative_path": "tests/fixtures/scheduling/maintenance/SC-MAINT-REPAIR-001.json"
+      },
+      {
+        "dataset_id": "TI-GOLD-001",
+        "family": "task_intelligence",
+        "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-001.json"
+      },
+      {
+        "dataset_id": "TI-GOLD-002",
+        "family": "task_intelligence",
+        "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-002.json"
+      },
+      {
+        "dataset_id": "TI-GOLD-003",
+        "family": "task_intelligence",
+        "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-003.json"
+      },
+      {
+        "dataset_id": "TI-GOLD-004",
+        "family": "task_intelligence",
+        "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-004.json"
+      },
+      {
+        "dataset_id": "TI-GOLD-005",
+        "family": "task_intelligence",
+        "relative_path": "tests/fixtures/ai_gold_set/TI-GOLD-005.json"
+      },
+      {
+        "dataset_id": "WF-EXAM-HAPPY-001",
+        "family": "workflow",
+        "relative_path": "tests/fixtures/workflows/WF-EXAM-HAPPY-001.json"
+      },
+      {
+        "dataset_id": "WF-EXAM-REJECT-001",
+        "family": "workflow",
+        "relative_path": "tests/fixtures/workflows/WF-EXAM-REJECT-001.json"
+      },
+      {
+        "dataset_id": "WF-EXAM-SLA-001",
+        "family": "workflow",
+        "relative_path": "tests/fixtures/workflows/WF-EXAM-SLA-001.json"
+      }
+    ]
+  },
+  "integration_status": {
+    "integration_engineering_baseline": "COMPLETE",
+    "phase_0_integration_exit_status": "PASS",
+    "mysql_erp_status": "CONTRACT_ESTABLISHED_RUNTIME_UNIMPLEMENTED",
+    "e8_status": "CONTRACT_AND_MOCK_ESTABLISHED_TRANSPORT_OPEN",
+    "blk_01_status": "ACTIVE_PRODUCTION_BLOCKER_FOR_LIVE_MYSQL_CONTEXT_RETRIEVAL",
+    "blk_02_status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+    "exact_idp": "RESOLVED",
+    "first_calendar_provider": "RESOLVED",
+    "first_erp_sis": "RESOLVED",
+    "e8_contract_mock": "RESOLVED"
+  },
+  "slo_retention_scale_status": {
+    "evidence_status": "AUDITED_ZERO_CONTRACTUAL_SLOS",
+    "candidate_baseline_status": "PROPOSED_FOR_REVIEW",
+    "validation_status": "NOT_YET_BENCHMARKED"
+  },
+  "security_privacy_status": {
+    "secret_scan": "PASS",
+    "credential_exposures": 0,
+    "scope_derivation": "AUTHENTICATED_AND_AUTHORIZED_PRINCIPAL_CREDENTIALS",
+    "data_minimization": "ENFORCED"
+  },
+  "findings": [
+    {
+      "finding_id": "FND-01",
+      "severity": "BLOCKER",
+      "category": "EXTERNAL_DECISION",
+      "title": "Decision D-EXT-01: Confirm Exact Production Identity Provider (IdP) [RESOLVED]",
+      "description": "Confirm the exact production Identity Provider used by the organization/customer environment. Resolved: Google Cloud Identity / Google Workspace managed organizational identity selected via project-authorized provider selection. Google ID tokens are signed JWT identity assertions; OAuth access tokens are bearer credentials for Google APIs; audience matches approved OAuth client ID(s); hd != canonical E-7 tenant_id; service API key remains frozen initial service-auth baseline.",
+      "status": "RESOLVED",
+      "blocking_scope": "PHASE_0_EXIT",
+      "selected_provider": "GOOGLE_CLOUD_IDENTITY_GOOGLE_WORKSPACE",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+    },
+    {
+      "finding_id": "FND-02",
+      "severity": "BLOCKER",
+      "category": "EXTERNAL_DECISION",
+      "title": "Decision D-EXT-02: Confirm First Production Calendar System/Provider [RESOLVED]",
+      "description": "Confirm the first production calendar system/provider that E-7 must integrate with. Resolved: Google Calendar under Google Workspace selected with BIDIRECTIONAL integration direction via project-authorized provider selection. CALENDAR_AUTHORIZATION_TOPOLOGY = TO_BE_CONFIRMED_DURING_IMPLEMENTATION; UTC_SAFE_TIME_HANDLING; E-7 owns idempotency; nextSyncToken lifecycle with HTTP 410 full re-sync; HTTPS callbacks with channel-token verification.",
+      "status": "RESOLVED",
+      "blocking_scope": "PHASE_0_EXIT",
+      "selected_provider": "GOOGLE_WORKSPACE_CALENDAR",
+      "initial_integration_direction": "BIDIRECTIONAL",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+    },
+    {
+      "finding_id": "FND-03",
+      "severity": "INFO",
+      "category": "PERFORMANCE_BENCHMARK",
+      "title": "Task 0H.2 Candidate SLOs are Unbenchmarked",
+      "description": "Candidate SLO targets carry validation_status NOT_YET_BENCHMARKED. This is expected at Phase 0 and will be validated during future benchmarking.",
+      "status": "EXPECTED_DEFERRED",
+      "blocking_scope": "NONE"
+    },
+    {
+      "finding_id": "FND-04",
+      "severity": "INFO",
+      "category": "INTEGRATION_SCOPE_GATE",
+      "title": "BLK-01: Authoritative Organization / Tenant Scoping is Unresolved for Live MySQL Production Context Retrieval",
+      "description": "Upstream MySQL database (iredu) lacks tenant partitioning; live production context retrieval is blocked until business confirmation defines the exact tenant partitioning predicate. Authoritative organization / tenant scoping is unresolved for live MySQL production context retrieval. Narrow impact: does not block generic E-7 operational functions, internal PostgreSQL execution, or synthetic testing.",
+      "status": "ACTIVE_PRODUCTION_BLOCKER",
+      "blocking_scope": "LIVE_MYSQL_PRODUCTION_RETRIEVAL"
+    },
+    {
+      "finding_id": "FND-05",
+      "severity": "INFO",
+      "category": "SCHEDULING_RESOURCE_GATE",
+      "title": "BLK-02: Authoritative Academic Physical-Resource Model / Authority is Unresolved for Resource/Scheduling Production Use",
+      "description": "Upstream MySQL schema does not establish an authoritative academic room/resource model with required properties (capacity, type, equipment). Authoritative academic physical-resource model / authority is unresolved for resource/scheduling production use. Gates production physical-resource scheduling where authoritative room data is required. Narrow impact: does not block generic Task Intelligence planning, curricular timelines, or staff role assignment. Does not automatically imply UniTime or student cohort mapping.",
+      "status": "SCHEDULING_RESOURCE_PRODUCTION_GATE",
+      "blocking_scope": "PRODUCTION_PHYSICAL_RESOURCE_SCHEDULING"
+    }
+  ],
+  "open_external_decisions": [
+    {
+      "decision_id": "D-EXT-01",
+      "title": "Confirm Exact Production Identity Provider (IdP)",
+      "status": "RESOLVED",
+      "target_phase": "PHASE_0_EXIT",
+      "selected_provider": "GOOGLE_CLOUD_IDENTITY_GOOGLE_WORKSPACE",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "owner_class": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+    },
+    {
+      "decision_id": "D-EXT-02",
+      "title": "Confirm First Production Calendar System/Provider",
+      "status": "RESOLVED",
+      "target_phase": "PHASE_0_EXIT",
+      "selected_provider": "GOOGLE_WORKSPACE_CALENDAR",
+      "initial_integration_direction": "BIDIRECTIONAL",
+      "decision_basis": "PROJECT_AUTHORIZED_PROVIDER_SELECTION",
+      "owner_class": "PROJECT_AUTHORIZED_PROVIDER_SELECTION"
+    }
+  ],
+  "phase_1_engineering_design_readiness": "READY",
+  "phase_0_engineering_baseline": "COMPLETE",
+  "phase_0_overall_exit_status": "PASS",
+  "phase_1_start_authorization": "AUTHORIZED",
+  "exit_backlog_count": {
+    "blocking": 0,
+    "resolved": 2,
+    "non_blocking": 8,
+    "total": 10
+  }
+}
