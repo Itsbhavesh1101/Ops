@@ -11,11 +11,13 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from datetime import datetime
 from datetime import time as dtime
 from pathlib import Path
 from typing import Any
+
+import defusedxml.ElementTree as ET  # noqa: N817
 
 from app.resources.schemas import ResourceType
 from app.scheduling.education.adapters.base import EducationSchedulerAdapter
@@ -26,16 +28,64 @@ from app.scheduling.education.dtos import (
 from app.scheduling.schemas import ScheduleStatus, SchedulingResourceSnapshot
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
-UNITIME_CACHE_DIR = REPO_ROOT / ".cache" / "unitime"
-UNITIME_RUN_DIR = REPO_ROOT / "scratch" / "unitime_runs"
+
+
+@dataclass(frozen=True)
+class UniTimeRuntimeConfig:
+    """Explicit typed configuration for UniTime CPSolver runtime execution.
+
+    All runtime parameters must be explicitly supplied by the caller/container
+    to eliminate implicit production defaults.
+    """
+
+    classpath: str
+    java_executable: str
+    run_dir: Path
+    timeout_seconds: float
+    max_iters: int
+    random_seed: int
+    nr_solvers: int
+
+
+def build_benchmark_unitime_config(
+    *,
+    classpath: str | None = None,
+    java_executable: str | None = None,
+    run_dir: Path | None = None,
+    timeout_seconds: float = 10.0,
+    max_iters: int = 5000,
+    random_seed: int = 42,
+    nr_solvers: int = 1,
+) -> UniTimeRuntimeConfig:
+    """Explicit benchmark configuration fixture for reproducible benchmark trials."""
+    cache_dir = Path(os.getenv("E7_UNITIME_CACHE_DIR", str(REPO_ROOT / ".cache" / "unitime")))
+    env_cp = os.getenv("E7_UNITIME_CLASSPATH")
+    resolved_cp: str = classpath or (env_cp if env_cp else str(cache_dir / "*"))
+    env_java = os.getenv("E7_JAVA_EXECUTABLE")
+    resolved_java: str = java_executable or (env_java if env_java else "java")
+    resolved_run_dir = run_dir or Path(
+        os.getenv("E7_UNITIME_RUN_DIR", str(REPO_ROOT / "scratch" / "unitime_runs"))
+    )
+    return UniTimeRuntimeConfig(
+        classpath=resolved_cp,
+        java_executable=resolved_java,
+        run_dir=resolved_run_dir,
+        timeout_seconds=timeout_seconds,
+        max_iters=max_iters,
+        random_seed=random_seed,
+        nr_solvers=nr_solvers,
+    )
 
 
 class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
     """Adapter invoking UniTime CPSolver behind E-7 canonical isolation boundary."""
 
-    def __init__(self, classpath: str | None = None) -> None:
-        self.classpath = classpath or str(UNITIME_CACHE_DIR / "*")
-        os.makedirs(UNITIME_RUN_DIR, exist_ok=True)
+    def __init__(
+        self,
+        config: UniTimeRuntimeConfig,
+    ) -> None:
+        self.config = config
+        os.makedirs(self.config.run_dir, exist_ok=True)
 
     def _validate_inputs(
         self,
@@ -186,18 +236,25 @@ class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
                 req_span = 1 + (len(c_majors) - 1) * (gap_days + 1)
                 if total_days < req_span:
                     # Infeasible: insufficient calendar days for clear gaps
+                    # (detected by E-7 adapter prevalidation)
                     return (
                         ScheduleStatus.INFEASIBLE,
                         [],
                         {
                             "solver": "UniTime-CPSolver",
                             "version": "1.4.94",
-                            "solve_wall_time_seconds": time.perf_counter() - start_wall_time,
+                            "detection_stage": "E7_ADAPTER_PREVALIDATION",
+                            "adapter_prevalidation_result": "INFEASIBLE",
+                            "native_solver_executed": False,
+                            "solve_wall_time_seconds": 0.0,
+                            "total_wall_time_seconds": time.perf_counter() - start_wall_time,
                             "diagnostic": (
-                                f"MAJOR_SUBJECT_GAP_WINDOW_UNSATISFIABLE: Cohort '{c.id}' has "
+                                f"E7_ADAPTER_PREVALIDATION_INFEASIBLE: Major subject gap "
+                                f"policy cannot be satisfied. Cohort '{c.id}' has "
                                 f"{len(c_majors)} major exams requiring at least {req_span} "
                                 f"calendar days under gap policy ({gap_days} clear days), "
-                                f"but horizon only spans {total_days} days."
+                                f"but horizon only spans {total_days} days. "
+                                f"Detected by E-7 adapter prevalidation prior to CPSolver."
                             ),
                         },
                     )
@@ -223,8 +280,33 @@ class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
                     p_day = period_to_day_idx[p_id]
                     if gap_days > 0 and len(dataset.sessions) >= 5:
                         # Major exams on odd days (1, 3, 5), non-major on even days (2, 4)
-                        if exam.major_subject and (p_day % 2 == 1):
-                            allowed_p_ids.append(p_id)
+                        if exam.major_subject:
+                            if p_day % 2 != 1:
+                                continue
+                            conflict = False
+                            for other_s in dataset.sessions:
+                                if (
+                                    other_s.id != sess.id
+                                    and other_s.cohort_id == sess.cohort_id
+                                    and exams_by_id[other_s.exam_id].major_subject
+                                ):
+                                    other_base = baseline_by_sess.get(other_s.id)
+                                    if other_base and other_base.locked:
+                                        other_day = next(
+                                            (
+                                                period_to_day_idx[pid]
+                                                for pid, (ps, _) in int_to_period_window.items()
+                                                if ps == other_base.start_at
+                                            ),
+                                            None,
+                                        )
+                                        if other_day is not None and abs(p_day - other_day) < (
+                                            gap_days + 1
+                                        ):
+                                            conflict = True
+                                            break
+                            if not conflict:
+                                allowed_p_ids.append(p_id)
                         elif not exam.major_subject and (p_day % 2 == 0):
                             allowed_p_ids.append(p_id)
                     else:
@@ -386,10 +468,12 @@ class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
             instructors_xml.append("\n".join(inst_sub))
 
         # 8. Assemble Full XML Document
+        run_dir = self.config.run_dir or (REPO_ROOT / "scratch" / "unitime_runs")
+        os.makedirs(run_dir, exist_ok=True)
         run_id = f"unitime_{int(time.time() * 1000)}"
-        input_xml_path = UNITIME_RUN_DIR / f"{run_id}_input.xml"
-        output_xml_path = UNITIME_RUN_DIR / f"{run_id}_output.xml"
-        cfg_path = UNITIME_RUN_DIR / f"{run_id}_exam.properties"
+        input_xml_path = run_dir / f"{run_id}_input.xml"
+        output_xml_path = run_dir / f"{run_id}_output.xml"
+        cfg_path = run_dir / f"{run_id}_exam.properties"
 
         xml_content = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -416,21 +500,24 @@ class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
         with open(input_xml_path, "w", encoding="utf-8") as f:
             f.write(xml_content)
 
+        timeout_val = int(
+            timeout_seconds if timeout_seconds != 10.0 else self.config.timeout_seconds
+        )
         cfg_content = (
             "Termination.StopWhenComplete=true\n"
-            f"Termination.TimeOut={int(timeout_seconds)}\n"
-            "Termination.MaxIters=5000\n"
-            "General.Seed=42\n"
-            "Parallel.NrSolvers=1\n"
+            f"Termination.TimeOut={timeout_val}\n"
+            f"Termination.MaxIters={self.config.max_iters}\n"
+            f"General.Seed={self.config.random_seed}\n"
+            f"Parallel.NrSolvers={self.config.nr_solvers}\n"
         )
         with open(cfg_path, "w", encoding="utf-8") as f:
             f.write(cfg_content)
 
         # 9. Execute UniTime CPSolver Subprocess
         cmd = [
-            "java",
+            self.config.java_executable,
             "-cp",
-            self.classpath,
+            self.config.classpath,
             "org.cpsolver.exam.Test",
             str(cfg_path),
             str(input_xml_path),
@@ -438,7 +525,12 @@ class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
         ]
 
         solve_start = time.perf_counter()
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_seconds + 5)
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds + 5,
+        )
         solve_duration = time.perf_counter() - solve_start
         total_wall_time = time.perf_counter() - start_wall_time
 
@@ -446,10 +538,23 @@ class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
             "solver": "UniTime-CPSolver",
             "version": "1.4.94",
             "runtime": "Java 1.8",
+            "detection_stage": "NATIVE_SOLVER_EXECUTION",
+            "adapter_prevalidation_result": "FEASIBLE",
+            "native_solver_executed": True,
+            "native_solver_status": (
+                "CPSOLVER_COMPLETED" if proc.returncode == 0 else f"RETURN_CODE_{proc.returncode}"
+            ),
             "solve_wall_time_seconds": solve_duration,
             "total_wall_time_seconds": total_wall_time,
             "returncode": proc.returncode,
             "stdout_tail": proc.stdout[-500:] if proc.stdout else "",
+            "equipment_handled_by": "E7_ADAPTER_POST_SOLVE_BINDING",
+            "native_unitime_equipment_support": False,
+            "native_unitime_equipment_limitation": (
+                "UniTime CPSolver examtt format only models periods, rooms, exams, "
+                "students, and instructors. Equipment is bound deterministically post-solve "
+                "by the E-7 adapter."
+            ),
         }
 
         if not output_xml_path.exists():
@@ -515,8 +620,56 @@ class UniTimeSchedulerAdapter(EducationSchedulerAdapter):
                 )
             )
 
+        # 11. Equipment Mapping (Adapter Post-Solve Binding)
+        # Native UniTime examtt XML format does not model equipment resources.
+        # The E-7 adapter performs deterministic post-solve capability binding.
+        equipment_pool = [r for r in resources if r.type == ResourceType.EQUIPMENT]
+        equipment_schedule: list[tuple[str, datetime, datetime]] = []
+
+        final_assignments: list[CanonicalEducationAssignment] = []
+        for asgn in sorted(assignments, key=lambda a: (a.start_at, a.session_id)):
+            target_sess = next((s for s in dataset.sessions if s.id == asgn.session_id), None)
+            target_exam = exams_by_id.get(target_sess.exam_id) if target_sess else None
+            needed_equipment = list(
+                dict.fromkeys(
+                    (target_exam.required_equipment if target_exam else [])
+                    + (target_sess.required_equipment if target_sess else [])
+                )
+            )
+
+            assigned_eq_id: str | None = None
+            base_asgn = baseline_by_sess.get(asgn.session_id)
+            if base_asgn and base_asgn.locked and base_asgn.equipment_resource_id:
+                assigned_eq_id = base_asgn.equipment_resource_id
+                equipment_schedule.append((assigned_eq_id, asgn.start_at, asgn.end_at))
+            elif needed_equipment:
+                for eq in equipment_pool:
+                    if all(req_eq in eq.skills for req_eq in needed_equipment):
+                        overlap = any(
+                            eq_id == eq.id
+                            and not (asgn.end_at <= eq_start or eq_end <= asgn.start_at)
+                            for eq_id, eq_start, eq_end in equipment_schedule
+                        )
+                        if not overlap:
+                            assigned_eq_id = eq.id
+                            equipment_schedule.append((eq.id, asgn.start_at, asgn.end_at))
+                            break
+
+            final_assignments.append(
+                CanonicalEducationAssignment(
+                    assignment_id=asgn.assignment_id,
+                    session_id=asgn.session_id,
+                    room_resource_id=asgn.room_resource_id,
+                    invigilator_resource_id=asgn.invigilator_resource_id,
+                    equipment_resource_id=assigned_eq_id,
+                    start_at=asgn.start_at,
+                    end_at=asgn.end_at,
+                    locked=asgn.locked,
+                )
+            )
+
         return (
             ScheduleStatus.FEASIBLE,
-            sorted(assignments, key=lambda a: (a.start_at, a.session_id)),
+            final_assignments,
             metadata,
         )

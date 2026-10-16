@@ -40,6 +40,7 @@ from app.core.auth.rbac import (
     require_roles,
 )
 from app.core.auth.resolvers import (
+    DefaultIdentityResolver,
     ExternalIdentityResolver,
     ServiceIdentityResolver,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "CredentialExpiredError",
     "CredentialNotFoundError",
     "CredentialNotYetValidError",
+    "DefaultIdentityResolver",
     "ExternalIdentityResolver",
     "GoogleOidcVerificationError",
     "GoogleOidcVerifier",

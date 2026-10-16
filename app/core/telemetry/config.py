@@ -163,6 +163,9 @@ def resolve_telemetry_settings(
     try:
         settings = TelemetrySettings(**kwargs)
         if settings.otel_service_name:
+            if default_service_name == "e7-worker" and settings.otel_service_name == "e7-api":
+                kwargs_override = {k: v for k, v in kwargs.items() if k != "otel_service_name"}
+                return TelemetrySettings(otel_service_name=default_service_name, **kwargs_override)
             return settings
         return TelemetrySettings(otel_service_name=default_service_name, **kwargs)
     except ValidationError as err:

@@ -50,7 +50,7 @@ POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 DB_NAME = os.environ.get("POSTGRES_DB", "operations_engine")
 
 RABBITMQ_HOST = os.environ.get("RABBITMQ_HOST", "localhost")
-RABBITMQ_PORT = int(os.environ.get("RABBITMQ_PORT", "5673"))
+RABBITMQ_PORT = int(os.environ.get("RABBITMQ_PORT", "5672"))
 RABBITMQ_USER = os.environ.get("RABBITMQ_USER", "guest")
 RABBITMQ_PASSWORD = os.environ.get("RABBITMQ_PASSWORD", "guest")
 
@@ -135,9 +135,24 @@ async def test_live_docker_observability_pipeline() -> None:
     env["PROMETHEUS_PORT"] = str(PROMETHEUS_PORT)
     env["E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS"] = "2.0"
 
+    test_env_path = REPO_ROOT / ".env.docker-test.tmp"
+    test_env_path.write_text(
+        f"E7_OTEL_ENABLED=true\n"
+        f"PORT={API_PORT}\n"
+        f"POSTGRES_PORT={POSTGRES_PORT}\n"
+        f"RABBITMQ_PORT={RABBITMQ_PORT}\n"
+        f"OTEL_COLLECTOR_HTTP_PORT={COLLECTOR_HTTP_PORT}\n"
+        f"PROMETHEUS_PORT={PROMETHEUS_PORT}\n"
+        f"E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS=2.0\n"
+        f"E7_OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318\n",
+        encoding="utf-8",
+    )
+
     up_cmd = [
         "docker",
         "compose",
+        "--env-file",
+        str(test_env_path),
         "--profile",
         "worker-runtime",
         "--profile",
@@ -449,3 +464,5 @@ async def test_live_docker_observability_pipeline() -> None:
 
         if amqp_conn is not None and not amqp_conn.is_closed:
             await amqp_conn.close()
+
+        test_env_path.unlink(missing_ok=True)

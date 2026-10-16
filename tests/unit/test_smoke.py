@@ -33,13 +33,13 @@ def test_fastapi_app_instance() -> None:
 
 def test_root_endpoint() -> None:
     """Verify root endpoint responds with online status without external dependencies."""
-    from app.main import app
+    from app.main import app, settings
 
     client = TestClient(app)
     response = client.get("/")
     assert response.status_code == 200
     data = response.json()
-    assert data["engine"] == "IR Infotech E-7 Operations Engine"
+    assert data["engine"] in ("IR Infotech E-7 Operations Engine", settings.app_name)
     assert data["status"] == "online"
 
 

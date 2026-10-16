@@ -24,6 +24,7 @@ from app.core.auth.models import (
     AuthenticationMethod,
     PrincipalType,
 )
+from app.core.capacity.quotas import TenantQuotaManager
 from app.core.idempotency.contracts import (
     IdempotencyIdentity,
     RequestFingerprint,
@@ -106,6 +107,10 @@ class WorkflowTaskNotFoundError(WorkflowServiceError):
 
 class WorkflowTaskAlreadyCompletedError(WorkflowServiceError):
     """Raised when attempting an conflicting action on an already-completed task."""
+
+
+class MissingWorkflowKeyError(WorkflowServiceError, ValueError):
+    """Raised when plan.approved payload is missing a required non-empty 'workflow_key'."""
 
 
 class WorkflowService:
@@ -312,6 +317,9 @@ class WorkflowService:
     ) -> WorkflowInstanceResponse:
         """Start a new workflow process instance on the engine and synchronize canonical state."""
         async with self._uow_factory() as uow:
+            quota_mgr = TenantQuotaManager()
+            await quota_mgr.check_workflow_burst_quota(uow.session, tenant_id)
+
             def_repo = WorkflowDefinitionRepository(uow.session)
             if version is not None:
                 def_record = await def_repo.get_by_key_and_version(tenant_id, workflow_key, version)

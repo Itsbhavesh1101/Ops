@@ -14,6 +14,7 @@ from uuid import UUID
 
 from app.audit.repository import AuditRepository
 from app.audit.schemas import AuditEventCreate
+from app.core.capacity.quotas import TenantQuotaManager
 from app.db.models.planning import (
     PlanRecord,
     TaskDependencyRecord,
@@ -144,8 +145,27 @@ class PlanService:
         async with uow:
             goal_repo = GoalRepository(uow.session)
             audit_repo = AuditRepository(uow.session)
+            outbox_repo = OutboxRepository(uow.session)
 
             goal_record = await goal_repo.create(goal_data, tenant_id)
+
+            # Atomic outbox domain event: goal.created
+            envelope = create_event_envelope(
+                EventCreate(
+                    event_type="goal.created",
+                    event_version=1,
+                    tenant_id=tenant_id,
+                    correlation_id=correlation_id,
+                    subject_type="goal",
+                    subject_id=str(goal_record.id),
+                    payload={
+                        "goal_id": str(goal_record.id),
+                        "objective": goal_record.objective,
+                        "scope": goal_record.scope,
+                    },
+                )
+            )
+            await outbox_repo.enqueue(envelope)
 
             # Audit goal creation
             await audit_repo.append(
@@ -284,6 +304,9 @@ class PlanService:
         uow = self._uow_factory()
 
         async with uow:
+            quota_mgr = TenantQuotaManager()
+            await quota_mgr.check_active_plans_quota(uow.session, tenant_id)
+
             goal_repo = GoalRepository(uow.session)
             plan_repo = PlanRepository(uow.session)
             task_repo = TaskRepository(uow.session)
@@ -512,6 +535,8 @@ class PlanService:
         plan_id: UUID,
         approver_id: str,
         correlation_id: str | None = None,
+        workflow_key: str | None = None,
+        workflow_variables: dict[str, Any] | None = None,
     ) -> PlanRecord:
         """Approve and freeze a validated plan as the authoritative baseline.
 
@@ -557,7 +582,40 @@ class PlanService:
             )
             assert approved_plan is not None
 
-            # Outbox event: plan.approved (data minimization)
+            # Resolve configured workflow_key
+            wf_key = workflow_key
+            metadata = getattr(plan, "metadata_json", {})
+            if not wf_key and isinstance(metadata, dict):
+                wf_key = metadata.get("workflow_key")
+                is_semester_ref = (
+                    metadata.get("reference_vertical") == "SEMESTER_EXAMINATION_OPERATIONS"
+                )
+                if not wf_key and is_semester_ref:
+                    wf_key = "exam-operations-v1"
+
+            # Outbox event: plan.approved (atomic business state transaction + outbox write)
+            payload: dict[str, Any] = {
+                "plan_id": str(plan_id),
+                "goal_id": str(plan.goal_id),
+                "version_number": plan.version_number,
+                "baseline_hash": baseline_hash,
+                "approver_id": approver_id,
+            }
+            if wf_key:
+                payload["workflow_key"] = wf_key
+
+            if workflow_variables:
+                for k, v in workflow_variables.items():
+                    payload[k] = v
+            elif isinstance(metadata, dict):
+                wf_vars = metadata.get("workflow_variables")
+                if isinstance(wf_vars, dict):
+                    for k, v in wf_vars.items():
+                        payload[k] = v
+                for k in ("curriculum_coverage", "sla_warning_at", "sla_breach_at"):
+                    if k in metadata and k not in payload:
+                        payload[k] = metadata[k]
+
             envelope = create_event_envelope(
                 EventCreate(
                     event_type="plan.approved",
@@ -566,13 +624,7 @@ class PlanService:
                     correlation_id=correlation_id,
                     subject_type="plan",
                     subject_id=str(plan_id),
-                    payload={
-                        "plan_id": str(plan_id),
-                        "goal_id": str(plan.goal_id),
-                        "version_number": plan.version_number,
-                        "baseline_hash": baseline_hash,
-                        "approver_id": approver_id,
-                    },
+                    payload=payload,
                 )
             )
             await outbox_repo.enqueue(envelope)
@@ -599,6 +651,109 @@ class PlanService:
             await uow.commit()
 
             return approved_plan
+
+    async def activate_plan(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> PlanRecord:
+        """Transition an APPROVED plan to ACTIVE when workflow execution begins.
+
+        Enforces:
+        - Must currently be in APPROVED state.
+        - Emits plan.activated audit event atomically.
+        """
+        actor = actor_id or "system"
+        uow = self._uow_factory()
+
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            current_st = PlanState(plan.status)
+            assert_valid_plan_transition(current_st, PlanState.ACTIVE)
+
+            updated_plan = await plan_repo.update_status(
+                plan_id=plan_id,
+                tenant_id=tenant_id,
+                status=PlanState.ACTIVE,
+            )
+            assert updated_plan is not None
+
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=actor,
+                    actor_principal_type="SERVICE" if actor == "system" else "HUMAN",
+                    authentication_method="SERVICE_API_KEY" if actor == "system" else "OIDC",
+                    event_type="plan.activated",
+                    resource_type="plan",
+                    resource_id=str(plan_id),
+                    outcome="SUCCESS",
+                    correlation_id=correlation_id,
+                    details={"status": PlanState.ACTIVE},
+                )
+            )
+
+            await uow.commit()
+            return updated_plan
+
+    async def create_draft_plan(
+        self,
+        tenant_id: str,
+        goal_id: UUID,
+        plan_name: str,
+        actor_id: str | None = None,
+        correlation_id: str | None = None,
+    ) -> PlanRecord:
+        """Create an initial empty DRAFT plan before structured generation."""
+        actor = actor_id or "system"
+        uow = self._uow_factory()
+
+        async with uow:
+            goal_repo = GoalRepository(uow.session)
+            plan_repo = PlanRepository(uow.session)
+            audit_repo = AuditRepository(uow.session)
+
+            goal = await goal_repo.get_by_id(goal_id, tenant_id)
+            if not goal:
+                raise GoalNotFoundError(goal_id)
+
+            latest_version = await plan_repo.get_latest_version_number(goal_id, tenant_id)
+            new_version = latest_version + 1
+
+            plan_record = await plan_repo.create_plan(
+                tenant_id=tenant_id,
+                goal_id=goal_id,
+                plan_name=plan_name,
+                version_number=new_version,
+                status=PlanState.DRAFT,
+                is_baseline=False,
+            )
+
+            await audit_repo.append(
+                AuditEventCreate(
+                    tenant_id=tenant_id,
+                    actor_principal_id=actor,
+                    actor_principal_type="SERVICE" if actor == "system" else "HUMAN",
+                    authentication_method="SERVICE_API_KEY" if actor == "system" else "OIDC",
+                    event_type="plan.draft_created",
+                    resource_type="plan",
+                    resource_id=str(plan_record.id),
+                    outcome="SUCCESS",
+                    correlation_id=correlation_id,
+                    details={"version_number": new_version, "status": PlanState.DRAFT},
+                )
+            )
+
+            await uow.commit()
+            return plan_record
 
     async def get_plan(
         self,
@@ -700,6 +855,48 @@ class PlanService:
                 )
             )
 
+            # Emit canonical domain events if reaching terminal milestone states
+            outbox_repo = OutboxRepository(uow.session)
+            if update_data.status == TaskProgressStatus.COMPLETED:
+                envelope = create_event_envelope(
+                    EventCreate(
+                        event_type="task.completed",
+                        event_version=1,
+                        tenant_id=tenant_id,
+                        correlation_id=correlation_id,
+                        subject_type="task",
+                        subject_id=str(task_id),
+                        payload={
+                            "task_id": str(task_id),
+                            "plan_id": str(task.plan_id),
+                            "temporary_id": task.temporary_id,
+                            "completed_by": actor,
+                            "progress_percentage": 100,
+                        },
+                    )
+                )
+                await outbox_repo.enqueue(envelope)
+            elif update_data.status == TaskProgressStatus.BLOCKED:
+                envelope = create_event_envelope(
+                    EventCreate(
+                        event_type="task.blocked",
+                        event_version=1,
+                        tenant_id=tenant_id,
+                        correlation_id=correlation_id,
+                        subject_type="task",
+                        subject_id=str(task_id),
+                        payload={
+                            "task_id": str(task_id),
+                            "plan_id": str(task.plan_id),
+                            "temporary_id": task.temporary_id,
+                            "blocked_reason": update_data.blocked_reason,
+                        },
+                    )
+                )
+                await outbox_repo.enqueue(envelope)
+
+            await uow.session.flush()
+            await uow.session.refresh(updated)
             await uow.commit()
 
             return updated

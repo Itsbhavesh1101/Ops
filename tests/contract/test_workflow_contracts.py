@@ -41,7 +41,7 @@ def _dummy_auth():
             principal_type=PrincipalType.HUMAN,
             authentication_method=AuthenticationMethod.OIDC,
             tenant_id="tenant-ui",
-            roles=frozenset({"operators", "reviewers"}),
+            roles=frozenset({"operators", "reviewers", "tenant_admin"}),
         )
 
     return _dep

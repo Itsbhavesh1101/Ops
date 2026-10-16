@@ -1,0 +1,184 @@
+{
+  "phase": "8E",
+  "name": "Performance Tuning, Capacity Controls & Tenant Quotas",
+  "status": "PASS",
+  "environment": {
+    "os": "Windows 10/11 x86_64",
+    "cpu": "AMD Ryzen 7 5700U with Radeon Graphics (16 logical CPUs @ 1.80GHz)",
+    "ram_gb": 16,
+    "python": "3.12.13",
+    "docker_services": {
+      "postgres": "postgres:16-alpine (port 55432)",
+      "rabbitmq": "rabbitmq:3-management-alpine (port 5672/15672)",
+      "flowable": "flowable/flowable-rest:7.0.0 (port 8080)"
+    }
+  },
+  "source_of_truth_review": {
+    "audited_documents": [
+      "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+      "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Open_Source_Research_Report.pdf",
+      "docs/source-of-truth/opes eng.pdf"
+    ],
+    "original_source_rate_limit_requirement": "SILENT",
+    "notes": "Original source-of-truth specifications do not specify edge rate-limiting parameters or reverse proxy deployment topology."
+  },
+  "alembic": {
+    "current": "0014",
+    "head": "0014",
+    "application_tables": 26,
+    "migration_0015_needed": false,
+    "schema_decision": "NO_SCHEMA_MIGRATION_REQUIRED"
+  },
+  "findings": {
+    "PERF-001": {
+      "title": "Flowable REST client lifecycle / connection reuse",
+      "status": "RESOLVED",
+      "root_cause": "Ephemeral per-request httpx.AsyncClient re-creation incurred fresh TCP connection socket setup and teardown overhead (~100-150ms per call) to local HTTP endpoint http://localhost:8080/flowable-rest/service.",
+      "remediation": "Persistent shared httpx.AsyncClient with connection pooling (max_connections=20, max_keepalive=10, timeout=10.0s, keepalive_expiry=30s) and explicit lifecycle disposal.",
+      "baseline": {
+        "concurrency_1": { "throughput_rps": 6.32, "p95_ms": 176.34 },
+        "concurrency_3": { "throughput_rps": 8.79, "p95_ms": 435.62 },
+        "concurrency_5": { "throughput_rps": 9.67, "p95_ms": 654.78 }
+      },
+      "tuned": {
+        "concurrency_1": { "throughput_rps": 7.76, "p95_ms": 150.25, "throughput_delta_pct": 22.8, "p95_delta_pct": -14.8 },
+        "concurrency_3": { "throughput_rps": 20.07, "p95_ms": 204.45, "throughput_delta_pct": 128.3, "p95_delta_pct": -53.1 },
+        "concurrency_5": { "throughput_rps": 26.13, "p95_ms": 246.88, "throughput_delta_pct": 170.2, "p95_delta_pct": -62.3 }
+      },
+      "task_execution": {
+        "baseline_p95_ms": 225.27,
+        "tuned_p95_ms": 147.95,
+        "throughput_delta_pct": 45.4,
+        "p95_delta_pct": -34.3
+      },
+      "errors_pct": 0.0,
+      "recovery_regression": "PASS (tests/recovery/test_flowable_recovery.py: 3/3 passed, including live container reconnect and query)"
+    },
+    "PERF-002": {
+      "title": "Transactional outbox real RabbitMQ throughput",
+      "status": "RESOLVED",
+      "baseline_events_sec": 39.41,
+      "profiling_breakdown_ms": {
+        "db_claim_skip_locked": 11.80,
+        "row_deserialization": 0.02,
+        "amqp_publish": 1.94,
+        "publisher_confirms": 0.00,
+        "db_settlement": 9.68,
+        "serial_db_overhead_pct": 91.7
+      },
+      "tuning_changes": [
+        "Bounded batch claim with SELECT ... FOR UPDATE SKIP LOCKED (batch_size=20)",
+        "Bounded pipelined broker publish via asyncio.Semaphore(5) with AMQP publisher confirms preserved",
+        "Single-transaction batch settlement marking all claimed events DISPATCHED atomically"
+      ],
+      "repeatability_benchmark": {
+        "warmup_run_events_sec": 145.93,
+        "measured_runs_events_sec": [138.01, 138.15, 143.74],
+        "median_events_sec": 138.15,
+        "mean_events_sec": 139.97,
+        "std_dev_events_sec": 3.27,
+        "cv_pct": 2.34,
+        "improvement_delta_pct": 255.2,
+        "errors": 0,
+        "pending_events_after_completion": 0,
+        "duplicate_business_effects": 0
+      },
+      "recovery_regression": "PASS (tests/recovery/test_rabbitmq_broker_recovery.py: 2/2 passed, 0 event loss, 0 duplicate effects)"
+    },
+    "PERF-003": {
+      "title": "Operations analytics query latency growth with historical data",
+      "status": "RESOLVED",
+      "dataset": "SYNTHETIC_TARGET_V2 (100k audit, 5k workflows, 1k jobs)",
+      "root_cause": "Full ORM instance fetch with Python memory filtering rather than SQL count aggregation",
+      "existing_index_utilized": "ix_workflow_inst_tenant_status (tenant_id, status)",
+      "explain_analyze_buffers_proof": {
+        "before_query": {
+          "scan_type": "Seq Scan on public.workflow_instances",
+          "index_used": "None",
+          "rows_fetched": 2500,
+          "planning_time_ms": 0.686,
+          "execution_time_ms": 0.936,
+          "shared_buffer_hits": 119
+        },
+        "after_query": {
+          "scan_type": "Bitmap Heap Scan + Bitmap Index Scan",
+          "index_used": "ix_workflow_inst_tenant_status",
+          "rows_returned": 1,
+          "planning_time_ms": 0.208,
+          "execution_time_ms": 0.332,
+          "shared_buffer_hits": 61,
+          "execution_time_delta_pct": -64.5,
+          "buffer_hit_delta_pct": -48.7
+        }
+      },
+      "new_indexes_created": 0
+    }
+  },
+  "capacity_controls_and_rate_limiting": {
+    "application_capacity_quotas": "PASS",
+    "rate_limiting": "BLOCKED_ON_PRODUCTION_GATEWAY_CONFIGURATION",
+    "quotas_enforced": {
+      "capacity_tenant_max_queued_solves": 5,
+      "capacity_tenant_max_concurrent_solves": 1,
+      "capacity_tenant_max_queued_repairs": 5,
+      "capacity_tenant_max_active_plans": 50,
+      "capacity_tenant_max_running_workflows": 20,
+      "capacity_tenant_max_concurrent_analytics": 5
+    },
+    "security_invariants": {
+      "header_tampering_prevented": true,
+      "multi_credential_consistency_verified": true,
+      "payload_tenant_mismatch_immune": true,
+      "concurrent_burst_fails_closed": true,
+      "trusted_tenant_source": "AuthenticatedPrincipal.tenant_context"
+    }
+  },
+  "worker_and_database_configuration": {
+    "db_connection_pool": {
+      "pool_size": 5,
+      "max_overflow": 5,
+      "timeout_seconds": 30.0,
+      "all_consumer_demand_analysis": {
+        "api_replicas_max_connections": 40,
+        "worker_processes_max_connections": 20,
+        "flowable_rest_hikaricp_connections": 10,
+        "postgres_superuser_reserved": 3,
+        "admin_monitoring_migration_reserve": 7,
+        "total_worst_case_demand": 80,
+        "postgres_max_connections": 100,
+        "remaining_unallocated_headroom": 20,
+        "safety_margin_pct": 20.0
+      }
+    },
+    "outbox_worker": {
+      "batch_size": 20,
+      "publish_concurrency": 5,
+      "poll_interval_seconds": 0.5,
+      "lease_duration_seconds": 30.0
+    },
+    "schedule_worker": {
+      "worker_concurrency": 2,
+      "claim_batch_size": 5,
+      "max_concurrent_per_tenant": 1,
+      "solve_timeout_seconds": 60.0,
+      "repair_timeout_seconds": 30.0,
+      "poll_interval_seconds": 1.0,
+      "tenant_fairness_verified": true
+    }
+  },
+  "external_dependencies": {
+    "MYSQL_LIVE_READ_VERIFICATION": "BLOCKED_ON_MYSQL_READ_ONLY_ACCOUNT_PRIVILEGES",
+    "E8_NOTIFICATION_INTEGRATION": "BLOCKED_ON_E8_ENDPOINT",
+    "E8_LOCAL_CONTRACT_DISPATCH": "PASS",
+    "GOOGLE_CALENDAR_INTEGRATION": "PASS / FROZEN"
+  },
+  "quality_gates": {
+    "recovery_tests_passed": 23,
+    "security_tests_passed": 160,
+    "capacity_tests_passed": 19,
+    "pip_check": "PASS",
+    "ruff": "PASS",
+    "mypy": "PASS"
+  }
+}

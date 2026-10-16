@@ -209,6 +209,149 @@ class ServiceApiKeyCredentialStore(Protocol):
         ...
 
 
+class InMemoryServiceApiKeyCredentialStore(ServiceApiKeyCredentialStore):
+    """DEV/TEST ONLY: In-memory implementation of ServiceApiKeyCredentialStore for local mocks.
+
+    WARNING: Records stored here are ephemeral, process-local, and do not survive API restart.
+    For production workloads, use PostgresServiceApiKeyCredentialStore.
+    """
+
+    def __init__(self, records: dict[str, ServiceApiKeyCredentialRecord] | None = None) -> None:
+        self._records: dict[str, ServiceApiKeyCredentialRecord] = dict(records or {})
+
+    async def get_by_credential_id(
+        self, credential_id: str
+    ) -> ServiceApiKeyCredentialRecord | None:
+        return self._records.get(credential_id)
+
+    def add_record(self, record: ServiceApiKeyCredentialRecord) -> None:
+        self._records[record.credential_id] = record
+
+
+class PostgresServiceApiKeyCredentialStore(ServiceApiKeyCredentialStore):
+    """PostgreSQL-backed persistent store for service API key credentials (Phase 8D REC-001).
+
+    Provides durable, multi-replica consistent storage for service API key credentials.
+    Reads directly from PostgreSQL `service_api_credentials` table, surviving API process restarts.
+    Plaintext secrets are NEVER stored; only cryptographic SHA-256 digests are persisted.
+    """
+
+    def __init__(
+        self,
+        session_factory: Any,
+    ) -> None:
+        self._session_factory = session_factory
+
+    async def get_by_credential_id(
+        self, credential_id: str
+    ) -> ServiceApiKeyCredentialRecord | None:
+        from sqlalchemy import select
+
+        from app.db.models.service_credential import ServiceApiKeyCredentialRecordModel
+
+        async with self._session_factory() as session:
+            stmt = select(ServiceApiKeyCredentialRecordModel).where(
+                ServiceApiKeyCredentialRecordModel.credential_id == credential_id
+            )
+            result = await session.execute(stmt)
+            model = result.scalars().first()
+            if model is None:
+                return None
+            return model.to_credential_record()
+
+    async def create_credential(
+        self,
+        *,
+        tenant_id: str,
+        credential_id: str,
+        service_subject: str,
+        secret_digest: str,
+        roles: list[str] | None = None,
+        permissions: list[str] | None = None,
+        enabled: bool = True,
+        not_before: datetime | None = None,
+        expires_at: datetime | None = None,
+        issuer: str | None = None,
+        description: str | None = None,
+    ) -> ServiceApiKeyCredentialRecord:
+        """Create and persist a new service API key credential record in PostgreSQL."""
+        from app.db.models.service_credential import ServiceApiKeyCredentialRecordModel
+
+        async with self._session_factory() as session:
+            model = ServiceApiKeyCredentialRecordModel(
+                tenant_id=tenant_id,
+                credential_id=credential_id,
+                service_subject=service_subject,
+                secret_digest=secret_digest,
+                roles=roles or [],
+                permissions=permissions or [],
+                enabled=enabled,
+                not_before=not_before,
+                expires_at=expires_at,
+                issuer=issuer or "e7-service-key",
+                description=description,
+            )
+            session.add(model)
+            await session.commit()
+            return model.to_credential_record()
+
+    async def revoke_credential(
+        self,
+        credential_id: str,
+        *,
+        revoked_by: str = "system",
+    ) -> bool:
+        """Revoke a service API key credential, ensuring it is permanently disabled."""
+        from sqlalchemy import select
+
+        from app.db.models.service_credential import ServiceApiKeyCredentialRecordModel
+
+        async with self._session_factory() as session:
+            stmt = select(ServiceApiKeyCredentialRecordModel).where(
+                ServiceApiKeyCredentialRecordModel.credential_id == credential_id
+            )
+            result = await session.execute(stmt)
+            model = result.scalars().first()
+            if model is None:
+                return False
+            model.enabled = False
+            model.revoked_at = datetime.now(UTC)
+            model.revoked_by = revoked_by
+            await session.commit()
+            return True
+
+
+class CompositeServiceApiKeyCredentialStore(ServiceApiKeyCredentialStore):
+    """Composite store combining in-memory fast cache/test fallback with persistent PostgreSQL.
+
+    In development/test, allows `add_record` for fast in-memory registration.
+    In production, queries PostgreSQL `service_api_credentials` table,
+    ensuring multi-replica consistency and survival across API restarts.
+    """
+
+    def __init__(
+        self,
+        postgres_store: PostgresServiceApiKeyCredentialStore | None = None,
+        in_memory_records: dict[str, ServiceApiKeyCredentialRecord] | None = None,
+    ) -> None:
+        self._in_memory = InMemoryServiceApiKeyCredentialStore(in_memory_records)
+        self._postgres_store = postgres_store
+
+    async def get_by_credential_id(
+        self, credential_id: str
+    ) -> ServiceApiKeyCredentialRecord | None:
+        mem_rec = await self._in_memory.get_by_credential_id(credential_id)
+        if mem_rec is not None:
+            return mem_rec
+        if self._postgres_store is not None:
+            return await self._postgres_store.get_by_credential_id(credential_id)
+        return None
+
+    def add_record(self, record: ServiceApiKeyCredentialRecord) -> None:
+        """Add in-memory record (DEV/TEST ONLY)."""
+        self._in_memory.add_record(record)
+
+
 # -----------------------------------------------------------------------------
 # Service API Key Verifier
 # -----------------------------------------------------------------------------
@@ -309,3 +452,23 @@ class ServiceApiKeyVerifier:
             service_subject=record.service_subject,
             issuer=record.issuer or "e7-service-key",
         )
+
+
+__all__ = [
+    "CompositeServiceApiKeyCredentialStore",
+    "CredentialDisabledError",
+    "CredentialExpiredError",
+    "CredentialNotFoundError",
+    "CredentialNotYetValidError",
+    "InMemoryServiceApiKeyCredentialStore",
+    "InvalidServiceApiKeyError",
+    "MalformedServiceApiKeyError",
+    "PostgresServiceApiKeyCredentialStore",
+    "SERVICE_KEY_PREFIX",
+    "ServiceApiKeyCredentialRecord",
+    "ServiceApiKeyCredentialStore",
+    "ServiceApiKeyVerificationError",
+    "ServiceApiKeyVerifier",
+    "compute_secret_digest",
+    "parse_service_api_key",
+]

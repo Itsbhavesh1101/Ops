@@ -27,7 +27,8 @@ from sqlalchemy.orm import selectinload
 
 from app.api.errors import ApiError, ApiErrorResponse
 from app.api.idempotency import IDEMPOTENCY_KEY_HEADER
-from app.core.auth.models import TenantContext
+from app.core.auth.models import AuthenticatedPrincipal, TenantContext
+from app.core.capacity.quotas import TenantQuotaManager
 from app.core.idempotency.contracts import (
     RequestFingerprint,
     create_idempotency_identity,
@@ -39,7 +40,7 @@ from app.core.idempotency.repository import (
     IdempotencyRepository,
 )
 from app.db.models.scheduling import ScheduleRecord
-from app.resources.service import ResourceService
+from app.resources.service import ResourceNotFoundError, ResourceService
 from app.scheduling.hashing import compute_input_snapshot_hash
 from app.scheduling.policy import (
     PublishAuthorizationError,
@@ -146,16 +147,22 @@ class ResourceAvailabilityItem(BaseModel):
 
 
 
+def _null_principal_dependency() -> Any:
+    return None
+
+
 def create_scheduling_router(
     tenant_dependency: Callable[..., Any],
     session_dependency: Callable[..., AsyncSession],
     scheduling_service_dependency: Callable[..., SchedulingService],
     resource_service_dependency: Callable[..., ResourceService] | None = None,
     publish_policy_dependency: Callable[..., Any] | None = None,
+    principal_dependency: Callable[..., Any] | None = None,
 ) -> APIRouter:
     """Factory creating decoupled scheduling API router with injected dependencies."""
     parent_router = APIRouter(tags=["Scheduling"])
     router = APIRouter()
+    _principal_dep = principal_dependency or _null_principal_dependency
 
     @router.post(
         "/schedule-jobs",
@@ -165,16 +172,28 @@ def create_scheduling_router(
         responses={
             202: {"model": ScheduleJobResponse, "description": "Schedule job submitted."},
             400: {"model": ApiErrorResponse, "description": "Invalid input snapshot."},
+            403: {"model": ApiErrorResponse, "description": "Unauthorized to submit solve jobs."},
             409: {"model": ApiErrorResponse, "description": "Idempotency conflict."},
         },
     )
     async def submit_schedule_job(
         payload: ScheduleJobSubmitRequest = Body(...),
         tenant_context: Any = Depends(tenant_dependency),
+        principal_ctx: Any = Depends(_principal_dep),
         session: AsyncSession = Depends(session_dependency),
         service: SchedulingService = Depends(scheduling_service_dependency),
         idempotency_key: str | None = Header(None, alias=IDEMPOTENCY_KEY_HEADER),
     ) -> ScheduleJobResponse:
+        if isinstance(principal_ctx, AuthenticatedPrincipal):
+            if principal_ctx.has_any_role("auditor") and not (
+                principal_ctx.has_any_role("scheduler", "operator", "tenant_admin")
+                or principal_ctx.has_permission("schedule:solve")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="schedule.unauthorized",
+                    message="Auditor role cannot submit schedule solve jobs.",
+                )
         tenant_id = _extract_tenant_id(tenant_context)
 
         # Construct full SchedulingRequest injecting trusted tenant_id
@@ -226,6 +245,9 @@ def create_scheduling_router(
                         created_at=existing_job.created_at,
                         completed_at=existing_job.completed_at,
                     )
+
+        quota_mgr = TenantQuotaManager()
+        await quota_mgr.check_solve_submission_quota(session, tenant_id)
 
         job = await service.submit_job(
             session=session,
@@ -308,14 +330,21 @@ def create_scheduling_router(
         if not resource_service:
             return []
 
-        res = resource_service.get_intervals(
-            tenant_id=tenant_id,
-            resource_id=resource_id,
-        )
-        if inspect.isawaitable(res):
-            intervals = await res
-        else:
-            intervals = res
+        try:
+            res = resource_service.get_intervals(
+                tenant_id=tenant_id,
+                resource_id=resource_id,
+            )
+            if inspect.isawaitable(res):
+                intervals = await res
+            else:
+                intervals = res
+        except ResourceNotFoundError as err:
+            raise ApiError(
+                status_code=404,
+                code="resource.not_found",
+                message=str(err),
+            ) from err
 
         return [
             ResourceAvailabilityItem(
@@ -345,11 +374,24 @@ def create_scheduling_router(
         job_id: UUID = Path(...),
         payload: SchedulePublishRequest = Body(default_factory=SchedulePublishRequest),
         tenant_context: Any = Depends(tenant_dependency),
+        principal_ctx: Any = Depends(_principal_dep),
         session: AsyncSession = Depends(session_dependency),
         service: SchedulingService = Depends(scheduling_service_dependency),
         idempotency_key: str | None = Header(None, alias=IDEMPOTENCY_KEY_HEADER),
     ) -> SchedulePublishResponse:
         tenant_id = _extract_tenant_id(tenant_context)
+        effective_principal = payload.principal
+        if isinstance(principal_ctx, AuthenticatedPrincipal):
+            if not (
+                principal_ctx.has_permission("schedule:publish")
+                or principal_ctx.has_any_role("approver", "scheduler", "operator", "tenant_admin")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="schedule_publish.unauthorized",
+                    message="Principal is not authorized to publish schedules.",
+                )
+            effective_principal = principal_ctx.principal_id
 
         if idempotency_key:
             identity = create_idempotency_identity(
@@ -357,7 +399,7 @@ def create_scheduling_router(
                 operation_name="schedule.publish",
                 raw_key=idempotency_key,
             )
-            fingerprint = fingerprint_bytes(f"{job_id}:{payload.principal}".encode())
+            fingerprint = fingerprint_bytes(f"{job_id}:{effective_principal}".encode())
             idempotency_repo = IdempotencyRepository(session)
             decision = await idempotency_repo.acquire_or_observe(
                 identity=identity,
@@ -407,7 +449,7 @@ def create_scheduling_router(
                 session=session,
                 tenant_id=tenant_id,
                 job_id=job_id,
-                principal=payload.principal,
+                principal=effective_principal,
                 publish_policy=injected_policy,
             )
         except JobNotFoundError as err:
@@ -464,10 +506,21 @@ def create_scheduling_router(
         schedule_id: UUID = Path(...),
         payload: ScheduleRepairRequest = Body(...),
         tenant_context: Any = Depends(tenant_dependency),
+        principal_ctx: Any = Depends(_principal_dep),
         session: AsyncSession = Depends(session_dependency),
         service: SchedulingService = Depends(scheduling_service_dependency),
         idempotency_key: str | None = Header(None, alias=IDEMPOTENCY_KEY_HEADER),
     ) -> ScheduleRepairResponse:
+        if isinstance(principal_ctx, AuthenticatedPrincipal):
+            if principal_ctx.has_any_role("auditor") and not (
+                principal_ctx.has_any_role("scheduler", "operator", "tenant_admin")
+                or principal_ctx.has_permission("schedule:repair")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="schedule.unauthorized",
+                    message="Auditor role cannot execute schedule repairs.",
+                )
         tenant_id = _extract_tenant_id(tenant_context)
 
         if idempotency_key:
@@ -512,6 +565,9 @@ def create_scheduling_router(
                         status=cand.status,
                         diagnostics=[],
                     )
+
+        quota_mgr = TenantQuotaManager()
+        await quota_mgr.check_repair_submission_quota(session, tenant_id)
 
         try:
             job, candidate = await service.repair_schedule(

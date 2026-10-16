@@ -121,6 +121,18 @@ def create_workflow_router(
         principal: AuthenticatedPrincipal = Depends(principal_dependency),
         service: WorkflowService = Depends(workflow_service_dependency),
     ) -> WorkflowDefinitionResponse:
+        if not (
+            principal.has_any_role("tenant_admin", "admin", "system")
+            or principal.has_permission("workflow:deploy")
+        ):
+            raise ApiError(
+                status_code=403,
+                code="workflow.unauthorized",
+                message=(
+                    "Deploying workflow definitions requires administrative "
+                    "role or workflow:deploy permission."
+                ),
+            )
         tenant_id = _extract_tenant_id(tenant_context)
         try:
             return await service.deploy_definition(

@@ -135,7 +135,35 @@ class EducationScheduleEvaluator:
                             f"(session '{asgn.session_id}')."
                         )
 
-        # 5. Overlap Checks (Cohort, Room, Invigilator)
+            # 4b. Equipment Availability & Capability Check
+            needed_equipment = list(
+                dict.fromkeys(exam.required_equipment + session.required_equipment)
+            )
+            if needed_equipment:
+                eq_id = asgn.equipment_resource_id
+                if not eq_id:
+                    room_has_it = room and all(eq in room.skills for eq in needed_equipment)
+                    if not room_has_it:
+                        hard_violations.append(
+                            f"REQUIRED_EQUIPMENT_MISSING: Session '{asgn.session_id}' requires "
+                            f"equipment {needed_equipment} but no valid equipment was assigned."
+                        )
+                else:
+                    eq_res = self.resources_by_id.get(eq_id)
+                    if not eq_res:
+                        hard_violations.append(
+                            f"UNKNOWN_EQUIPMENT: Session '{asgn.session_id}' assigned to unknown "
+                            f"equipment '{eq_id}'."
+                        )
+                    else:
+                        for req_eq in needed_equipment:
+                            if req_eq not in eq_res.skills:
+                                hard_violations.append(
+                                    f"EQUIPMENT_CAPABILITY_DEFICIT: Equipment '{eq_res.id}' "
+                                    f"lacks capability '{req_eq}' for session '{asgn.session_id}'."
+                                )
+
+        # 5. Overlap Checks (Cohort, Room, Invigilator, Equipment)
         for i in range(len(assignments)):
             a1 = assignments[i]
             s1 = self.sessions_by_id.get(a1.session_id)
@@ -168,6 +196,16 @@ class EducationScheduleEvaluator:
                             f"INVIGILATOR_DOUBLE_BOOKING: Invigilator "
                             f"'{a1.invigilator_resource_id}' scheduled simultaneously for "
                             f"'{s1.id}' and '{s2.id}'."
+                        )
+                    # Equipment conflict
+                    if (
+                        a1.equipment_resource_id
+                        and a2.equipment_resource_id
+                        and a1.equipment_resource_id == a2.equipment_resource_id
+                    ):
+                        hard_violations.append(
+                            f"EQUIPMENT_DOUBLE_BOOKING: Equipment '{a1.equipment_resource_id}' "
+                            f"scheduled simultaneously for '{s1.id}' and '{s2.id}'."
                         )
 
         # 6. Major Subject Spacing / Gap Policy Check
@@ -215,6 +253,7 @@ class EducationScheduleEvaluator:
                         or base_asgn.end_at != new_asgn.end_at
                         or base_asgn.room_resource_id != new_asgn.room_resource_id
                         or base_asgn.invigilator_resource_id != new_asgn.invigilator_resource_id
+                        or base_asgn.equipment_resource_id != new_asgn.equipment_resource_id
                     )
                     if mutated:
                         locked_moved_count += 1
@@ -222,9 +261,11 @@ class EducationScheduleEvaluator:
                             f"LOCKED_ASSIGNMENT_MUTATION: Locked assignment for session "
                             f"'{locked_id}' was modified during repair. "
                             f"Baseline: [{base_asgn.start_at}, room={base_asgn.room_resource_id}, "
-                            f"inv={base_asgn.invigilator_resource_id}], "
+                            f"inv={base_asgn.invigilator_resource_id}, "
+                            f"eq={base_asgn.equipment_resource_id}], "
                             f"Repaired: [{new_asgn.start_at}, room={new_asgn.room_resource_id}, "
-                            f"inv={new_asgn.invigilator_resource_id}]."
+                            f"inv={new_asgn.invigilator_resource_id}, "
+                            f"eq={new_asgn.equipment_resource_id}]."
                         )
 
         # 8. Compute Soft Optimization Metrics
@@ -249,6 +290,45 @@ class EducationScheduleEvaluator:
         counts = list(inv_session_counts.values()) or [0]
         workload_variance = statistics.variance(counts) if len(counts) > 1 else 0.0
 
+        # Equipment satisfaction rate
+        sessions_needing_eq = [
+            s
+            for s in self.sessions_by_id.values()
+            if s.required_equipment
+            or (
+                self.exams_by_id.get(s.exam_id)
+                and self.exams_by_id[s.exam_id].required_equipment
+            )
+        ]
+        satisfied_eq_count = 0
+        for s in sessions_needing_eq:
+            target_asgn = assigned_by_session.get(s.id)
+            if target_asgn:
+                needed = list(
+                    dict.fromkeys(
+                        s.required_equipment
+                        + (
+                            self.exams_by_id[s.exam_id].required_equipment
+                            if s.exam_id in self.exams_by_id
+                            else []
+                        )
+                    )
+                )
+                if target_asgn.equipment_resource_id:
+                    eq_res = self.resources_by_id.get(target_asgn.equipment_resource_id)
+                    if eq_res and all(eq in eq_res.skills for eq in needed):
+                        satisfied_eq_count += 1
+                elif target_asgn.room_resource_id:
+                    r_res = self.resources_by_id.get(target_asgn.room_resource_id)
+                    if r_res and all(eq in r_res.skills for eq in needed):
+                        satisfied_eq_count += 1
+
+        eq_satisfaction_rate = (
+            round(satisfied_eq_count / len(sessions_needing_eq), 4)
+            if sessions_needing_eq
+            else 1.0
+        )
+
         # Repair movement metrics
         repair_moved_count = 0
         repair_time_shift_minutes = 0
@@ -263,7 +343,8 @@ class EducationScheduleEvaluator:
                     )
                     room_diff = new_asgn.room_resource_id != base_asgn.room_resource_id
                     inv_diff = new_asgn.invigilator_resource_id != base_asgn.invigilator_resource_id
-                    if time_diff > 0 or room_diff or inv_diff:
+                    eq_diff = new_asgn.equipment_resource_id != base_asgn.equipment_resource_id
+                    if time_diff > 0 or room_diff or inv_diff or eq_diff:
                         repair_moved_count += 1
                         repair_time_shift_minutes += time_diff
                         if room_diff:
@@ -278,6 +359,7 @@ class EducationScheduleEvaluator:
             "preferred_invigilator_satisfaction_rate": (
                 round(preferred_invigilator_hits / len(assignments), 4) if assignments else 0.0
             ),
+            "equipment_satisfaction_rate": eq_satisfaction_rate,
             "invigilator_workload_variance": round(workload_variance, 4),
             "repair_moved_assignments_count": repair_moved_count,
             "repair_time_shift_minutes": repair_time_shift_minutes,

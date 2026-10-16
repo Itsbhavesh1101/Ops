@@ -162,3 +162,48 @@ def test_flowable_settings_token_secret_masking() -> None:
     )
     assert "super-secret-token-xyz" not in str(settings)
     assert "super-secret-token-xyz" not in repr(settings)
+
+
+def test_flowable_settings_rejects_insecure_default_credentials_in_production() -> None:
+    """Verify that known upstream defaults ('rest-admin:test') fail closed in production."""
+    with patch.dict(os.environ, {"E7_ENVIRONMENT": "production"}):
+        for user, pwd in [("rest-admin", "test"), ("admin", "test"), ("admin", "admin")]:
+            with pytest.raises(ValidationError) as exc_info:
+                FlowableSettings(
+                    base_url="http://flowable:8080/flowable-rest/service",
+                    timeout_seconds=10.0,
+                    max_retries=2,
+                    username=user,
+                    password=pwd,
+                )
+            assert "Insecure default Flowable credentials" in str(exc_info.value)
+
+
+def test_flowable_settings_allows_synthetic_credentials_in_local_environment() -> None:
+    """Verify that synthetic credentials remain permitted in local/dev environment."""
+    with patch.dict(os.environ, {"E7_ENVIRONMENT": "local"}):
+        settings = FlowableSettings(
+            base_url="http://flowable:8080/flowable-rest/service",
+            timeout_seconds=10.0,
+            max_retries=2,
+            username="rest-admin",
+            password="test",
+        )
+        assert settings.username == "rest-admin"
+        assert settings.password is not None
+        assert settings.password.get_secret_value() == "test"
+
+
+def test_flowable_settings_allows_secure_credentials_in_production() -> None:
+    """Verify that injected non-default credentials pass cleanly in production."""
+    with patch.dict(os.environ, {"E7_ENVIRONMENT": "production"}):
+        settings = FlowableSettings(
+            base_url="http://flowable:8080/flowable-rest/service",
+            timeout_seconds=10.0,
+            max_retries=2,
+            username="flowable-operator-vault",
+            password="A-Very-Secure-Production-Secret-987!",
+        )
+        assert settings.username == "flowable-operator-vault"
+        assert settings.password is not None
+        assert settings.password.get_secret_value() == "A-Very-Secure-Production-Secret-987!"

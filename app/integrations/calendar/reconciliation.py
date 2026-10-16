@@ -25,8 +25,10 @@ from app.integrations.calendar.adapter import CalendarAdapter
 from app.integrations.calendar.dtos import (
     CalendarEventDTO,
     ReconciliationResult,
+    SyncChangesResult,
     SyncStatus,
 )
+from app.integrations.calendar.inbound import InboundCalendarSyncService
 
 
 class CalendarReconciliationService:
@@ -221,3 +223,26 @@ class CalendarReconciliationService:
             unchanged_count=unchanged,
             failed_count=failed,
         )
+
+    async def reconcile_inbound_calendar(
+        self,
+        session: AsyncSession,
+        tenant_id: str,
+        external_calendar_id: str,
+        provider: str = "google",
+        sync_service: InboundCalendarSyncService | None = None,
+    ) -> SyncChangesResult:
+        """Periodic inbound reconciliation recovering from missed push notifications.
+
+        Reuses InboundCalendarSyncService.import_incremental_changes to ensure
+        drift recovery follows identical sync token and availability mapping semantics.
+        """
+        service = sync_service or InboundCalendarSyncService()
+        return await service.import_incremental_changes(
+            session=session,
+            tenant_id=tenant_id,
+            adapter=self.adapter,
+            external_calendar_id=external_calendar_id,
+            provider=provider,
+        )
+

@@ -53,6 +53,8 @@ class OutboxDispatchPolicy(BaseModel):
     retry_base_delay: timedelta
     retry_max_delay: timedelta
     retry_multiplier: float
+    batch_size: int = 1
+    publish_concurrency: int = 1
 
     @model_validator(mode="after")
     def validate_policy(self) -> Self:
@@ -80,6 +82,12 @@ class OutboxDispatchPolicy(BaseModel):
         if not math.isfinite(self.retry_multiplier) or self.retry_multiplier < 1.0:
             raise ValueError(
                 f"retry_multiplier must be a finite number >= 1.0, got {self.retry_multiplier}"
+            )
+        if self.batch_size < 1 or self.batch_size > 100:
+            raise ValueError(f"batch_size must be between 1 and 100, got {self.batch_size}")
+        if self.publish_concurrency < 1 or self.publish_concurrency > 50:
+            raise ValueError(
+                f"publish_concurrency must be between 1 and 50, got {self.publish_concurrency}"
             )
         return self
 
@@ -361,6 +369,155 @@ class OutboxDispatcher:
                 dispatch_attempt_count=claimed.dispatch_attempt_count,
                 retry_delay=retry_delay,
             )
+
+    async def dispatch_batch(
+        self,
+        *,
+        batch_size: int | None = None,
+        publish_concurrency: int | None = None,
+    ) -> list[DispatchResult]:
+        """Claim and dispatch a bounded batch of outbox events across transaction boundaries.
+
+        Phases:
+        1. Transaction A (Batch Claim):
+           - Opens fresh UnitOfWork.
+           - Claims up to batch_size ready events with SKIP LOCKED and policy.lease_duration.
+           - If 0 events: commits and returns [].
+           - If >0 events: commits claim UoW once.
+
+        2. Pipelined Network Publication (Outside DB transactions):
+           - Publishes claimed events concurrently bounded by publish_concurrency semaphore.
+           - Uses individual per-event timeout (policy.publish_timeout) and publisher confirms.
+           - Isolates per-event errors (timeout or EventPublishError marks only that event failed).
+
+        3. Transaction B (Batch Settlement):
+           - Opens a single fresh UnitOfWork.
+           - Marks all successfully published events as DISPATCHED.
+           - Reschedules all failed events with exponential backoff retry delays.
+           - Commits UoW once for the entire batch.
+        """
+        size = batch_size if batch_size is not None else getattr(self._policy, "batch_size", 1)
+        concurrency = (
+            publish_concurrency
+            if publish_concurrency is not None
+            else getattr(self._policy, "publish_concurrency", 1)
+        )
+
+        # --- Phase 1: Batch Claim Transaction ---
+        claimed_events: tuple[ClaimedOutboxEvent, ...]
+        async with self._uow_factory() as claim_uow:
+            session = getattr(claim_uow, "session", None)
+            if session is None:
+                raise UnitOfWorkError("UnitOfWork does not provide an active database session")
+            claim_repo = OutboxDispatchRepository(session)
+            claimed_events = await claim_repo.claim_ready(
+                limit=size,
+                lease_duration=self._policy.lease_duration,
+            )
+            if claimed_events:
+                await claim_uow.commit()
+
+        if not claimed_events:
+            return []
+
+        # --- Phase 2: Pipelined Network Publication ---
+        telemetry = get_outbox_telemetry()
+        sem = asyncio.Semaphore(max(1, concurrency))
+
+        async def _publish_single(
+            claimed: ClaimedOutboxEvent,
+        ) -> tuple[ClaimedOutboxEvent, bool, str, float]:
+            try:
+                telemetry.record_attempt()
+            except BaseException:
+                pass
+            start_t = time.monotonic()
+            async with sem:
+                try:
+                    async with asyncio.timeout(self._policy.publish_timeout.total_seconds()):
+                        await self._publisher.publish(claimed.envelope)
+                    dur = time.monotonic() - start_t
+                    try:
+                        telemetry.record_success(dur)
+                    except BaseException:
+                        pass
+                    return (claimed, True, "", dur)
+                except TimeoutError:
+                    dur = time.monotonic() - start_t
+                    try:
+                        telemetry.record_failure("timeout", dur)
+                    except BaseException:
+                        pass
+                    return (claimed, False, "timeout", dur)
+                except EventPublishError:
+                    dur = time.monotonic() - start_t
+                    try:
+                        telemetry.record_failure("publish_error", dur)
+                    except BaseException:
+                        pass
+                    return (claimed, False, "publish_error", dur)
+
+        pub_outcomes = await asyncio.gather(*(_publish_single(e) for e in claimed_events))
+
+        # --- Phase 3: Batch Settlement Transaction ---
+        results: list[DispatchResult] = []
+        async with self._uow_factory() as settlement_uow:
+            session = getattr(settlement_uow, "session", None)
+            if session is None:
+                raise UnitOfWorkError("UnitOfWork does not provide an active database session")
+            repo = OutboxDispatchRepository(session)
+
+            for claimed, success, _err_cat, _ in pub_outcomes:
+                if success:
+                    try:
+                        await repo.mark_published(
+                            event_id=claimed.event_id,
+                            claim_token=claimed.claim_token,
+                        )
+                        results.append(
+                            DispatchResult(
+                                outcome=DispatchOutcome.PUBLISHED,
+                                event_id=claimed.event_id,
+                                dispatch_attempt_count=claimed.dispatch_attempt_count,
+                            )
+                        )
+                    except OutboxClaimLostError:
+                        results.append(
+                            DispatchResult(
+                                outcome=DispatchOutcome.CLAIM_LOST_AFTER_PUBLISH,
+                                event_id=claimed.event_id,
+                                dispatch_attempt_count=claimed.dispatch_attempt_count,
+                            )
+                        )
+                else:
+                    delay = self._policy.compute_retry_delay(claimed.dispatch_attempt_count)
+                    try:
+                        await repo.reschedule_failure(
+                            event_id=claimed.event_id,
+                            claim_token=claimed.claim_token,
+                            retry_delay=delay,
+                        )
+                        results.append(
+                            DispatchResult(
+                                outcome=DispatchOutcome.RETRY_SCHEDULED,
+                                event_id=claimed.event_id,
+                                dispatch_attempt_count=claimed.dispatch_attempt_count,
+                                retry_delay=delay,
+                            )
+                        )
+                    except OutboxClaimLostError:
+                        results.append(
+                            DispatchResult(
+                                outcome=DispatchOutcome.CLAIM_LOST_AFTER_FAILURE,
+                                event_id=claimed.event_id,
+                                dispatch_attempt_count=claimed.dispatch_attempt_count,
+                                retry_delay=delay,
+                            )
+                        )
+
+            await settlement_uow.commit()
+
+        return results
 
     # Alias for dispatch_once
     dispatch_one = dispatch_once

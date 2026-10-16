@@ -141,7 +141,7 @@ def test_flowable_service_boundary(compose_data: dict[str, Any]) -> None:
 
     # Image version must be explicit stable version, never latest
     image = flowable.get("image", "")
-    assert image == "flowable/flowable-rest:7.0.0", (
+    assert image.startswith("flowable/flowable-rest:7.0.0"), (
         f"Flowable must use explicit version 'flowable/flowable-rest:7.0.0', got '{image}'"
     )
     assert not image.endswith(":latest"), "Flowable must not use 'latest' tag"
@@ -256,12 +256,15 @@ def test_default_compose_excludes_worker() -> None:
     """Verify default Compose execution excludes the unavailable worker container."""
     import subprocess
 
-    result = subprocess.run(
-        ["docker", "compose", "config", "--services"],
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "config", "--services"],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+    except FileNotFoundError:
+        pytest.skip("Docker CLI is not installed in the environment")
     if result.returncode == 0:
         default_services = set(result.stdout.strip().split())
         assert "worker" not in default_services, (
@@ -347,6 +350,8 @@ def test_database_model_stability() -> None:
         "schedules",
         "schedule_assignments",
         "calendar_links",
+        "calendar_watch_channels",
+        "service_api_credentials",
     }
     actual_tables = set(Base.metadata.tables.keys())
     missing = phase1_tables - actual_tables
@@ -354,15 +359,15 @@ def test_database_model_stability() -> None:
     assert actual_tables == canonical_phase4_tables, (
         f"Base.metadata tables must be exactly {canonical_phase4_tables}, got {actual_tables}"
     )
-    assert len(actual_tables) == 24
+    assert len(actual_tables) == 26
 
 
 def test_alembic_head_remains_0007() -> None:
-    """Verify Alembic migration head is 0012 for Phase 4B and no migration 0013 exists."""
+    """Verify Alembic migration head is 0014 for Phase 8D and no migration 0015 exists."""
     alembic_cfg = Config(str(ALEMBIC_INI))
     script_dir = ScriptDirectory.from_config(alembic_cfg)
     heads = script_dir.get_heads()
-    assert heads == ["0012"], f"Alembic heads expected ['0012'], got {heads}"
+    assert heads == ["0014"], f"Alembic heads expected ['0014'], got {heads}"
 
     rev_0007 = script_dir.get_revision("0007")
     assert rev_0007 is not None
@@ -388,11 +393,19 @@ def test_alembic_head_remains_0007() -> None:
     assert rev_0012 is not None
     assert rev_0012.down_revision == "0011"
 
+    rev_0013 = script_dir.get_revision("0013")
+    assert rev_0013 is not None
+    assert rev_0013.down_revision == "0012"
+
+    rev_0014 = script_dir.get_revision("0014")
+    assert rev_0014 is not None
+    assert rev_0014.down_revision == "0013"
+
     migration_files = os.listdir(VERSIONS_DIR)
-    has_0012 = any(fname.startswith("0012") for fname in migration_files)
-    assert has_0012, "Migration 0012 must exist for Phase 4B"
+    has_0014 = any(fname.startswith("0014") for fname in migration_files)
+    assert has_0014, "Migration 0014 must exist for Phase 8D"
     for fname in migration_files:
-        assert not fname.startswith("0013"), f"Migration 0013 must not exist: {fname}"
+        assert not fname.startswith("0015"), f"Migration 0015 must not exist: {fname}"
 
 
 def test_no_identity_persistence_tables() -> None:

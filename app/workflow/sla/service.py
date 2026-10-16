@@ -9,7 +9,7 @@ Enforces:
    - On resume: recomputes new warning_at and breach_at from remaining duration.
 3. Warning and Breach Triggers:
    - Warning emits frozen canonical event `workflow.sla.warning` to outbox.
-   - Breach marks projection BREACHED and appends audit event `workflow.sla.breach`.
+   - Breach marks projection BREACHED and appends audit event `workflow.sla.breached`.
    - Escalation executes configured reassignment or service action idempotently.
 """
 
@@ -257,7 +257,7 @@ class SlaService:
 
                 breach_envelope = create_event_envelope(
                     EventCreate(
-                        event_type="workflow.sla.breach",
+                        event_type="workflow.sla.breached",
                         subject_type="workflow_task",
                         subject_id=str(state.task_id),
                         payload=breach_payload,
@@ -266,11 +266,11 @@ class SlaService:
                 )
                 await outbox_repo.append(breach_envelope)
 
-                # Record append-only audit event: workflow.sla.breach
+                # Record append-only audit event: workflow.sla.breached
                 await audit_repo.append(
                     AuditEventCreate(
                         tenant_id=state.tenant_id,
-                        event_type="workflow.sla.breach",
+                        event_type="workflow.sla.breached",
                         actor_principal_id="system-sla-monitor",
                         actor_principal_type=PrincipalType.SERVICE.value,
                         authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,

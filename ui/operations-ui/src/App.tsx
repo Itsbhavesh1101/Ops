@@ -3,10 +3,11 @@ import { WorkflowApiClient } from "./api/client";
 import { BpmnDesigner } from "./components/BpmnDesigner";
 import { DmnEditor } from "./components/DmnEditor";
 import { FormEditor } from "./components/FormEditor";
+import { OperationsDashboard } from "./components/OperationsDashboard";
 import { TaskInbox } from "./components/TaskInbox";
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"bpmn" | "dmn" | "forms" | "inbox">("bpmn");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "bpmn" | "dmn" | "forms" | "inbox">("dashboard");
   const [tenantId, setTenantId] = useState("tenant-engineering");
 
   // Reusable API client instance
@@ -48,6 +49,12 @@ export const App: React.FC = () => {
       {/* Navigation Sub-header */}
       <div className="px-6 py-3 bg-slate-900/60 border-b border-slate-800 flex items-center gap-2">
         <button
+          onClick={() => setActiveTab("dashboard")}
+          className={`tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
+        >
+          Operations Dashboard
+        </button>
+        <button
           onClick={() => setActiveTab("bpmn")}
           className={`tab-btn ${activeTab === "bpmn" ? "active" : ""}`}
         >
@@ -75,6 +82,9 @@ export const App: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
+        {activeTab === "dashboard" && (
+          <OperationsDashboard apiClient={apiClient} tenantId={tenantId} />
+        )}
         {activeTab === "bpmn" && (
           <BpmnDesigner apiClient={apiClient} tenantId={tenantId} />
         )}

@@ -107,6 +107,14 @@ class AcademicConstraintCompiler:
             if exam.major_subject:
                 cohort_major_sessions.setdefault(sess.cohort_id, []).append(sess.id)
 
+            req_skills = list(
+                dict.fromkeys(
+                    exam.required_invigilator_skills
+                    + sess.required_equipment
+                    + exam.required_equipment
+                )
+            )
+
             # Candidate rooms: physical capacity must satisfy minimum_room_capacity
             candidate_rooms = [
                 rid
@@ -122,6 +130,8 @@ class AcademicConstraintCompiler:
             baseline: LockedAssignment | None = None
             if base_asgn:
                 base_rids = [base_asgn.room_resource_id, base_asgn.invigilator_resource_id]
+                if base_asgn.equipment_resource_id:
+                    base_rids.append(base_asgn.equipment_resource_id)
                 baseline = LockedAssignment(
                     start_at=base_asgn.start_at,
                     end_at=base_asgn.end_at,
@@ -139,7 +149,7 @@ class AcademicConstraintCompiler:
                         TimeWindow(start_at=w.start_at, end_at=w.end_at)
                         for w in sess.allowed_windows
                     ],
-                    required_skills=list(exam.required_invigilator_skills),
+                    required_skills=req_skills,
                     required_resource_ids=candidate_rooms,
                     preferred_resource_ids=pref_rids,
                     locked_assignment=locked,
@@ -241,6 +251,7 @@ class AcademicConstraintCompiler:
         for aid, asgns in by_act.items():
             room_id: str | None = None
             inv_id: str | None = None
+            eq_id: str | None = None
             for a in asgns:
                 res_obj = resources_by_id.get(a.resource_id)
                 if res_obj:
@@ -248,6 +259,8 @@ class AcademicConstraintCompiler:
                         room_id = res_obj.id
                     elif res_obj.type == ResourceType.PERSON:
                         inv_id = res_obj.id
+                    elif res_obj.type == ResourceType.EQUIPMENT:
+                        eq_id = res_obj.id
 
             if not room_id or not inv_id:
                 continue
@@ -258,6 +271,7 @@ class AcademicConstraintCompiler:
                     session_id=aid,
                     room_resource_id=room_id,
                     invigilator_resource_id=inv_id,
+                    equipment_resource_id=eq_id,
                     start_at=asgns[0].start_at,
                     end_at=asgns[0].end_at,
                     locked=asgns[0].is_locked,

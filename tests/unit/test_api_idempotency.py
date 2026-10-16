@@ -722,12 +722,16 @@ class TestDatabaseSchemaStability:
             "schedule_assignments",
             # Phase 4B Calendar (1)
             "calendar_links",
+            # Phase 7 Calendar Watch (1)
+            "calendar_watch_channels",
+            # Phase 8D Service Credentials Persistence (1)
+            "service_api_credentials",
         }
         # Historical Phase-1 tables remain intact
         assert phase1_tables <= set(Base.metadata.tables.keys())
-        # Canonical Phase-4 table set equals expected 24 tables
+        # Canonical Phase-4 table set equals expected 26 tables
         assert set(Base.metadata.tables.keys()) == canonical_phase4_tables
-        assert len(Base.metadata.tables) == 24
+        assert len(Base.metadata.tables) == 26
 
     def test_alembic_head_remains_0007(self) -> None:
         alembic_cfg_path = os.path.join(
@@ -742,7 +746,7 @@ class TestDatabaseSchemaStability:
         heads = script.get_heads()
 
         assert len(heads) == 1
-        assert heads[0] == "0012"
+        assert heads[0] == "0014"
         rev_0008 = script.get_revision("0008")
         assert rev_0008 is not None
         assert rev_0008.down_revision == "0007"
@@ -761,6 +765,14 @@ class TestDatabaseSchemaStability:
         assert rev_0012 is not None
         assert rev_0012.down_revision == "0011"
 
+        rev_0013 = script.get_revision("0013")
+        assert rev_0013 is not None
+        assert rev_0013.down_revision == "0012"
+
+        rev_0014 = script.get_revision("0014")
+        assert rev_0014 is not None
+        assert rev_0014.down_revision == "0013"
+
     def test_no_migration_0008_exists(self) -> None:
         versions_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -773,7 +785,7 @@ class TestDatabaseSchemaStability:
             versions_dir = os.path.join("app", "db", "migrations", "versions")
 
         version_files = os.listdir(versions_dir)
-        has_0012 = any(vf.startswith("0012") for vf in version_files)
-        assert has_0012, "Migration 0012 must exist for Phase 4B"
+        has_0014 = any(vf.startswith("0014") for vf in version_files)
+        assert has_0014, "Migration 0014 must exist for Phase 8D"
         for vf in version_files:
-            assert not vf.startswith("0013"), f"Unexpected migration file found beyond 0012: {vf}"
+            assert not vf.startswith("0015"), f"Unexpected migration file found beyond 0014: {vf}"

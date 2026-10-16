@@ -1,0 +1,427 @@
+erDiagram
+    %% IR Infotech E-7 Operations Engine Canonical ERD
+    %% Generated from actual SQLAlchemy Base.metadata (26 application tables + alembic_version)
+
+    audit_events {
+        UUID audit_event_id "PK "not-null""
+        INTEGER schema_version ""not-null""
+        DATETIME recorded_at ""not-null""
+        VARCHAR_255 tenant_id
+        VARCHAR_255 actor_principal_id
+        VARCHAR_32 actor_principal_type
+        VARCHAR_32 authentication_method
+        VARCHAR_128 event_type ""not-null""
+        VARCHAR_128 resource_type
+        VARCHAR_255 resource_id
+        VARCHAR_32 outcome
+        VARCHAR_128 correlation_id
+        JSONB details ""not-null""
+    }
+
+    calendar_links {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID schedule_id "FK"
+        UUID assignment_id "FK"
+        VARCHAR_128 activity_id
+        VARCHAR_128 schedule_key
+        VARCHAR_32 link_kind ""not-null""
+        VARCHAR_64 provider ""not-null""
+        VARCHAR_255 external_calendar_id
+        VARCHAR_255 external_event_id
+        VARCHAR_32 sync_status ""not-null""
+        VARCHAR_255 sync_token
+        VARCHAR_255 etag
+        INTEGER provider_version
+        DATETIME provider_updated_at
+        DATETIME last_synced_at
+        TEXT error_message
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    calendar_watch_channels {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_64 provider ""not-null""
+        VARCHAR_255 external_calendar_id ""not-null""
+        VARCHAR_255 channel_id ""not-null""
+        VARCHAR_255 resource_id
+        VARCHAR_64 token_hash
+        DATETIME expiration_at
+        VARCHAR_32 status ""not-null""
+        DATETIME last_renewed_at
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    constraint_definitions {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_128 constraint_key ""not-null""
+        INTEGER version ""not-null""
+        VARCHAR_255 name ""not-null""
+        VARCHAR_32 constraint_type ""not-null""
+        VARCHAR_16 hardness ""not-null""
+        JSONB parameters ""not-null""
+        BOOLEAN is_active ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    goals {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_1000 objective ""not-null""
+        TEXT scope
+        DATETIME deadline
+        JSONB target_window
+        JSONB constraints ""not-null""
+        JSONB resource_scope ""not-null""
+        JSONB context_references ""not-null""
+        VARCHAR_64 priority_target
+        JSONB metadata_json ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    idempotency_records {
+        VARCHAR_128 tenant_id "PK "not-null""
+        VARCHAR_128 operation_name "PK "not-null""
+        VARCHAR_64 key_digest "PK "not-null""
+        VARCHAR_64 request_fingerprint ""not-null""
+        DATETIME created_at ""not-null""
+    }
+
+    inbox_messages {
+        VARCHAR_128 consumer_name "PK "not-null""
+        UUID event_id "PK "not-null""
+        DATETIME recorded_at ""not-null""
+    }
+
+    jobs {
+        UUID job_id "PK "not-null""
+        VARCHAR_128 tenant_id ""not-null""
+        VARCHAR_128 job_type ""not-null""
+        VARCHAR_32 status ""not-null""
+        VARCHAR_128 failure_code
+        VARCHAR_1024 failure_message
+        DATETIME created_at ""not-null""
+        DATETIME started_at
+        DATETIME completed_at
+    }
+
+    milestones {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID plan_id "FK "not-null""
+        VARCHAR_64 temporary_id ""not-null""
+        VARCHAR_255 name ""not-null""
+        TEXT description ""not-null""
+        DATETIME target_date
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    outbox_events {
+        UUID event_id "PK "not-null""
+        JSONB envelope ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME published_at
+        INTEGER dispatch_attempt_count ""not-null""
+        DATETIME next_attempt_at ""not-null""
+        UUID claim_token
+        DATETIME claimed_at
+    }
+
+    plans {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID goal_id "FK "not-null""
+        INTEGER version_number ""not-null""
+        VARCHAR_255 plan_name ""not-null""
+        VARCHAR_32 status ""not-null""
+        BOOLEAN is_baseline ""not-null""
+        UUID superseded_by_plan_id "FK"
+        VARCHAR_128 baseline_hash
+        JSONB metadata_json ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    resource_availabilities {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID resource_id "FK "not-null""
+        DATETIME start_at ""not-null""
+        DATETIME end_at ""not-null""
+        VARCHAR_32 interval_type ""not-null""
+        TEXT reason
+        DATETIME created_at ""not-null""
+    }
+
+    resources {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_128 resource_key ""not-null""
+        VARCHAR_32 type ""not-null""
+        VARCHAR_255 display_label ""not-null""
+        INTEGER capacity ""not-null""
+        JSONB skills ""not-null""
+        JSONB attributes ""not-null""
+        BOOLEAN active ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    schedule_assignments {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID schedule_id "FK "not-null""
+        VARCHAR_128 activity_id ""not-null""
+        VARCHAR_128 resource_id ""not-null""
+        DATETIME start_at ""not-null""
+        DATETIME end_at ""not-null""
+        BOOLEAN is_locked ""not-null""
+        JSONB metadata_json ""not-null""
+        DATETIME created_at ""not-null""
+    }
+
+    schedule_jobs {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_128 schedule_key ""not-null""
+        VARCHAR_32 status ""not-null""
+        JSONB input_snapshot ""not-null""
+        VARCHAR_64 input_snapshot_hash ""not-null""
+        UUID solver_profile_id "FK"
+        JSONB solver_metadata ""not-null""
+        JSONB diagnostics ""not-null""
+        TEXT failure_message
+        VARCHAR_128 claimed_by
+        DATETIME claimed_at
+        DATETIME completed_at
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    schedules {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_128 schedule_key ""not-null""
+        INTEGER version ""not-null""
+        VARCHAR_32 status ""not-null""
+        UUID source_job_id "FK "not-null""
+        VARCHAR_64 input_snapshot_hash ""not-null""
+        INTEGER solver_profile_version
+        JSONB solver_metadata ""not-null""
+        JSONB score_components ""not-null""
+        UUID supersedes_id "FK"
+        DATETIME published_at
+        VARCHAR_255 published_by
+        VARCHAR_255 repair_reason
+        JSONB repair_scope ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    service_api_credentials {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_64 credential_id ""not-null""
+        VARCHAR_255 service_subject ""not-null""
+        VARCHAR_64 secret_digest ""not-null""
+        JSONB roles ""not-null""
+        JSONB permissions ""not-null""
+        BOOLEAN enabled ""not-null""
+        DATETIME not_before
+        DATETIME expires_at
+        VARCHAR_255 issuer
+        DATETIME revoked_at
+        VARCHAR_255 revoked_by
+        VARCHAR_512 description
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    sla_policies {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_128 policy_key ""not-null""
+        VARCHAR_255 name ""not-null""
+        TEXT description
+        INTEGER version ""not-null""
+        VARCHAR_128 calendar_id ""not-null""
+        INTEGER target_duration_seconds ""not-null""
+        INTEGER warning_threshold_seconds ""not-null""
+        VARCHAR_64 escalation_action ""not-null""
+        JSONB escalation_rules ""not-null""
+        BOOLEAN is_active ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    solver_profiles {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_128 profile_key ""not-null""
+        INTEGER version ""not-null""
+        VARCHAR_255 name ""not-null""
+        TEXT description
+        JSONB settings ""not-null""
+        BOOLEAN is_active ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    task_dependencies {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID plan_id "FK "not-null""
+        UUID predecessor_id "FK "not-null""
+        UUID successor_id "FK "not-null""
+        VARCHAR_32 dependency_type ""not-null""
+        INTEGER lag_minutes ""not-null""
+        DATETIME created_at ""not-null""
+    }
+
+    task_risks {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID plan_id "FK "not-null""
+        UUID task_id "FK "not-null""
+        VARCHAR_64 category ""not-null""
+        VARCHAR_32 severity ""not-null""
+        TEXT description ""not-null""
+        BOOLEAN is_evaluable ""not-null""
+        DATETIME detected_at ""not-null""
+    }
+
+    tasks {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID plan_id "FK "not-null""
+        VARCHAR_64 temporary_id ""not-null""
+        UUID parent_task_id "FK"
+        VARCHAR_255 title ""not-null""
+        TEXT description ""not-null""
+        VARCHAR_64 wbs_code
+        VARCHAR_128 owner_role
+        VARCHAR_255 owner_reference
+        INTEGER estimated_duration_minutes ""not-null""
+        JSONB effort_estimate_json
+        JSONB acceptance_criteria ""not-null""
+        VARCHAR_128 work_category
+        VARCHAR_32 priority ""not-null""
+        VARCHAR_32 status ""not-null""
+        INTEGER progress_percentage ""not-null""
+        INTEGER actual_duration_minutes
+        TEXT blocked_reason
+        UUID milestone_id "FK"
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    workflow_artifacts {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_32 artifact_type ""not-null""
+        VARCHAR_128 artifact_key ""not-null""
+        VARCHAR_255 name ""not-null""
+        INTEGER version ""not-null""
+        TEXT content ""not-null""
+        VARCHAR_64 artifact_hash ""not-null""
+        VARCHAR_255 engine_deployment_id
+        VARCHAR_255 engine_reference_id
+        JSONB metadata_json ""not-null""
+        BOOLEAN is_active ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    workflow_definitions {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        VARCHAR_128 workflow_key ""not-null""
+        VARCHAR_255 name ""not-null""
+        TEXT description
+        INTEGER version ""not-null""
+        VARCHAR_255 bpmn_process_id ""not-null""
+        VARCHAR_64 artifact_hash ""not-null""
+        TEXT artifact_xml ""not-null""
+        VARCHAR_255 deployment_id
+        VARCHAR_255 engine_definition_id
+        BOOLEAN is_active ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    workflow_instances {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID definition_id "FK "not-null""
+        VARCHAR_128 workflow_key ""not-null""
+        INTEGER version ""not-null""
+        VARCHAR_255 business_reference
+        VARCHAR_255 correlation_id
+        VARCHAR_255 engine_instance_id ""not-null""
+        VARCHAR_64 status ""not-null""
+        JSONB input_variables ""not-null""
+        VARCHAR_255 started_by
+        DATETIME started_at ""not-null""
+        DATETIME completed_at
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    workflow_task_mappings {
+        UUID id "PK "not-null""
+        VARCHAR_255 tenant_id ""not-null""
+        UUID workflow_instance_id "FK "not-null""
+        VARCHAR_255 engine_task_id ""not-null""
+        VARCHAR_255 task_definition_key ""not-null""
+        VARCHAR_255 task_name ""not-null""
+        VARCHAR_255 assignee
+        JSONB candidate_roles ""not-null""
+        VARCHAR_64 status ""not-null""
+        VARCHAR_64 action
+        VARCHAR_255 action_by
+        DATETIME action_at
+        DATETIME due_at
+        VARCHAR_128 form_key
+        UUID sla_policy_id "FK"
+        VARCHAR_32 sla_status
+        DATETIME warning_at
+        DATETIME paused_at
+        INTEGER accumulated_pause_seconds ""not-null""
+        JSONB variables ""not-null""
+        DATETIME created_at ""not-null""
+        DATETIME updated_at ""not-null""
+    }
+
+    alembic_version {
+        VARCHAR_32 version_num PK "not-null"
+    }
+
+    %% Relationships
+    goals ||--o{ plans : "goal_id -> id"
+    milestones ||--o{ tasks : "milestone_id -> id"
+    plans ||--o{ milestones : "plan_id -> id"
+    plans ||--o{ plans : "superseded_by_plan_id -> id"
+    plans ||--o{ task_dependencies : "plan_id -> id"
+    plans ||--o{ task_risks : "plan_id -> id"
+    plans ||--o{ tasks : "plan_id -> id"
+    resources ||--o{ resource_availabilities : "resource_id -> id"
+    schedule_assignments ||--o{ calendar_links : "assignment_id -> id"
+    schedule_jobs ||--o{ schedules : "source_job_id -> id"
+    schedules ||--o{ calendar_links : "schedule_id -> id"
+    schedules ||--o{ schedule_assignments : "schedule_id -> id"
+    schedules ||--o{ schedules : "supersedes_id -> id"
+    sla_policies ||--o{ workflow_task_mappings : "sla_policy_id -> id"
+    solver_profiles ||--o{ schedule_jobs : "solver_profile_id -> id"
+    tasks ||--o{ task_dependencies : "predecessor_id -> id"
+    tasks ||--o{ task_dependencies : "successor_id -> id"
+    tasks ||--o{ task_risks : "task_id -> id"
+    tasks ||--o{ tasks : "parent_task_id -> id"
+    workflow_definitions ||--o{ workflow_instances : "definition_id -> id"
+    workflow_instances ||--o{ workflow_task_mappings : "workflow_instance_id -> id"

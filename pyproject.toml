@@ -40,6 +40,9 @@ dependencies = [
     "pydantic-ai-slim>=2.50.0",
     "openai>=3.0.0",
     "ortools>=9.10.0",
+    "aiomysql>=0.2.0",
+    "google-auth>=2.0.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
@@ -54,6 +57,7 @@ dev = [
 eval = [
     "deepeval>=1.0.0",
     "locust>=2.31.0",
+    "psutil>=5.9.0",
 ]
 
 [tool.ruff]

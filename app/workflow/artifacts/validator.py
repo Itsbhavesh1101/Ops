@@ -16,8 +16,9 @@ Enforces:
 
 import hashlib
 import re
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+
+import defusedxml.ElementTree as ET  # noqa: N817
 
 MAX_BPMN_ARTIFACT_BYTES: int = 5 * 1024 * 1024  # 5 MB
 
@@ -40,7 +41,9 @@ CLOSED_TRUSTED_EXPRESSION_PATTERNS: list[re.Pattern[str]] = [
     ),
     re.compile(r"^\$\{(rejected_count)\s*(>|>=|==)\s*([0-9]+|max_rejections)\}$"),
     # Routing decision conditions
-    re.compile(r"^\$\{(decision|approval_status|approval_path)\s*(==|!=)\s*'([A-Z_]+)'\}$"),
+    re.compile(
+        r"^\$\{(decision|approval_status|approval_path|readiness_status)\s*(==|!=)\s*'([A-Z_]+)'\}$"
+    ),
     # SLA timer ISO datetime variables
     re.compile(
         r"^\$\{(warning_timer_iso|breach_timer_iso|sla_warning_at|sla_breach_at|due_date_iso)\}$"
@@ -159,6 +162,41 @@ class BpmnValidator:
                     f"BPMN <{tag}> is prohibited under all circumstances "
                     "(arbitrary executable scripts strictly forbidden)."
                 )
+            if tag_lower == "servicetask":
+                flowable_type = (
+                    elem.attrib.get(f"{FLOWABLE_NS}type")
+                    or elem.attrib.get("flowable:type")
+                    or elem.attrib.get("type")
+                )
+                if flowable_type != "dmn":
+                    raise BpmnSecurityError(
+                        f"BPMN <serviceTask> with type '{flowable_type}' is prohibited. "
+                        "Only closed-template Flowable DMN service tasks (flowable:type='dmn') "
+                        "are permitted."
+                    )
+                for raw_attr in elem.attrib:
+                    attr_name = raw_attr.split("}")[-1] if "}" in raw_attr else raw_attr
+                    if attr_name.lower() in ("class", "delegateexpression", "expression"):
+                        raise BpmnSecurityError(
+                            f"BPMN <serviceTask> attribute '{attr_name}' is prohibited "
+                            "(arbitrary Java classes and delegates forbidden)."
+                        )
+                has_dec_key = False
+                for child in elem.iter():
+                    child_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                    is_field = child_tag == "field"
+                    is_dec_key = child.attrib.get("name") == "decisionTableReferenceKey"
+                    if is_field and is_dec_key:
+                        has_dec_key = True
+                        break
+                if (
+                    not has_dec_key
+                    and f"{FLOWABLE_NS}decisionTableReferenceKey" not in elem.attrib
+                    and "flowable:decisionTableReferenceKey" not in elem.attrib
+                ):
+                    raise BpmnValidationError(
+                        "Flowable DMN <serviceTask> must declare 'decisionTableReferenceKey'."
+                    )
             if not allow_trusted_expressions and tag_lower == "conditionexpression":
                 raise BpmnSecurityError(
                     f"BPMN <{tag}> is prohibited for user-authored artifacts "

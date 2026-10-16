@@ -1,0 +1,5126 @@
+{
+  "candidate_name": "operations-engine",
+  "candidate_version": "0.1.0",
+  "files": [
+    {
+      "classification": "deployment_manifest",
+      "git_status": "tracked",
+      "path": ".dockerignore",
+      "sha256": "8a29f2a338a4f6719d9570c05159643bf0b48263475cce0f4fb02ff6332a1aff",
+      "size_bytes": 866
+    },
+    {
+      "classification": "configuration_template",
+      "git_status": "tracked",
+      "path": ".env.example",
+      "sha256": "c92bd4ad930dacedbd3784ec237a6efeeaf05de01f104d3ab23ae0b7e8862060",
+      "size_bytes": 9334
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "README.md",
+      "sha256": "f39a21a5f4a0ccdd4aabf86e510352f6ef255d76d86ae2332f3761e0337c37a2",
+      "size_bytes": 4701
+    },
+    {
+      "classification": "database_migration",
+      "git_status": "tracked",
+      "path": "alembic.ini",
+      "sha256": "255f586cfd1b032ccee41a0de8eab7c51bc1ad6df83dadf46ffa35ae6c043cd9",
+      "size_bytes": 1606
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/__init__.py",
+      "sha256": "7493a94a8711b5f4972de6a3bc7a93fa1e9d6953e6c98f8d6b068fc617d9d6ba",
+      "size_bytes": 20
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/analytics/__init__.py",
+      "sha256": "5e649ce199eb5dba4a9e3ec776234a79e49048d1e6520f908bed28787cd82fef",
+      "size_bytes": 30
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/analytics/service.py",
+      "sha256": "ded5d62b16f97c84c9857c0427da8fe8b3d12eb686a3d19b6284f87f073e51bc",
+      "size_bytes": 13931
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/__init__.py",
+      "sha256": "06b96db6d8b848ef11a61116629134704f58c0a66e5eab1bf5e6079ecb47dacc",
+      "size_bytes": 1557
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/errors.py",
+      "sha256": "bd0c0a18baf742b39e1ab13fb7e00e1ba7a81dddda15ceaa6e16196e26626308",
+      "size_bytes": 17192
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/idempotency.py",
+      "sha256": "65b16cb96e2e81b8544d6132fbe2aecce7fbdb2c7e9f933d3b9ea9f99a203bee",
+      "size_bytes": 7913
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/v1/__init__.py",
+      "sha256": "f85c701cd387650cec71f8d5b70ebe52f09ba9934dab48acdb99ae3245457e73",
+      "size_bytes": 929
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/api/v1/analytics.py",
+      "sha256": "d7a5667e502955d38b0b8a16f510b68d5776719b0e7328f93a9165ef11491ead",
+      "size_bytes": 3017
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/api/v1/audit.py",
+      "sha256": "2f4e350e0a95152242d3cf667fffa72834e6ad9d397b3393e8c5f0593b3af669",
+      "size_bytes": 4180
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/api/v1/calendar.py",
+      "sha256": "a55fe1470aa81fc6cc19a59443cc37a4e9e348b257b3efe63c35a5439cc8a617",
+      "size_bytes": 4732
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/api/v1/composition.py",
+      "sha256": "e0a40979b2743311ce3fcf39554bc0f0d42d19fea05c516c46036a5416aeff41",
+      "size_bytes": 6856
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/v1/jobs.py",
+      "sha256": "91db1771e5ef2fc489d7bddd6cb00bf0390930b89b56bd6e1b9f9caf3c0cebbe",
+      "size_bytes": 9535
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/v1/planning.py",
+      "sha256": "4c55e73a2fde43d8279a1a06a8f5fb9b2562bb818948c3e91309f51d9d8642b7",
+      "size_bytes": 16402
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/v1/router.py",
+      "sha256": "4500fa5cf4a9c9bbd84e77307363d01be300512a7992167206a07534272e28ca",
+      "size_bytes": 1877
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/v1/scheduling.py",
+      "sha256": "8b31527781c4a47ad5c16a65c15a1b644b6b84ba64ac81ac04d08466660390d1",
+      "size_bytes": 24297
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/v1/schemas.py",
+      "sha256": "a4bb5d575bca08461f5f7cd8242c2968eff75ccfef6ae3ec8d1902f2bc9a0eba",
+      "size_bytes": 770
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/api/v1/workflows.py",
+      "sha256": "066824238550a3a94e6f1fc7b057a4366656e971046ae791e7e5ea30d9feff57",
+      "size_bytes": 23523
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/audit/__init__.py",
+      "sha256": "69d40498f0232202e4c5c325ecd318ca091e636947bf84b6985085df6ea98135",
+      "size_bytes": 793
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/audit/models.py",
+      "sha256": "b6ec9121e1ed73b59b0ca1bce9b657cd5adff33b7d26a56319fd2042549610df",
+      "size_bytes": 4111
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/audit/repository.py",
+      "sha256": "a45221eff38b460a31d218be1d404103a271f21990339db7fcded1927357d434",
+      "size_bytes": 2148
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/audit/schemas.py",
+      "sha256": "77556d2ba475e0d82c634f0bf8261e0a79fccffd03abbf8d35acd64f318c7fd6",
+      "size_bytes": 8002
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/audit/service.py",
+      "sha256": "1dea4e2caa3c194d02d566623c7e566ff7f2a03b1a5cb5705dad3511a25fb5a1",
+      "size_bytes": 2688
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/audit/validation.py",
+      "sha256": "06802a38d36c962f54612980e59b711ca94b9c272ac404e8b966777f7a4ec170",
+      "size_bytes": 4096
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/__init__.py",
+      "sha256": "e2b9be47b77002c4965ff9fcb9446917b48fd91f60db8679c4d7a5ece2d9509c",
+      "size_bytes": 25
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/auth/__init__.py",
+      "sha256": "83752b9d715e2f755752e749004e040d43b1861f66fe2f234356db4d3d6b930b",
+      "size_bytes": 3076
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/auth/context.py",
+      "sha256": "159a0e083aac0c5e9448fadf0e7d4d71b7d806e15018b649867734c86c99b74d",
+      "size_bytes": 1641
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/core/auth/dependency.py",
+      "sha256": "0b57af892eb1c96936ba2b24292afbbec52fcb305b9d27f829cf0e075b3f6f08",
+      "size_bytes": 10207
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/auth/google_oidc.py",
+      "sha256": "ca9316ba122371b460814fc5b487a7315fd78adc29b862797f54098595374327",
+      "size_bytes": 28202
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/auth/models.py",
+      "sha256": "47f8097fad11fde7006e309f461771a630bf17e1b1dc71a8f41a2a98c83844c0",
+      "size_bytes": 8551
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/auth/rbac.py",
+      "sha256": "c71e223d88cb4c9995499423e9fa4a495974f163e1b91d3939ca8d62b23ca5ca",
+      "size_bytes": 3807
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/auth/resolvers.py",
+      "sha256": "7626cd952a2fdce396ec71693e7b4918c02ac132d511e9f16fd0a9991945c65c",
+      "size_bytes": 6045
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/auth/service_api_key.py",
+      "sha256": "c1ab3a64dd955e1ae8dbbe52579455f24c2f3a2a4c276bbc851903f0a4013ebd",
+      "size_bytes": 18498
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/core/capacity/__init__.py",
+      "sha256": "14ae2cbcbb07485eb5fb67bb74ad25bb48cf7041b7439b2bd17119c72a45d9a2",
+      "size_bytes": 408
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/core/capacity/quotas.py",
+      "sha256": "7832891c17b1e964b0f0ded192daaa4aff8422837a63c04a6f63be908a3afb3d",
+      "size_bytes": 7321
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/config.py",
+      "sha256": "61d2a17b25cf29a5af2198960e86bd1f31ce7dc31e01b3e51d0f653fee4e83c2",
+      "size_bytes": 31544
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/correlation.py",
+      "sha256": "e1027cbdea24d5ec240dfe47ccb4e7aa80951176a6ae454fcd1325fd3b2b6ba5",
+      "size_bytes": 1543
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/idempotency/__init__.py",
+      "sha256": "b6cadb6ed24403830fca10dc693bae8292fc68404776e8df848486ef2e9c86e7",
+      "size_bytes": 1534
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/idempotency/contracts.py",
+      "sha256": "c3de258dc9d9192a00b5687740b26f59f4a333c872ce89efd82003643d273054",
+      "size_bytes": 9453
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/idempotency/executor.py",
+      "sha256": "6483828b942a794ce0d536e5db1f44aa3259293dc654001751a720adc742c3a3",
+      "size_bytes": 14228
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/idempotency/hashing.py",
+      "sha256": "70ccca00f5f36c7ffc533911b2b49b0329f27c7f5636ad00b63f66627ec8ee4b",
+      "size_bytes": 3231
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/idempotency/models.py",
+      "sha256": "f06a79228b1a36d1582b4ad41af3b51e0006ed5e260dc44cba8ea51f98c66064",
+      "size_bytes": 2617
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/idempotency/repository.py",
+      "sha256": "3a2cf0118208abe56d5cb838609773a11b79780dab2ffe4e49c5736fc9019ee0",
+      "size_bytes": 8761
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/jobs/__init__.py",
+      "sha256": "a0a7f1d240927c44abeb7644c02f6f5ff0ae2fb977a6951278b5b9a6dafd07f1",
+      "size_bytes": 1614
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/jobs/contracts.py",
+      "sha256": "01fa29e2812d0af0d04b577c9d781ea83ed6a72b864da1d1487659cb09417203",
+      "size_bytes": 14960
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/jobs/lifecycle.py",
+      "sha256": "5d40d63a5d72d5a8bd6c1d98d007d928d4e8f293ab7292412e4c2a54fff0d362",
+      "size_bytes": 4191
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/jobs/models.py",
+      "sha256": "a3a5c67ea431816c0949eb1de078c7d2cf3a4becbd8dbc9d6d5703d609cc7f00",
+      "size_bytes": 4451
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/jobs/repository.py",
+      "sha256": "498e33539bdf09fa0294151e6ff2e5aa054bbde1c5fec2e641250c5c9fd3991e",
+      "size_bytes": 19579
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/logging.py",
+      "sha256": "033a91811d10e764c77a22882d02ef1ea5b61c4b1c5306c8cab42bad894607a3",
+      "size_bytes": 4164
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/middleware.py",
+      "sha256": "06172baa4f1526d734cb50ddd7d7297001df19abd2a0d2397e9ef561c643d86f",
+      "size_bytes": 10629
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/__init__.py",
+      "sha256": "74cf8c8a73e7e329cd4a9d1d6b8f1d2d8cd5c9b301e3229635de338937793560",
+      "size_bytes": 1074
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/core/telemetry/capacity.py",
+      "sha256": "d17b173f20909dc546ea7fa5a9abc24a08536d99199aa9a9a7ff4d9faf795829",
+      "size_bytes": 4811
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/config.py",
+      "sha256": "7dfd099872c3ea1c94831a93596ad60c49ec8bfdcaf2391b03e87e8f0f054483",
+      "size_bytes": 7521
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/fastapi.py",
+      "sha256": "6b850f1dd67756d1ab4f88a5813c5d17516a54cc07e06a6333033876e1e1ce60",
+      "size_bytes": 3203
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/core/telemetry/flowable.py",
+      "sha256": "49f7d5cad5cb32072f778339e2785ffc041fbae37b2ffd32a0760b98bfc4b819",
+      "size_bytes": 3459
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/logging.py",
+      "sha256": "19cf37e46b9e30c580aa609257add7c740a874a0269f9a0e405edf522b2e00e1",
+      "size_bytes": 1341
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/outbox.py",
+      "sha256": "087e11a2d7adaec6e2b0efae2c767c8fe0aa537d40c5d79fdcfd9a1c777044e3",
+      "size_bytes": 5690
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/resource.py",
+      "sha256": "375d63e9a46a2e47610034160b490137f67cf4ff0d914a9e7d87ff4e23b82336",
+      "size_bytes": 2601
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/runtime.py",
+      "sha256": "3dd2131a48213bbe8f21e79dc5d7499b420334e1d0afb440dd1ac990bb46eb72",
+      "size_bytes": 8960
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/telemetry/scheduling.py",
+      "sha256": "b9a34ecb41947ca517117ca9c424c02fd386219ff65d874dea813fd4cd471e79",
+      "size_bytes": 6756
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/core/tenancy/__init__.py",
+      "sha256": "309b9df7895aeec6627a909388243d25c0828c47423b917955660b60a04b3c5c",
+      "size_bytes": 33
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/__init__.py",
+      "sha256": "b9e7c226d16cfcadab74f8e17edb93396cf17a3f704eabf9109e6a355b5b17bd",
+      "size_bytes": 1517
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/base.py",
+      "sha256": "fcc5b5f6ededbb425dd50b70771ffbd9e6fcbd9eed0c998637fe087866feb89f",
+      "size_bytes": 923
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/engine.py",
+      "sha256": "34c830ecb7d32da8f077e7bcbbf7c4499f163883e3023fa0643a476aa83d6e7b",
+      "size_bytes": 6265
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/health.py",
+      "sha256": "48569a2fa5c3f727cffed3c35c01235f147e57373b21111231677125d1f3b554",
+      "size_bytes": 1504
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/__init__.py",
+      "sha256": "09a0c6d2d4f4f3777604ef6bfbf6f02382b4328485a47dc207792afab4a2254d",
+      "size_bytes": 34
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/env.py",
+      "sha256": "e08d0b9fb9d25b53d75c3f8d6361acd74dc2053ea9f1a037b58369d5b9870645",
+      "size_bytes": 5021
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/script.py.mako",
+      "sha256": "c01c8fdc367a9356379060a6fd6c7ba360225f34f1fca201df04ae974ee34e78",
+      "size_bytes": 691
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0001_phase_1_persistence_baseline.py",
+      "sha256": "720b4c1dd1853c5ca187803c306614d1b481819c6aeb372b8ac524e566c466c4",
+      "size_bytes": 589
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0002_create_audit_events.py",
+      "sha256": "01983d3d99bb2c12db204b297f3e9e67b3d64c49d42c940cbfdbe0779d8afcff",
+      "size_bytes": 5249
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0003_create_outbox_events.py",
+      "sha256": "a370873cdf21511d85ceb869c9e23dc6ddb5009253f880b867645edaa0c451de",
+      "size_bytes": 3406
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0004_add_outbox_dispatch_state.py",
+      "sha256": "a29ddf44ca68c406827304b371f661e95987e064921d882b9d041fe5986380ca",
+      "size_bytes": 4298
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0005_create_inbox_messages.py",
+      "sha256": "2332141611ade2a33b9946bc135aaa11556da2d0e1765cad8d383557bfa0643f",
+      "size_bytes": 1541
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0006_create_idempotency_records.py",
+      "sha256": "c16166534209e10bb4b1f397bdb16b6da331b56c82c80990328ceba96cd0692c",
+      "size_bytes": 2262
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0007_create_jobs.py",
+      "sha256": "dd793f48f62d6f8ab8762fa6b2efd5874fe8cc8008c0b9bf12c1399b490986fe",
+      "size_bytes": 3515
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0008_create_planning_domain.py",
+      "sha256": "1182bc63279643865ed44edd89fb0f3b64a32c88c563ef4a9c5d077f261aefe3",
+      "size_bytes": 13174
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0009_create_workflow_runtime_core.py",
+      "sha256": "3bc08065edf444ffa9575a55e76761f54635975e7810b2d1b0ec7f1bed4b7076",
+      "size_bytes": 8494
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0010_create_workflow_policy_artifacts.py",
+      "sha256": "bd08705c8594f35714d7bbda07122baeab8e213fc5b16217460c40d515ff6999",
+      "size_bytes": 7771
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0011_create_generic_scheduling_core.py",
+      "sha256": "26923d2d867bc3fc9c155811318064a78953274269f70119c5349c3f787ad9f6",
+      "size_bytes": 14488
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/migrations/versions/0012_schedule_publish_repair_calendar.py",
+      "sha256": "bfb8f54ef5349849fe0d898ff678fad596c955a65dd737d06916bb7a12269716",
+      "size_bytes": 5948
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/db/migrations/versions/0013_calendar_watch_channels.py",
+      "sha256": "3b04f000507cbc2422c89b6b8a2d050cddbbfe67456ca11803666c55020b6084",
+      "size_bytes": 3395
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/db/migrations/versions/0014_service_api_credentials.py",
+      "sha256": "9121da15adcb1566131c7076263193f5a9d6143a23c3caf78e5f48d1be3f62bb",
+      "size_bytes": 4315
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/models/__init__.py",
+      "sha256": "3417205ab8954ea1e176f8251e268ab5940adeed6bb050a3d551532e5b583c47",
+      "size_bytes": 2011
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/models/planning.py",
+      "sha256": "fe2fd6a212bfa84da169fba93a16304d024e235422130dceebba3be63560d552",
+      "size_bytes": 15976
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/models/scheduling.py",
+      "sha256": "fb7523de4a52a98b177d6739f65c771d7838dea252ba91faee3d4279424209ee",
+      "size_bytes": 18813
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/db/models/service_credential.py",
+      "sha256": "adbddf7bc1659f7d868d05e475c7071bd0a8b1ee24b11e081648e5efd76edab7",
+      "size_bytes": 5422
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/models/sla.py",
+      "sha256": "f167e5cc2103c880e9f7d55136b0f467ce076474f065d52679d7b13370f5c53e",
+      "size_bytes": 3380
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/models/workflow.py",
+      "sha256": "f2b2af998ecb61e0fffad722bdfda8b0cad6520a0be1adcbbe0d761e5053d991",
+      "size_bytes": 12375
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/repositories/__init__.py",
+      "sha256": "16beda3058e7a1dfc17b98033bc94a02e4b5648f0371059fcd8edb4b17de13fc",
+      "size_bytes": 207
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/repositories/base.py",
+      "sha256": "de81ea742e97e2bd980fbb2f49d3c2fef9f00024bbd741e0993ff84f2c5c0f78",
+      "size_bytes": 1668
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/repositories/planning.py",
+      "sha256": "84d234fe75cf2a25da401983b3bcc756b06536e13f55598775a4ce2ae20a7512",
+      "size_bytes": 12602
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/session.py",
+      "sha256": "4e6b1469103005e86df69b0193055ee4dff3870ce6feb9a092d411eb650017b9",
+      "size_bytes": 1754
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/db/uow.py",
+      "sha256": "3b533e6badb6d056c9aa502fa4a0a6395b64fd87edade4a3d2569d845f70a8c1",
+      "size_bytes": 13586
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/domain/__init__.py",
+      "sha256": "d7164c1780cf7805c1eb726ec5602048a547168f3b8b13497709bd9f41ebd056",
+      "size_bytes": 27
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/domain/entities/__init__.py",
+      "sha256": "ba9354583fcebfeddbef79cc8a4a5fb86c5f444c819aaa1feda0f21c3099f96c",
+      "size_bytes": 36
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/domain/enums/__init__.py",
+      "sha256": "ebe7097eeb15b19d973aa281cb13863d07cc1067aaf44208cbb775f29fd4bc52",
+      "size_bytes": 33
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/domain/policies/__init__.py",
+      "sha256": "29846bb379a2cd85486db9aaad19c6ed95f606f94ec7c70bb20c67df22fb7f7b",
+      "size_bytes": 36
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/domain/services/__init__.py",
+      "sha256": "1127a5eeadc14dc81d187eb892dc0f7ad44cf60b703005356daebc5d065abcdc",
+      "size_bytes": 36
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/__init__.py",
+      "sha256": "cd340b90d8e6d2dd1727f6d356167344b467dc2482eb530ae311366acbc7659b",
+      "size_bytes": 445
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/consumers/__init__.py",
+      "sha256": "311f050476ded0899a891b7fab71d437c9a05e344511025d9817a0c71f9f9371",
+      "size_bytes": 1722
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/consumers/config.py",
+      "sha256": "bdf62de001134f37dc78eae1559573dcac24dd932fa52ac72aa7d48a579dab61",
+      "size_bytes": 8550
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/consumers/rabbitmq_message.py",
+      "sha256": "28891e02710ccad4a09118193bddd5244211da2d755e107de9891b2e12c5829e",
+      "size_bytes": 16016
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/consumers/rabbitmq_runner.py",
+      "sha256": "6cb8f9ec14933b1b0619b67bb290c2ac4ef88382d8bc77d6d054e40a3b8dd45c",
+      "size_bytes": 22903
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/inbox/__init__.py",
+      "sha256": "e7fab4835b2e9e484a84357e36a80d321d2e9899609eb2f5d727b74f44696cfd",
+      "size_bytes": 876
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/inbox/models.py",
+      "sha256": "ab05bcab4f5385da07e0180c0b3f7e8be5067af47c57e9338e0e92e84926bdd7",
+      "size_bytes": 2044
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/inbox/processor.py",
+      "sha256": "a164454ae895465c4d4f70691ca0df33a95191668f838dfc270487685a694971",
+      "size_bytes": 6532
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/inbox/repository.py",
+      "sha256": "15c0959b662d05f4a250d25b311d9353c23ab13e680f03c65d112503f36bbf21",
+      "size_bytes": 5686
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/__init__.py",
+      "sha256": "b17ded2dc86c13c4169706a173615172f5c2f205aaa1601d10ac698c55e4da6c",
+      "size_bytes": 1317
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/config.py",
+      "sha256": "946e99c21541fc053f7adccc7d69e33ce8755d3f20fe360a244557581021bd36",
+      "size_bytes": 5027
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/dispatch.py",
+      "sha256": "0fa0133ac9ee4e5502eba3a7cb3ea95c0fe851fe2e494ef593851cc0d914d2df",
+      "size_bytes": 1329
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/dispatch_repository.py",
+      "sha256": "41eb9d99ab6272535757c9d1048bab1132d45835452b408868726a3cc64ebd78",
+      "size_bytes": 10647
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/dispatcher.py",
+      "sha256": "c034fd67e3b072db87090e28e539cce9b40cd27b7c6610ecaffff7f7d3811b24",
+      "size_bytes": 22574
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/models.py",
+      "sha256": "15c1cea56cf09253f1586e444e9ba834b5a1bb7152a5666922975cb686aaff16",
+      "size_bytes": 4206
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/repository.py",
+      "sha256": "579aa060ad9529853e6762d9db2200faf357429bf7c2193eab2740375f7cacda",
+      "size_bytes": 2417
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/outbox/runner.py",
+      "sha256": "054b3e4e5a926b393e5d0a3efb190d3c9ebd075fc8223d043f33711208c8cca4",
+      "size_bytes": 14348
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/publishers/__init__.py",
+      "sha256": "7183bd7e2fd6efc7b538515122e13b736cc79bc3f0a10ef97544efae9c0e055a",
+      "size_bytes": 960
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/publishers/base.py",
+      "sha256": "b4073013eb21baf2f6be57da09b0932b514b44b041e60aabb8c8260cde2d491a",
+      "size_bytes": 1825
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/publishers/config.py",
+      "sha256": "37112af38f342a375fe64f0ccbbc4171763cb78a34ab889c745e23d68fd33d4c",
+      "size_bytes": 2307
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/publishers/rabbitmq.py",
+      "sha256": "90f22b9fb8c2015d8b6cf6531bcd8d5108309c515e620fecde0c417a3d27e3c1",
+      "size_bytes": 8797
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/schemas.py",
+      "sha256": "db4b3f1132cf1b8e83df01faf8b3d4c70661eb498abd7e1dd64e9c07a70af2dc",
+      "size_bytes": 11389
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/serialization.py",
+      "sha256": "16c0173cf83142495815cd770ed3fdfb9f6f8daa3887180928f6721a53743ec5",
+      "size_bytes": 918
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/events/validation.py",
+      "sha256": "c7e3e5459069e46971bbca974a20f7d64963f7b4695e42949ad9efbe182a90dc",
+      "size_bytes": 5731
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/__init__.py",
+      "sha256": "8d3a3090971c11c695b953c11726821369152f99a5d83fe32e7fc85ff8edc0b5",
+      "size_bytes": 139
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/calendar/__init__.py",
+      "sha256": "5c1f774f984774c7de05e813eff464f0a3b460d09dba74be5467d008e73ab8ac",
+      "size_bytes": 2939
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/calendar/adapter.py",
+      "sha256": "b5a0755a2822b8b415980bdccc34f650c10bc5610e4c8a037340a72427e83085",
+      "size_bytes": 14917
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/auth.py",
+      "sha256": "d9109dfea17233dd3921bed888ee67c906a0d9a8839c3f9120722de007b6f162",
+      "size_bytes": 14871
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/codec.py",
+      "sha256": "32ec14aa31841790450138744aa5e01b3d208fc44353bea14aeb953f63da80a2",
+      "size_bytes": 2656
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/config.py",
+      "sha256": "83b76e82a396b551c390ed3711a857ddda00f1026aa7fb85fd6bd7d34b092568",
+      "size_bytes": 3803
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/calendar/dtos.py",
+      "sha256": "efad133b56015918bfd6337e79f709c215d6535a27d1fb5df49b77586b98b020",
+      "size_bytes": 4644
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/google_adapter.py",
+      "sha256": "a26575db6378970d206886e15a3b43c67ea94ede4f387efb8e04ddef095df856",
+      "size_bytes": 20967
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/handlers.py",
+      "sha256": "44a7d56b442410f9d729f89a32269e75eb8efd76720e50041c0224c1598e4b70",
+      "size_bytes": 2563
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/calendar/inbound.py",
+      "sha256": "9fc5ab4cbf4e010d029de0ccc8a9b251c340b246d8fcfdb50365ebbcd18f013f",
+      "size_bytes": 11039
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/calendar/outbound.py",
+      "sha256": "c22d0de73638375c5034a9dc6d9931437c6739492a0f354e1c52756a0c20717c",
+      "size_bytes": 12348
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/calendar/reconciliation.py",
+      "sha256": "430e0752cf722a01eb3fc3268cead16c010401a0dbfffc522e064abadc4476de",
+      "size_bytes": 9789
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/calendar/rfc5545.py",
+      "sha256": "36624edb28b652b1b6bd103927846bb0f9842398fb3fc1b737e3da43974a2f92",
+      "size_bytes": 4604
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/transport.py",
+      "sha256": "9ce0b4b0818c940da020cc591f9d27bb06fc2fc723782fbf9e23f6cccbd6d00e",
+      "size_bytes": 5625
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/watch.py",
+      "sha256": "84b273a60f60cefc4f49d4f4cd0a393809cc81d60a8bafb165069b5fb97d3e4d",
+      "size_bytes": 11499
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/webhook.py",
+      "sha256": "b5f02898c653b38d4c83839096c10f54880880d62fd5cc3f021381595cf39332",
+      "size_bytes": 11508
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/calendar/worker.py",
+      "sha256": "86e31abc170959418a32b69d7472634d3fd94847b8ede4933be2df137beda240",
+      "size_bytes": 12337
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/engagement/__init__.py",
+      "sha256": "bc9911c1f565c6921870f88f373ec6eb587edabded0156e9fcfe49a5095cb597",
+      "size_bytes": 888
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/engagement/config.py",
+      "sha256": "1dad58890773344c117d2163e31ef77816dd872367396130e0a2d0130edd104a",
+      "size_bytes": 1320
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/engagement/dispatcher.py",
+      "sha256": "5d3e3ffc816ad877836e74d8790ae67f27f8af61d73a327064b57bc0dc0eae51",
+      "size_bytes": 5554
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/engagement/handlers.py",
+      "sha256": "fe48a3005f5b7867dcbdd99368a0db87ba17828ad3b6be0a6b63b7de7efc37d8",
+      "size_bytes": 4563
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/engagement/mock.py",
+      "sha256": "c42e992c5568cb47203b66f42c5171be2e8c38f8e3f57427467c553c2c98026c",
+      "size_bytes": 3947
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/engagement/models.py",
+      "sha256": "ae08b9199f9a631c7866cfcf33c02d8ccffffb31d21a722ac71d84a245dd6537",
+      "size_bytes": 1728
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/erp/__init__.py",
+      "sha256": "33e54fed076ff6d75e4b3c3e947153bdf98dc6abae244542ce47e8ba94a3cc53",
+      "size_bytes": 1375
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/erp/adapter.py",
+      "sha256": "7233fc330d682240caad7bc7f99a175b497c17aec4ff6167c244c0e16b6cd28d",
+      "size_bytes": 2648
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/erp/config.py",
+      "sha256": "9a71ae0bcfb40f29e076ef89827db5562494795061435613d6b68af8152c5921",
+      "size_bytes": 2558
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/erp/dtos.py",
+      "sha256": "459f7497f6eb87639b22c78f8c555387432302afba599e1935e4348ace8fc7d1",
+      "size_bytes": 4097
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/erp/exceptions.py",
+      "sha256": "fa7deb103a26ca1010ddfb88a35dbf3a214e8fb1d53a75d8caee2f640b58c966",
+      "size_bytes": 1124
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/erp/mysql_adapter.py",
+      "sha256": "5d058545d6caa72c029f60a060f272e8577cb956e97cd737db2bd0348eb19433",
+      "size_bytes": 19540
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/integrations/identity_mapper.py",
+      "sha256": "ff9a4b554831de2910e4d4f689c97745aa992324d8ba4660395c16b872cc786a",
+      "size_bytes": 9166
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/unitime/__init__.py",
+      "sha256": "eed1b4a5f6142db098f6df125eeca4952fe635c5e1a8f2e0748d0cb4e2df17a6",
+      "size_bytes": 41
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/integrations/webhooks/__init__.py",
+      "sha256": "3197a86b1df85fbf85ab83b6b7fda68ee8ce9c6013202a079d46800c4b00bcdf",
+      "size_bytes": 42
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/main.py",
+      "sha256": "b05bf1bce854d207af210e49b620ce244611b8e2f7885a4e6ac0004f248297a6",
+      "size_bytes": 5401
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/operations/__init__.py",
+      "sha256": "8b21fbe372604b3979e5ab9d5c2fca34feac1414c1da155413571013eee2f10b",
+      "size_bytes": 893
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/operations/freshness.py",
+      "sha256": "f17abaa2590cfa3cad0fb1e19ceb70fce0583306a29ad1cc58e28002529d2e91",
+      "size_bytes": 10165
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/operations/repair_queue.py",
+      "sha256": "941831096811241c0c7e724d2ee86365897ea2214069dd222c62dbfa977b603f",
+      "size_bytes": 20893
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/operations/resource_events.py",
+      "sha256": "7760fd66948fb61bbc5e8f46ff4ab8233ffab7c02d9a01c0034a64fd518a82e8",
+      "size_bytes": 7904
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/operations/risk_monitor.py",
+      "sha256": "79a6b204f27bce033b50df8b449eeb950f8cbd1f1dff6dc8032babfbe6e44e7a",
+      "size_bytes": 12636
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/resources/__init__.py",
+      "sha256": "6073d9dc55f6a7f0f0804a20402921d6ffac1dc0e0158e1fa2f32f9510f4163c",
+      "size_bytes": 30
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/resources/schemas.py",
+      "sha256": "c5842ffd62bcf53dd2bfdefafa94191425363501aebb40ebcdca177e0f117cc2",
+      "size_bytes": 4083
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/resources/service.py",
+      "sha256": "fa0d05571446f14c1507d6cbf6ea226e3b2316765268f34eaa7829f40023297c",
+      "size_bytes": 4895
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/__init__.py",
+      "sha256": "b77b7325e5a4bec19e3f69c6c6e63664a31309d6e4e573e6da0d9ae1594c6882",
+      "size_bytes": 31
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/config.py",
+      "sha256": "a612513d3bca019b25620f6d87246623610c30ccc70bc946afb465882fedf118",
+      "size_bytes": 1893
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/constraints/__init__.py",
+      "sha256": "c8da4c0fce80e67b7cbb8419b052bb68dffab95a780008ada1866dee07597c64",
+      "size_bytes": 43
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/constraints/builders.py",
+      "sha256": "a2c5269a027f1c4007941838b2b498251aa0f29499d9bbf65c1c31f085e41575",
+      "size_bytes": 20790
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/constraints/models.py",
+      "sha256": "590e27e1b2782bd15429328228acc45a9c3923e2b9a7c1d5f5622d4edd550c96",
+      "size_bytes": 6826
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/diagnostics/__init__.py",
+      "sha256": "aee96621b6c647aef7715f154ef8a84747b75004415bfa5b8939e07438ab5257",
+      "size_bytes": 43
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/diagnostics/explainer.py",
+      "sha256": "b72202f0be450e71771c9815e598ae80d6bc889fc488fa02b9a13f93de7c40c1",
+      "size_bytes": 6667
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/diagnostics/models.py",
+      "sha256": "49794bceecb5705b9c200aee39029789d20909243604f0a0d77335649f3c5f72",
+      "size_bytes": 1479
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/education/adapters/base.py",
+      "sha256": "0839aa7c368a38c70363916d4d89bb947a45096557158c077db7889c6c60bfdd",
+      "size_bytes": 1108
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/education/adapters/unitime.py",
+      "sha256": "8be0ac2d6c8e9f63e9d75ce779c393c4ee4fc058b61145f5cc2dcb8ed5e22023",
+      "size_bytes": 29655
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/education/benchmark.py",
+      "sha256": "462612bb465b24cce24282a9e3877a7fb9ade01b5164bd30535f78c97c73fdab",
+      "size_bytes": 23537
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/education/dataset.py",
+      "sha256": "f6f3d288b3cdb32b986a118b992f4e58b4806cceff6583074539874f568df2c2",
+      "size_bytes": 10736
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/education/dtos.py",
+      "sha256": "87d5ec2e5c427a5e70cf0fb90bac1e803ebb25360e28918525a586c42cf88551",
+      "size_bytes": 7025
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/education/evaluator.py",
+      "sha256": "312b08f5665dbb4845c12f52521dec73d44599f0daa2c94bc6c1fe13c37d4ee8",
+      "size_bytes": 17740
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/education/ortools_compiler.py",
+      "sha256": "a13f7c819a91d9288409b45791052460a3fbd4d4e3e4f1a17ded37925a4042c3",
+      "size_bytes": 10824
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/handlers/__init__.py",
+      "sha256": "2f40ec193f7a05acc127e7c37e0ef360f69d0c41df74d25c75a35568ddac4ae2",
+      "size_bytes": 294
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/handlers/resource_unavailable.py",
+      "sha256": "b5bc6356527ae8bf8112fb26eb4dc47dcc4f7229ec7ce0a4a63c648c9e750091",
+      "size_bytes": 4917
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/scheduling/handlers/task_completed.py",
+      "sha256": "858f382c618d0a630a1e652b8fa5e9867ad0ece67f77f551dcc12d7ba52f9368",
+      "size_bytes": 4792
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/hashing.py",
+      "sha256": "dae842661fb32617eaf5a32838da26de31d6f8de7a89e1f28a7045de9bd5bcf5",
+      "size_bytes": 1056
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/policy.py",
+      "sha256": "f0708a2da764b7371569499b9eb92bed8522a4c647d84a67373ce1494d1f53f7",
+      "size_bytes": 4751
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/profiles/__init__.py",
+      "sha256": "2d08e55c07ce955d21e9e273e2ea55741e827a5286e03b837105af81c403207b",
+      "size_bytes": 40
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/profiles/discretization.py",
+      "sha256": "0e309d7dd51747fb716fcfa8e70da6f1ec1ae8853ea129a4413879372e44268d",
+      "size_bytes": 2390
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/profiles/models.py",
+      "sha256": "d93dcd901ecfd77db311a5c5bf0c76622c811b8e7bd56e12579126910f2779a5",
+      "size_bytes": 5880
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/repair/__init__.py",
+      "sha256": "cdfefdd0b97dc85f802792698bc223e9b87e8c94ff5c67b4650652e44e644c67",
+      "size_bytes": 283
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/repair/models.py",
+      "sha256": "feb7393d81a3334611d9a16edb528eafb12642ad5d1e3ba4ad907c4d6e428298",
+      "size_bytes": 5312
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/repair/policy.py",
+      "sha256": "b78e2ad2b834bbe006aeedd0b4236be5acf1b546dc2f24a9c5babc653214aa77",
+      "size_bytes": 1922
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/repair/scope.py",
+      "sha256": "b6e68935adba62df66a6f2d3db95c7fe34c1fe9f585012e2cf15c463627af859",
+      "size_bytes": 8643
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/schemas.py",
+      "sha256": "097c98cb5404ccd9a808ab88b219581b79933fdfa6ae4019734333e0ab5f5bd0",
+      "size_bytes": 6713
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/service.py",
+      "sha256": "b46d1ab2cea23fe0d549a56c98d857a3cee0dad6326bcab6eda41120a3a6a98d",
+      "size_bytes": 40958
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/solvers/__init__.py",
+      "sha256": "ff4e1515cb580d6e99fabbf51a3fe32208f802c8f2ea2f48594b3cb9c36618d0",
+      "size_bytes": 39
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/solvers/cpsat.py",
+      "sha256": "113a5c24217c6868b16cfad29b586295a9f4c31d3931b58d1a434c61c978207f",
+      "size_bytes": 12468
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/solvers/models.py",
+      "sha256": "3626a4f4a9b809a1d6e27cada6d22c22550c2b8a9e6994f12a6d565ebfba4276",
+      "size_bytes": 1356
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/solvers/objective_normalizer.py",
+      "sha256": "d770f1cb9d561cc7c22e0f83c15d0b6862ef49b2a6e16254b885f864f34b3bd8",
+      "size_bytes": 5755
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/states.py",
+      "sha256": "035920c369151fffa0183beba6e2c54fcf8a09815af2367b1d2b6128390e7c74",
+      "size_bytes": 3632
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/scheduling/worker.py",
+      "sha256": "66f13a18d26f48e143a5d18fd869c91b1243150ac4fc9dbb58cb21c326760fc0",
+      "size_bytes": 7161
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/__init__.py",
+      "sha256": "bb4eaa799139ec5104bdaa9a572a97b65fc892a0dc2d3ba7640910d02aff75ca",
+      "size_bytes": 38
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/constants.py",
+      "sha256": "71a5fc0fa62aa22da59a8b635dbf986598608c9a4aa60e082ad14d6d8a6933d1",
+      "size_bytes": 1169
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/context/__init__.py",
+      "sha256": "35d56a22e308200359c6855deff06f46ec6a47a8186c669b8df5cdd0eea08e00",
+      "size_bytes": 1074
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/context/adapter.py",
+      "sha256": "7c466e065aee0d9d0697a03a74d9d8f8b8841c023f78514f12e758a81c2043bf",
+      "size_bytes": 7428
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/context/allowlist.py",
+      "sha256": "72d9e161473e2aeef87422163bc629b8d660995233f10747d0534d6a74d5f480",
+      "size_bytes": 3337
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/context/builder.py",
+      "sha256": "1fd70cddd11fb11ec183bd1b90a3bf5b0a3449235d6516e4341b7d468b2bb831",
+      "size_bytes": 13299
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/context/models.py",
+      "sha256": "e5c9d75f0b299f5feaf6c173e1e8c6c90e241418c9a9ac530f08d0c64e8cf9bf",
+      "size_bytes": 8526
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/estimators/__init__.py",
+      "sha256": "603a78a0cf22d4d7465bfeac27d101da1d0b29ed34496ab2595c5f106708dcc6",
+      "size_bytes": 513
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/estimators/base.py",
+      "sha256": "ab13bfb6f03e6f0a22f5e78528f4aa38fe6366b35c2748e4fbdfb1eca290ba5c",
+      "size_bytes": 1336
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/estimators/heuristic.py",
+      "sha256": "e87a44f418f307311aeea28de590772d3357893faa954ba394ab41f8f49b5cbf",
+      "size_bytes": 3570
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/graph/__init__.py",
+      "sha256": "2a7425c0d886573d0923a929c3029ee5a209a2c015998a918c3a24620c3da37f",
+      "size_bytes": 944
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/graph/cpm.py",
+      "sha256": "21fa606bed24596b6b593e248707fc7bd13aec2e42da6fe945370ec9f9c89fe6",
+      "size_bytes": 5639
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/graph/dependency_graph.py",
+      "sha256": "bdbaa8923a4dec21e3e839af8f3a4fc2841ab6c6f4c368dbb8fcb099325d24a7",
+      "size_bytes": 6294
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/graph/exceptions.py",
+      "sha256": "8d767a02adbadce01b32fa25b95c6615e5fd960099db1a352bd129e4bf4a25ba",
+      "size_bytes": 1501
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/graph/models.py",
+      "sha256": "deb3f9e478daba4ea749d508f70f7dca5542b387970f6686d8250c7d798edc51",
+      "size_bytes": 2789
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/planner/__init__.py",
+      "sha256": "d553c86f7d20b6ed97bd747035841cab15e10f1b78cee4f7865c74b534b532f3",
+      "size_bytes": 868
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/planner/config.py",
+      "sha256": "defaa26f9060b545dc3fb5af7311946845c926527877f873aeef09ccb6810f36",
+      "size_bytes": 4546
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/planner/generation_result.py",
+      "sha256": "cb4d1ba74353e5835cd6fcdab343f7438432e4f178145f76891aea0440d4a1c7",
+      "size_bytes": 1517
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/task_intelligence/planner/phase6_planner.py",
+      "sha256": "61c71ca267fc8ea01f36963ef2109b5584e15e2c9d32b92b0694530e7f4f59c5",
+      "size_bytes": 11051
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/planner/prompts.py",
+      "sha256": "ea34bf8677ed10a7247cd462cc5202f52728da97de36fe824db6791b04461590",
+      "size_bytes": 9124
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/planner/protocol.py",
+      "sha256": "0b98bf83cecf24adfa66e60fd904d7152ec0f949c7664228f23bb06de35110c4",
+      "size_bytes": 971
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/planner/provider.py",
+      "sha256": "2db5227ed4d2cd30507db1e491814ec2f7bbddee69aaa86e8489742dde21ca9e",
+      "size_bytes": 4306
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/planner/pydantic_ai_planner.py",
+      "sha256": "b82f91cc41471a9c3282ddd1926b50008291ceff06d77f05584a117b091ef609",
+      "size_bytes": 10336
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/priority.py",
+      "sha256": "ef878080b4bba27665d9ad1015e19811a79eaaedc32e67e5c87916c485a85566",
+      "size_bytes": 6427
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/progress.py",
+      "sha256": "e73accdd79139472127c460849de03128ede66fae8d8cc999ea09d7fb4bb2fda",
+      "size_bytes": 3012
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/prompts/__init__.py",
+      "sha256": "388c83d3d8ff88d39657d717729671dca1aed47959e5d20d0cbd01dea4cd60c4",
+      "size_bytes": 46
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/risks.py",
+      "sha256": "bbb0dfa28fbf6ffeafd90c9f6d0460e9707d2221c4e94d02cfff9144d703b1d4",
+      "size_bytes": 4092
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/schemas/__init__.py",
+      "sha256": "f7e098b32705721e9b2fa219f1a5301b3163663a4fdc2dea93d8456e385b1c74",
+      "size_bytes": 1231
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/schemas/goal.py",
+      "sha256": "fdc3f6f50bae1ddd6fc97da049a859d38e58a917d99b77f4f0dc09bbb12241e2",
+      "size_bytes": 3721
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/schemas/plan.py",
+      "sha256": "e36ae3d4fcbdd5c5363b0469ba3dd65e8e63e02b3ff983e9dc8db6eaf0be31ae",
+      "size_bytes": 9223
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/schemas/validation.py",
+      "sha256": "c247917773dcae4a5f908fbc07773df444c439fcb6783f7467534b308a59cc93",
+      "size_bytes": 3469
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/service.py",
+      "sha256": "09c5be6e19a5f352ac33acbfe2bf4a0b891fbb1dfb822bfa2e2670591b91c36a",
+      "size_bytes": 33614
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/telemetry.py",
+      "sha256": "7d9676a56e6b4f4499b5c0962035b9c6ba9933ff0c6c06cd1e4145deeee2b9b6",
+      "size_bytes": 4797
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/validators/__init__.py",
+      "sha256": "5c28a1f2d592a7b8e164ecf66504355057df51f56aef703458cd2d9f7de04639",
+      "size_bytes": 379
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/task_intelligence/validators/plan_validator.py",
+      "sha256": "2df997cae39812a7580ebfe8dc529a4ded38a454890e57e2928ec7fec02fa185",
+      "size_bytes": 13435
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/worker.py",
+      "sha256": "4945548b45cdfe59af22940267fec567ce51b52c2560d5696dbcbc4b39df8c55",
+      "size_bytes": 12872
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/__init__.py",
+      "sha256": "d2a48e4c963625e75c494c466258b75f37fc006444763c7d6ba2df026c173b34",
+      "size_bytes": 1754
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/adapters/__init__.py",
+      "sha256": "b0527800d43f673a9aacddb334efd9522812e3b1c098b2f5fe95dd9b8d394a55",
+      "size_bytes": 743
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/adapters/dto.py",
+      "sha256": "95c066808fbca0aa1c15f54852b32704bd5c2d447d4dcdfe1158008c33eb310b",
+      "size_bytes": 3333
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/adapters/flowable/__init__.py",
+      "sha256": "226a18d35649862fd499e54e92ca774ce7f3363dbdc0a85717e6d45eefdb9a0c",
+      "size_bytes": 396
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/adapters/flowable/adapter.py",
+      "sha256": "cff500f36cd4bdf6771c3d14d18ecc9786dbc227999b360d92f2a5936e99a26e",
+      "size_bytes": 25959
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/adapters/flowable/config.py",
+      "sha256": "862873501687b1027377565be94dda2b8f30d208fb4b3888372f5eb7199cf92a",
+      "size_bytes": 5314
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/adapters/protocol.py",
+      "sha256": "ca98495ed86244f1d37b5bda766130bfb46a4f09b7c464c58f24dae90cca84dd",
+      "size_bytes": 2871
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/approval/compiler.py",
+      "sha256": "ee65e22b4f51f057ecdfb4758e8016e3515c51a2097363e1f18a1374e0abc720",
+      "size_bytes": 12645
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/approval/delegation.py",
+      "sha256": "46664965930e4442a01d127a7871bf49952ca51e1f24169eb15d0b0c1f3282a3",
+      "size_bytes": 2940
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/approval/models.py",
+      "sha256": "1b8c7f5a3a9ee08ad4c7325972e566a48debeee44d4c37686e00414d7c2fa8af",
+      "size_bytes": 4897
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/artifacts/__init__.py",
+      "sha256": "e39da8fe2d1f27aeff8a9c750ba6d2ec899d3693273d074476fd3afce95fbebf",
+      "size_bytes": 296
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/artifacts/validator.py",
+      "sha256": "a6e315141c84014689a9d2088750019bbe74e8d45ea3bff8d4ddbc343cdfe223",
+      "size_bytes": 11969
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/authorization.py",
+      "sha256": "57f859079ed65de9206d8d31727254d52f59d0c5aa2df8888d756441665b0b73",
+      "size_bytes": 4595
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/dmn/__init__.py",
+      "sha256": "8a24ddfb2ef94a32d00d35cdd101a462d0efe23cf5d295716a7029968253c58e",
+      "size_bytes": 33
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/dmn/schemas.py",
+      "sha256": "1fcbf5e754bb57947af1f87c7a728a99381fc194f7db98c2ed58335a8534f76f",
+      "size_bytes": 4726
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/dmn/validator.py",
+      "sha256": "d230d5e9b90e26884da7c31f6abef2cbdd62303b4246f290e9a6625d6fbb429c",
+      "size_bytes": 8923
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/forms/schemas.py",
+      "sha256": "1ced621c400b31bc59900d92aa4f7282af45f8da2bfa5d55d7631f71489bb7cb",
+      "size_bytes": 3298
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/forms/validator.py",
+      "sha256": "c4cd8d358b564e0b9beeeb84ed8bc871040e04cf615a6bd70f754a7c6abdedba",
+      "size_bytes": 8227
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/workflow/handlers/__init__.py",
+      "sha256": "cee099572a8f60a090704c85eefc39bb2b1499f2aeb1b4bb3b71221fb7a54ec4",
+      "size_bytes": 223
+    },
+    {
+      "classification": "core_application",
+      "git_status": "untracked",
+      "path": "app/workflow/handlers/plan_approved.py",
+      "sha256": "62cf99ec52a7117e27878ea308781265bd504447752572b8a4d37cc236b2deed",
+      "size_bytes": 4428
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/models.py",
+      "sha256": "2531d151668a570c0d356f1d6c7915c4030e6e8fb4c69179edea1c2c3d059b71",
+      "size_bytes": 319
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/repository.py",
+      "sha256": "a47fa4db012154d5e3b3d1014e41caeb7f2fdb87886ad3041d4fc541d191c13e",
+      "size_bytes": 9153
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/schemas.py",
+      "sha256": "58056ae547ddf897a5cf8ab88d829d013f4d040e4b49831a7c2541709bfe4cd0",
+      "size_bytes": 6204
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/service.py",
+      "sha256": "732909e077b9fa9d0631d26ad3d956c672c4d955c2dd3a9268ddff07ba6053f7",
+      "size_bytes": 46286
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/sla/__init__.py",
+      "sha256": "6e4ed414fd3e9b85e3831c2b89154fa24c2a1271bbd8d828232e3637edff42d2",
+      "size_bytes": 33
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/sla/calendar.py",
+      "sha256": "f13d0665611aa00ca95c0d2f98864ba2d1fec9eb13849e9f1d50c8958c9b9c83",
+      "size_bytes": 5405
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/sla/models.py",
+      "sha256": "8136151f87c7104a427309ed330f4f7a706bd841a29c38e90262b5110c536b34",
+      "size_bytes": 4306
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/sla/service.py",
+      "sha256": "5b0cb71a66e4f38dbd85f165c28129f21e28e262d8a2fd5e793f1d71dc18460b",
+      "size_bytes": 11489
+    },
+    {
+      "classification": "core_application",
+      "git_status": "tracked",
+      "path": "app/workflow/variables.py",
+      "sha256": "c9863f22e35b1425be713c4ba850797b9af6aa82de5c5714aadb2b74ad50c25e",
+      "size_bytes": 4682
+    },
+    {
+      "classification": "deployment_manifest",
+      "git_status": "tracked",
+      "path": "docker-compose.yml",
+      "sha256": "c73795f521aba4806d2f5b1419d818de8cc45dcec9f5de0645eada2ee456afa1",
+      "size_bytes": 8738
+    },
+    {
+      "classification": "deployment_manifest",
+      "git_status": "tracked",
+      "path": "docker/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "deployment_manifest",
+      "git_status": "tracked",
+      "path": "docker/Dockerfile",
+      "sha256": "ffdb6b09241dbca3ca9ef1df013d559f7b40aedf5c69d3644b7d20ffcf7f7b68",
+      "size_bytes": 1811
+    },
+    {
+      "classification": "deployment_manifest",
+      "git_status": "tracked",
+      "path": "docker/observability/otel-collector.yaml",
+      "sha256": "8ae4918f0178c889fe8d85043531ee4fe4d9cd5eb6b2786c1ad42eab8fc5109e",
+      "size_bytes": 765
+    },
+    {
+      "classification": "deployment_manifest",
+      "git_status": "tracked",
+      "path": "docker/observability/prometheus.yaml",
+      "sha256": "1bf489666298d52ee7f424eaad9e199fe80fb2e3ceb044267610012aa89e6db5",
+      "size_bytes": 338
+    },
+    {
+      "classification": "deployment_manifest",
+      "git_status": "tracked",
+      "path": "docker/postgres-init/01-create-flowable-db.sql",
+      "sha256": "beb161636307d1ece3ec301746601193aef23f2b8dda8e871b97936222bcf8b6",
+      "size_bytes": 526
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/IMPLEMENTATION_GUARDRAILS.md",
+      "sha256": "335aa2b19b1cf46c93efba383b11e47b915fb2bf8cc3a473f213faa958f8c5ce",
+      "size_bytes": 6404
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/OPEN_SOURCE_COMPLIANCE_REGISTER.md",
+      "sha256": "ebdf6b4976d59505fc943e52d126a432b76ab4037cb12a8b52fcf1d6d1ae6513",
+      "size_bytes": 49682
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/PHASE_0A_SCAFFOLD_AUDIT.md",
+      "sha256": "0d6db7d589321704c8b1d38371757afbb0729674810ffcc83ba1b4c56ce11214",
+      "size_bytes": 14516
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/PROJECT_CHAT_HISTORY_AND_STATE_RETENTION.md",
+      "sha256": "01ada84decd898b68a204460445d76b4541115dcdf59090b32367d40af4bf744",
+      "size_bytes": 23409
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/REQUIREMENTS_TRACEABILITY_MATRIX.md",
+      "sha256": "b8f181141e58d79ef98180b99af46f0635f807e05926ee55638a5aa8fc321bac",
+      "size_bytes": 82655
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/SOURCE_COVERAGE_AUDIT.md",
+      "sha256": "01186324080605aaca1d47b2d63914cf033cbb67b10439d26db1047738afe9a8",
+      "size_bytes": 6372
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/SOURCE_OF_TRUTH.md",
+      "sha256": "3a2425a01e6e4b0d109a07aa00b10092528f3daf0f45528e5a57db91efdb49f5",
+      "size_bytes": 10556
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-000-source-of-truth-and-reconciliation.md",
+      "sha256": "5084df508784d57dcb63afe9ba31dd48eba088e0204d1d775310e5aca65a5d50",
+      "size_bytes": 6525
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-001-workflow-runtime.md",
+      "sha256": "7b9c373e105b9b8f445aa02e8e935e388e1af4eb50e2d57c5c4fd549da588204",
+      "size_bytes": 6539
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-002-task-intelligence-orchestration.md",
+      "sha256": "eb9568a9c3a5a67fd319e29b0fb6060d22ff4dd5116f8e9a77b8f3bdbcc91bfc",
+      "size_bytes": 6471
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-003-scheduling-solver-strategy.md",
+      "sha256": "61697dcb9f2bdffa3d57f3838029b5c49b8ec5b60a512d9a9797006b764aa195",
+      "size_bytes": 7250
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-004-business-rules.md",
+      "sha256": "cab02db4ca3590499730eb2e0ae86e58ab73378792892544ab51f47d943d9042",
+      "size_bytes": 5719
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-005-event-broker.md",
+      "sha256": "d8125000e2e61f91eee4372c407933bb5d9112a75e20a84654556b3a2f44cea6",
+      "size_bytes": 6419
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-006-system-of-record.md",
+      "sha256": "03bb76da7bfb467d25de62a732b1eb4bd9b6757ad01af7dba35363c97b0e1aa4",
+      "size_bytes": 6209
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-007-cache-and-coordination.md",
+      "sha256": "e5ab68997ce8259c2107072dc45232e68d3b3df2e8e418f64f7f7e3bc74147c3",
+      "size_bytes": 5530
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-008-llm-provider-strategy.md",
+      "sha256": "6902f3be008c7224b1f877852f5b11133990edbb1c07e98c40635e1ab5502bdf",
+      "size_bytes": 6853
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-009-workflow-authoring-toolkit.md",
+      "sha256": "f22cacbc835cb83e5bb879e46ad5710950407b5da14332d7b19ce929b26f0d0b",
+      "size_bytes": 6477
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/ADR-010-education-scheduler-production-choice.md",
+      "sha256": "105791d59bee50b5b4962410c6e46141b88a130a7e55142324ce618b4c66e99c",
+      "size_bytes": 12472
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/adr/ADR-011-integration-governance-and-blk01.md",
+      "sha256": "4e02f908f1526811ba458b3d453787301a32051701fbc656f30c47098f757390",
+      "size_bytes": 7553
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/adr/ADR-012-e8-notification-boundary.md",
+      "sha256": "7b12e9b9d585a91e85dbb4f894dab071e8f39cba712ef9de02ea361cee08999c",
+      "size_bytes": 3881
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/adr/ADR-013-service-api-credential-persistence.md",
+      "sha256": "76192c3ae96da595c1e23de55509cb55a42be6f3b013356ad4273f56f436a6f1",
+      "size_bytes": 5660
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/adr/README.md",
+      "sha256": "4674905813d96b8971f5c06fff0251cabcbeaf974e89a323003528992e7e4742",
+      "size_bytes": 6447
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/api/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/data-model/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/data-model/CANONICAL_OWNERSHIP_AND_SERVICE_BOUNDARIES.md",
+      "sha256": "6462017bfd8936ed36f5e61c377f3affa93cba882b056eff603099053342a71e",
+      "size_bytes": 50448
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/AI_CONTEXT_ACCESS_POLICY.json",
+      "sha256": "da915926bef13cab31ae7016f094de98ab967f71f23a5417541358277b2e7427",
+      "size_bytes": 71144
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/AI_CONTEXT_ACCESS_POLICY.md",
+      "sha256": "1e0c22b07f2dac803cc4cccbf5d6b2f785816870e2a266256113b4054375fab6",
+      "size_bytes": 71578
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/CONTEXT_BUILDER_CONTRACT.json",
+      "sha256": "3fa40a4ccc86c506c15bc204ce03c6e528aa39ff709864ba70117a69946826a9",
+      "size_bytes": 17631
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/CONTEXT_BUILDER_CONTRACT.md",
+      "sha256": "91b1598d41957c6a56f3a10c8f0ea31f223987cd1b6af5fd09f5b30d605880a5",
+      "size_bytes": 67986
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/E8_NOTIFICATION_ENGAGEMENT_CONTRACT.json",
+      "sha256": "923dc781159328092ff4684633cf96dd44059fceca98f6d60714d419adff40d5",
+      "size_bytes": 23999
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/E8_NOTIFICATION_ENGAGEMENT_CONTRACT.md",
+      "sha256": "cced16cf23d8470b3a0a8be078c16f85b16cbcfc91949bc2411af1fcd324c480",
+      "size_bytes": 33663
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/E8_NOTIFICATION_ENGAGEMENT_MOCK.json",
+      "sha256": "369d083d8bd85373f40eaeb6022078a0b6dbfbc8408ebf7eb82b8083c8a9fbde",
+      "size_bytes": 14129
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/EXTERNAL_INTEGRATION_INVENTORY.json",
+      "sha256": "59c040774bce6a0fc3297ea50105e1342434e64a70184892cfbe134cad713e1d",
+      "size_bytes": 43165
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/EXTERNAL_INTEGRATION_INVENTORY.md",
+      "sha256": "530e1be33791dd05a6fe0fd42fdda1474a0843ed34bc2f6fc11dda41edba70b5",
+      "size_bytes": 50646
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/MYSQL_ERP_ADAPTER_CONTRACT.json",
+      "sha256": "bc55bac774671c0c6bbd043c21ed02e071393006bcd95c73daf5140fa7cf1bf4",
+      "size_bytes": 22209
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/MYSQL_ERP_ADAPTER_CONTRACT.md",
+      "sha256": "ad1566a910cf276544751589c497bd80395157ccbf6269aaf3b90ddf72462239",
+      "size_bytes": 70224
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/MYSQL_SCHEMA_INVENTORY.json",
+      "sha256": "8f4da119a362ba5257e1c3bd26045a1af12c796b418b883c68bca593193d2613",
+      "size_bytes": 913727
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/MYSQL_SCHEMA_INVENTORY.md",
+      "sha256": "9cbfe867dfa4cf579c7f776b04d40d6668ae9f0def3a9d28dd0916c8b56e19e0",
+      "size_bytes": 63077
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/MYSQL_TASK_INTELLIGENCE_DATA_MAPPING.json",
+      "sha256": "779ee9f0bc5abb059e65cf6d67a85379e240daf188e0911a9905d5afa4c6e7c2",
+      "size_bytes": 132905
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/MYSQL_TASK_INTELLIGENCE_DATA_MAPPING.md",
+      "sha256": "9f831b4830ef1e7e1691b9068a9d06abba794fd3fdcd5ba8b07345cf17f91e58",
+      "size_bytes": 125023
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/PHASE_0_EXTERNAL_PROVIDER_DECISIONS.json",
+      "sha256": "676bebd5f6b1732901003f65c64a6c78f055805b7ff6cb73e2a40c55d3545da1",
+      "size_bytes": 20947
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/PHASE_0_EXTERNAL_PROVIDER_DECISIONS.md",
+      "sha256": "932cf2c9eb23d34df600ab53eb80e255f7edb2702997a78020220a29237e5239",
+      "size_bytes": 19078
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/PHASE_0_INTEGRATION_VERIFICATION.json",
+      "sha256": "ec4ff4ae2b2cda45562b0d73d9c4ee3ec2de33a50e796058df77e5656be22521",
+      "size_bytes": 20581
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/integrations/PHASE_0_INTEGRATION_VERIFICATION.md",
+      "sha256": "26cf4f0a4b67d33b3fe735e982819b26eb0f7958617652ea2fdd2fb81d5ff327",
+      "size_bytes": 30878
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/CANDIDATE_SLO_RETENTION_SCALE_BASELINE.json",
+      "sha256": "df8e23f26e8b516d8b84930f2e23ed02a78086c9dc7a3eabf63a36e3d3aab406",
+      "size_bytes": 36364
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/CANDIDATE_SLO_RETENTION_SCALE_BASELINE.md",
+      "sha256": "51b9935d0d10bd825165f6bed20175dbf68e496aed64cfc36be8d79deaee98ea",
+      "size_bytes": 46861
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/PHASE_0_EXIT_BACKLOG.json",
+      "sha256": "b60382a602b74b6f06856e2dad0c748929dec24e4682d32ac6006ac12c696238",
+      "size_bytes": 15817
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/PHASE_0_EXIT_BACKLOG.md",
+      "sha256": "e278bb8e57aa05fff0de32bd41da1df4b8721a8ee7995bc8944b344369280814",
+      "size_bytes": 16058
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/PHASE_0_FINAL_GOVERNANCE_AUDIT.json",
+      "sha256": "58ce93c5d2db6f0af28f852161981a0890fc9ab734355dd80e2ab7169d53c1f6",
+      "size_bytes": 20235
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/PHASE_0_FINAL_GOVERNANCE_AUDIT.md",
+      "sha256": "7e022cddf4c8af41ca2c83ae2b160691c45ef91ddb3b97ee388f0aada36ac7d5",
+      "size_bytes": 30750
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/SLO_RETENTION_SCALE_EVIDENCE_AUDIT.json",
+      "sha256": "6f7163f7b1ef450200902ab1afb3099957af76e1d936727b6f28d650f88fb616",
+      "size_bytes": 38830
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-0/SLO_RETENTION_SCALE_EVIDENCE_AUDIT.md",
+      "sha256": "b2b22f5c2a7aa43ee5302e4576a9135d3b21327e56dcc049fb11edbddeb7f0d9",
+      "size_bytes": 45663
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_API_ERROR_CONTRACT.md",
+      "sha256": "fcf3972f8d839320edd040b2efae4e13ac9571fa196f4185355847818960e2f6",
+      "size_bytes": 14062
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_API_V1_COMPOSITION.md",
+      "sha256": "d5153924832c1f168fa437b2af5422bfb0730d52e565b208bb75bc350d9eaa60",
+      "size_bytes": 11549
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_APPEND_ONLY_AUDIT.md",
+      "sha256": "2d01962ab9066b87b2de316c21f9e0159554670d50e553484b1d551dd82d39c9",
+      "size_bytes": 12414
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_AUTH_PRINCIPAL_RBAC_CONTRACTS.md",
+      "sha256": "1799f1db7d7fc46002ccdd2950901d4eab63e54d0d675df0e56c4b03142dfab9",
+      "size_bytes": 15987
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_CONFIG_LOGGING_HEALTH.md",
+      "sha256": "0a0563f9636bd2a3be53a83a0150d56687fdbf11f6d2690ee23d32db5580720a",
+      "size_bytes": 17783
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_CONSUMER_PROCESSING_ORCHESTRATION.md",
+      "sha256": "68e765eb92f65d08ca7db9ac23c04b79ac9384e96b76ad2265dea8166c45102f",
+      "size_bytes": 12858
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_DATABASE_FOUNDATION.md",
+      "sha256": "7e64221cd67f226fe7a3b3cc3ec807e7fc2eb3a777dc77fad562f71fbd4607e5",
+      "size_bytes": 15283
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_EVENT_ENVELOPE_CONTRACT.md",
+      "sha256": "2f503cb116fb223d3375cd3c6216805f1088f0b06a724b4eaddd94bb424054f9",
+      "size_bytes": 13602
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_FOUNDATION_BASELINE.md",
+      "sha256": "dbe6fb57308dc8f9ded30b9f422007aedf11424e4ff1205351612750923db54a",
+      "size_bytes": 19076
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_GOOGLE_OIDC_VERIFICATION.md",
+      "sha256": "f9a31990af90d37f608cf61f566f7db066492fb9a5b24f98c0a4b3be402a0b1f",
+      "size_bytes": 15586
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_HTTP_IDEMPOTENCY.md",
+      "sha256": "82cf3130ba2ebaa7a3b5fa98e28e6cdb230994698c1dedec500f8761ab19bc73",
+      "size_bytes": 13516
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_IDEMPOTENCY_CONTRACTS.md",
+      "sha256": "6e71ea06098db56df20ae3c0b5a36d14562acc2c0cdc456c3b8d88304bb91456",
+      "size_bytes": 11665
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_IDEMPOTENCY_PERSISTENCE.md",
+      "sha256": "9ae0c8bc37d85717ec24aab5e736520f46d95e07c1101a6040e0ecfef2393811",
+      "size_bytes": 15220
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_IDEMPOTENT_EXECUTION.md",
+      "sha256": "1e4be6a4ed76f2ba0d65e093b5011c43ff00460b07efea65ef58bf8abb5dedf5",
+      "size_bytes": 17574
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_JOB_CONTRACTS.md",
+      "sha256": "ef7678fb68323b898b6d2b9980598937fa90c8d573f5dfdd6278cecda5bce782",
+      "size_bytes": 11556
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_JOB_PERSISTENCE.md",
+      "sha256": "1119b897c936de6437f9b2dbbc0286b39c7e35d7caac4ca72696c7ae9d54440c",
+      "size_bytes": 17717
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_JOB_READ_API.md",
+      "sha256": "e60e6e59d7644a28a2be4f1dc009e8656259635f573c4e7dcd6ac91ae3e79c5c",
+      "size_bytes": 8964
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OBSERVABILITY_ARCHITECTURE.md",
+      "sha256": "27f924adb4e6fcd15d55a1216902df2a58a21a0b149301b20c7e0ff96c93584c",
+      "size_bytes": 14094
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OBSERVABILITY_RUNTIME.md",
+      "sha256": "302361eee5788dee776f3dcf09c530f04e249f7f75ab9797f9e829c72c534af7",
+      "size_bytes": 4667
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OPENTELEMETRY_CORE.md",
+      "sha256": "350908710c8eefac8ab714d7ae8d00b3ef37d4673583a48250a4a0a326516779",
+      "size_bytes": 8645
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OPENTELEMETRY_INSTRUMENTATION.md",
+      "sha256": "8a6d0cb0f8f9612b881b0c0afe600cc6cf03148817abd06459621f9cd27cc678",
+      "size_bytes": 7228
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OPENTELEMETRY_LIFECYCLE.md",
+      "sha256": "99dee25916710fdb7a1d485772488d4a2378c31ee19ba751c6392939832f0cf6",
+      "size_bytes": 7259
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OUTBOX_DISPATCH_ORCHESTRATION.md",
+      "sha256": "6b38a8505c2e332726fcac3b84aa69fb45a2bcdb3b56f74d773ac8a95e7bf4ea",
+      "size_bytes": 15861
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OUTBOX_DISPATCH_RUNNER.md",
+      "sha256": "8c8a47c358d8dd2c3c2a8e3b13a563726c11394eb0d502c894dc368a7d9365cb",
+      "size_bytes": 17227
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_OUTBOX_DISPATCH_STATE.md",
+      "sha256": "de87328a941967d3aca6705ba5236908adfb4f11fadf267cc356cedcbbb37e33",
+      "size_bytes": 13967
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_POSTGRES_RUNTIME_VERIFICATION.md",
+      "sha256": "b249f5b2b9ce2f18ed456b4fb497db6efbc12d2501bd453c10def3dd1ad4b3c0",
+      "size_bytes": 18588
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_RABBITMQ_CONSUMER_MESSAGE_BOUNDARY.md",
+      "sha256": "28565d6253608ecb0b5aaa9d8a88781e828ebe641f502e6fb47cae041d956115",
+      "size_bytes": 13576
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_RABBITMQ_CONSUMER_RUNNER.md",
+      "sha256": "82239a03daa2a918a447db7277ae2fe9215c443311d3bf0cd9b58391c6f996a0",
+      "size_bytes": 14590
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_RABBITMQ_PUBLISHER_TRANSPORT.md",
+      "sha256": "8f3efe1f4af8a7f2c70c53509358e58c95a55ecb34a50c8f2acae6ccfe117c65",
+      "size_bytes": 11515
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_RABBITMQ_RUNTIME_VERIFICATION.md",
+      "sha256": "3f3af3560454756b6022e972724844e58ae1a3a149b45649510fe8ae38a3c071",
+      "size_bytes": 19243
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_REPOSITORY_UOW_TRANSACTIONS.md",
+      "sha256": "25088fa3c17cf67e96bd8628db6702441ef8084d811923bfaa489d2afb3600d4",
+      "size_bytes": 17592
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_RUNTIME_TOPOLOGY.md",
+      "sha256": "586d9d436d888fa483546035fe99a6eb3ba6cb2bdf129328196ae54296f7c61e",
+      "size_bytes": 18032
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_SERVICE_API_KEY_VERIFICATION.md",
+      "sha256": "5167ba7a6172369da7585c5dad98d854ece361b76b43c5aa618a1f58ff6f2718",
+      "size_bytes": 19686
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_TRANSACTIONAL_INBOX.md",
+      "sha256": "e859bfe612aa6f4b0639bb6d9822249d239ca9acd0c86b953a8fd40e7f66f93d",
+      "size_bytes": 12149
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_TRANSACTIONAL_OUTBOX.md",
+      "sha256": "f22d38e8b49016234065d1863bef9c8e5d1b6cc5c72ecd34fdac92462f1cdd5b",
+      "size_bytes": 13934
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_WORKER_RUNTIME.md",
+      "sha256": "d0df74de0f86bc2613725674b157feed8d1d521b64bf776cb8a12069a800f223",
+      "size_bytes": 7780
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-1/PHASE_1_WORKER_RUNTIME_VERIFICATION.md",
+      "sha256": "403a0e1734cd751f1b4956b25d31be1bfafc25455250084b870f221345b88861",
+      "size_bytes": 13541
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2A_BASELINE.md",
+      "sha256": "079d2e3658d347308d8ffc2fb5c0530ae4e33ac16b4df12473fa35bce57841c0",
+      "size_bytes": 6027
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2B_BASELINE.md",
+      "sha256": "307a16f23723ec1b9aa89539802a0c6a4770c42bf91c1dd94af8f333b695ed8e",
+      "size_bytes": 3229
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2_AI_EVALUATION.md",
+      "sha256": "717ff38a7e6094b0af7fbb901f8909059159b1af1dacf38b6233536fa743eb1d",
+      "size_bytes": 3249
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2_AI_PLANNER.md",
+      "sha256": "db61346de97ada9d4f5f464180a0b28803cfddca96fa16b220b1af64c2ee2864",
+      "size_bytes": 5405
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2_CONTEXT_BUILDER_RUNTIME.md",
+      "sha256": "5c7f466a4f4c3de98cc7249118f0c73de368edac096c93d34b2f513c9479fd80",
+      "size_bytes": 3273
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2_DEPENDENCY_CPM.md",
+      "sha256": "3cc328a177b9768129f3e90c12762b03015135ae328abff2835b79e53149fed4",
+      "size_bytes": 3683
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2_PLANNING_PERSISTENCE.md",
+      "sha256": "e55ad3a507820e8b35399d4eaf6a68f5241cb01ef6ae87cafd9dba9022a6fbb4",
+      "size_bytes": 4843
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-2/PHASE_2_TASK_INTELLIGENCE_DOMAIN.md",
+      "sha256": "719af0d7ec7c7c7a05381b612f9848fbc2e766df7774f99116f02e62585c928d",
+      "size_bytes": 9144
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3A_BASELINE.md",
+      "sha256": "0de55c8d83bd9c43ad12163de2b2ca8c75ff3be47b5df2b748edb031a5b62c05",
+      "size_bytes": 4176
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3B_BASELINE.md",
+      "sha256": "7a345bd9c33ffbff86e983fc99bef171c73c045230ae350d1c7c97eb185069d5",
+      "size_bytes": 6567
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3_APPROVAL_MODELS.md",
+      "sha256": "91034d47d9c77e31e5517ca19aa277a03d76de622665e8eb07f2440cb8051ee2",
+      "size_bytes": 1545
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3_DMN_FORMS.md",
+      "sha256": "aec91652019b09710385be6475b46bd7ce03831c7eace1d101b6f305285635b3",
+      "size_bytes": 1897
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3_FLOWABLE_ADAPTER.md",
+      "sha256": "0fae44757fa698379decad013378a960deff5f817375dac4f598fb3cd0a7fb08",
+      "size_bytes": 4592
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3_SLA_ESCALATION.md",
+      "sha256": "56c3a5bd5fe87f803d1faeb4520f0899ce20f21d5a8b83a3cb7e67c993a686ad",
+      "size_bytes": 1410
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3_WORKFLOW_DESIGNER.md",
+      "sha256": "dd65b5735874b60d53a1894235b330fed190ccf35678eb55dcef172d54a56077",
+      "size_bytes": 2039
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-3/PHASE_3_WORKFLOW_RUNTIME.md",
+      "sha256": "4c1cb5d29b28222609a6ba0858224cd627ce8e3b7737460d6cd47576eb922ad5",
+      "size_bytes": 4566
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4A_BASELINE.md",
+      "sha256": "227e859a2c92cdb6393607627f00c430d7ab37fe6f5494bbdcd30c61d6b32330",
+      "size_bytes": 4353
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4B_BASELINE.md",
+      "sha256": "f587c63e2e0969aaf484d80010c8626fb2593ca491d7cfcf02ce69ee0f86b02e",
+      "size_bytes": 3269
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4_CALENDAR_SYNC.md",
+      "sha256": "61d0770dbbf159a171dff471c3a920c20df457fed248bb86461f03c3875fe6c2",
+      "size_bytes": 2190
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4_INFEASIBILITY_DIAGNOSTICS.md",
+      "sha256": "87555404272e32ee151bfc1726bcc884eec8290089cd6f26079f548ff35174fe",
+      "size_bytes": 2185
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4_ORTOOLS_SOLVER.md",
+      "sha256": "263c51919e4d92981cface41f9d925c66bbf539a0f3117b90782ec74e527e6d2",
+      "size_bytes": 2869
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4_PUBLISH_LOCK.md",
+      "sha256": "03b74deed32b71e242be318671f85b50b0578cf33129e7f0702caa9c259bc7a9",
+      "size_bytes": 2500
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4_REPAIR.md",
+      "sha256": "8e10545357302da73c7e5c2f44c68a1b6c1b71916f6a741138d8b4d8999688b1",
+      "size_bytes": 2644
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-4/PHASE_4_SCHEDULING_DOMAIN.md",
+      "sha256": "51dc7d7b378a621422360319ce9b8b1f4a3587d7e7fb8e437df8a6035f1c0e6f",
+      "size_bytes": 3846
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-5/PHASE_5_BASELINE.md",
+      "sha256": "bac62f7df65bbfc2457ace2aa0f620311367c90b661a060d3dc2c0e4dcb84908",
+      "size_bytes": 4551
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-5/PHASE_5_BENCHMARK_EVIDENCE.json",
+      "sha256": "6c8eca7fe62a16ce737130e8e152a41cd5a017a9e4f17336bcd39bdeb94880bb",
+      "size_bytes": 15709
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-5/PHASE_5_BENCHMARK_MANIFEST.json",
+      "sha256": "5c3ec1bc65dca4867a12dc5cb00a0693a012548d2a5a074ab974738b880d01bf",
+      "size_bytes": 1955
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-5/PHASE_5_BENCHMARK_REPORT.md",
+      "sha256": "cf18607f69dde1faa76b472a13db215e4c2ba7c97c2c43206cfb3eac52eaffdd",
+      "size_bytes": 11249
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-5/PHASE_5_EDUCATION_DATASET.md",
+      "sha256": "e7919f2179123ed68bd665b2e07b13952bbb01d99928db0290babcb5332a4f68",
+      "size_bytes": 7886
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-5/PHASE_5_ORTOOLS_ACADEMIC_PROFILE.md",
+      "sha256": "ecfbb823bea2dc2a1a0e2ccc7660089ed35b1d80b6be5dc20a1c1e60f8bfb07a",
+      "size_bytes": 5303
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/phase-5/PHASE_5_UNITIME_POC.md",
+      "sha256": "0a641a96286a134a05af55676a273301a0ed4143aa74408e1b0aaa08e9ee4ad9",
+      "size_bytes": 5006
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-6/PHASE_6_AUDIT_EVIDENCE.md",
+      "sha256": "d0f7546e931c2e210b7f81281e18e0be4be24f63bbba545ef4adf904d62d779e",
+      "size_bytes": 4860
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-6/PHASE_6_BASELINE.md",
+      "sha256": "15e3573c3096af6f62f4b216fe98e6a681fa60a5b2804e7ebe0a0729f4868eb5",
+      "size_bytes": 3114
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-6/PHASE_6_DEMO_UAT.md",
+      "sha256": "75a13ba038b6a6359fdcf6ddf8b1dcddb8615998247ed70d49d35f532dc42cb2",
+      "size_bytes": 7350
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-6/PHASE_6_EVENT_CHAIN.md",
+      "sha256": "ac77f8b7b26b591051eaedd6857103da43c10f2579a34503dbd99e99c36154c5",
+      "size_bytes": 3772
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-6/PHASE_6_VERTICAL_SLICE.md",
+      "sha256": "fff9e07d98ddd5aa4b241accdc5d2d3a5077fe2c4032cceb0fba75f3fe5c51e2",
+      "size_bytes": 9144
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/capacity/CAPACITY_TUNING_REPORT.md",
+      "sha256": "f499c9d7d90196c05ce645f4ac47fae8fd50e4e67f8458b6417d224dc343e875",
+      "size_bytes": 11799
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/capacity/RATE_LIMITING_AND_QUOTAS.md",
+      "sha256": "4f32ceff5766013c6bba9eefcb54e058a40bace8dcaa590ce08db55347ef5166",
+      "size_bytes": 7889
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/capacity/capacity_results.json",
+      "sha256": "3d5f91455572602db20d4b28afae29310f84969d3ce50727474d4e323a970ccb",
+      "size_bytes": 7526
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/performance/BENCHMARK_SUMMARY.md",
+      "sha256": "84971a7639843681df2902273f39b4a4b2f1e642ebe3baaedb072954999af1bd",
+      "size_bytes": 21480
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/performance/benchmark_results.json",
+      "sha256": "af8e86053088550663381f1d6c04e35d8277595a6f5adf2690f7fecd9aab5cfc",
+      "size_bytes": 21858
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/performance/dataset_manifest.json",
+      "sha256": "e74dd2ace739dbe5d2526e123e27883049e9a112f40887e2c08e68e90babe683",
+      "size_bytes": 7107
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/performance/environment.json",
+      "sha256": "427f395d9086e5a558266324380936400fe1ef0203731d15faa33e667504362d",
+      "size_bytes": 1988
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/AUTH_RESTART_RECOVERY.md",
+      "sha256": "f2dd67d7b7932f0c056514b81957985b9aca36245aeda04e2878131e8b238d28",
+      "size_bytes": 4916
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/FLOWABLE_RECOVERY.md",
+      "sha256": "f9b4575d57d7dcd0d246c1fbdfe1f15c56f901ee51ec76ac53f146b95a7b7311",
+      "size_bytes": 3186
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/INTEGRATION_OUTAGE_RECOVERY.md",
+      "sha256": "75025205217c4a8e35da17fa96f71a9722c32b912a61a0dca36415568b1c044a",
+      "size_bytes": 4078
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/POSTGRES_BACKUP_RESTORE.md",
+      "sha256": "93688ca35198afb1dfb4a323c3c1e6fa1c9d252339b436ce5f3044b9b93b5ef4",
+      "size_bytes": 3811
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/POSTGRES_PITR.md",
+      "sha256": "d0582b5327db65f94deb96514fec7e4ef77cbe10ef99c2a7442f78a8134e5f6e",
+      "size_bytes": 4089
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/RABBITMQ_RECOVERY.md",
+      "sha256": "c82b1b78e4fd4fe5cf7f3db0e4c62ee2c93199cc9600c5a2baa67f6916ebad0a",
+      "size_bytes": 3312
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/RECOVERY_DRILL_REPORT.md",
+      "sha256": "7c6daee55d746e60723baf103f055865983d24b7094e02fba182de5719f051ec",
+      "size_bytes": 10296
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/WORKER_RECOVERY.md",
+      "sha256": "79d466c7297ed251797fb1ea03261c8801467f99db3a0cc51efc6e60f133580a",
+      "size_bytes": 3721
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/recovery/recovery_results.json",
+      "sha256": "048fb34b423cb0406d079f30db1334dac4a8e2771f38eee0cbf52fa439ab20d6",
+      "size_bytes": 11591
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/uat/ROLE_ACCEPTANCE_MATRIX.md",
+      "sha256": "08416241802f89641094c32c65d0435b744c07ad00b5bf029653254eebbad37f",
+      "size_bytes": 9233
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/uat/UAT_PLAN.md",
+      "sha256": "8bbc8ac1c4f6762c5267ff43d3445eecf2347dd546704ebef5a5f3e19eb1b288",
+      "size_bytes": 12496
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/uat/UAT_RESULTS.md",
+      "sha256": "612433c23fd443a5cf7ef730ee091d120ba85bd265d13be4446cabd367ca3dc3",
+      "size_bytes": 17881
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/uat/UAT_SCENARIOS.md",
+      "sha256": "6d7bc9e3bc2754a2561b95b2756f424403300695df82c50bbddcf3e928e6a9de",
+      "size_bytes": 27938
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/uat/UAT_SIGNOFF.md",
+      "sha256": "ed7716445ff1f9bc62997b3d3e5ea0674c82af2c959d323b1d20b9e82122c4d1",
+      "size_bytes": 6525
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/phase-8/uat/uat_results.json",
+      "sha256": "43aade3ed9cf7e8605f90ba2d48cde944864b9d37bb624174fd723e25f0ffc7b",
+      "size_bytes": 58914
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/poc/PHASE_0_FIXTURE_CORPUS_AUDIT.md",
+      "sha256": "7fd8b3f97cad841fc36bcd1816d91cdd85314faa4c41e761051d66542eecec63",
+      "size_bytes": 18297
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/poc/REFERENCE_USE_CASES.md",
+      "sha256": "a5d315a2109ff1e72fcaac80f289e94256d6a0ddfc8b45352ea6a15e247d4024",
+      "size_bytes": 38539
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/API_REFERENCE.md",
+      "sha256": "c3e44b9b41ea3e02a1bf363c33fd064c6d4fa6f9b603b53e089a59da48315e36",
+      "size_bytes": 21476
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/CONSTRAINT_CATALOG.md",
+      "sha256": "0fc25e0e008cd7f061454d6e8bf88ed0ebe89840bff1d58990156c7c3d11a287",
+      "size_bytes": 10619
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/DEPLOYMENT_RUNBOOK.md",
+      "sha256": "b00076413afcecbc30b41c63dc536c2cc692e73af4b473f9eb50f16a3557a60b",
+      "size_bytes": 9986
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/DOCUMENTATION_INDEX.md",
+      "sha256": "0e9a53304456df2dc992fc51e78498ebbe4e50d7b1a0350aa60f375e4575d046",
+      "size_bytes": 5861
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/ERD.md",
+      "sha256": "868f3217dd8327a167545e839ddddd1448be3ba11f8068d9264d23e953c26ed0",
+      "size_bytes": 8316
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/INCIDENT_RESPONSE_GUIDE.md",
+      "sha256": "d5da0de3f3d46e30eb5a88c58cbb7fed191eac416f8d4c7abaf9ba2e07b8592f",
+      "size_bytes": 14645
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/MODEL_EVALUATION_GUIDE.md",
+      "sha256": "a505eb27652f3577f4ec39ecf9f32ba4d12c53f6450e56c2ad594a2289d68ab4",
+      "size_bytes": 7507
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/WORKFLOW_AUTHORING_GUIDE.md",
+      "sha256": "5a1028969d6c1afb48e1721542a002d90a6b25b3cee6d0d4d6e4fd6b94b76663",
+      "size_bytes": 8074
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/erd.mmd",
+      "sha256": "38a17a3a9ab7dd31eb1b58bad3a34b9e5ae79c06120c42619a13776f2b654d99",
+      "size_bytes": 14960
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "untracked",
+      "path": "docs/production/openapi.json",
+      "sha256": "9eb1c1a6d7b09806fae701082ad4880803a1467709b45abd4a2df07d9ed79f92",
+      "size_bytes": 251814
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/runbooks/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Complete_Implementation_Plan.pdf",
+      "sha256": "6072666c0788103eec6e6c0a8ff72750a67f9aa297241fb1f069a6e3fb3ca7a3",
+      "size_bytes": 970856
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Complete_Specification.pdf",
+      "sha256": "bbaf613eff19c7fcfde25b871ff6c8090d3faea0577e8322d941cc34dad8aa24",
+      "size_bytes": 863392
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/source-of-truth/IR_Infotech_E7_Operations_Engine_Open_Source_Research_Report.pdf",
+      "sha256": "68e8009efb81085d35e600844b9df62cc3bd768297f97a4b633de58698a93111",
+      "size_bytes": 896590
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/source-of-truth/opes eng.pdf",
+      "sha256": "a09bf19d96dd8f4895e6b8ce885fe9ef7014a591ef955485e82b7dbf3549bf00",
+      "size_bytes": 89412
+    },
+    {
+      "classification": "production_documentation",
+      "git_status": "tracked",
+      "path": "docs/user-guides/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "dependency_specification",
+      "git_status": "tracked",
+      "path": "pyproject.toml",
+      "sha256": "5dfb45fe41a026db0473f144601f0a12c6268034ff6fc06aa8739c87cd6fb455",
+      "size_bytes": 2306
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "tracked",
+      "path": "scripts/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/export_openapi.py",
+      "sha256": "96d82ebdd931793c8430542abc1de0060c2512b75b45b5dc19517419914ec241",
+      "size_bytes": 15414
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/generate_erd.py",
+      "sha256": "7d15a79df9623bd42c0a8bc5203c97d29d2658193faa480ac0755020b0ea8966",
+      "size_bytes": 3148
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/recovery/backup_logical.py",
+      "sha256": "ae943672976a383ea648a3930609ff87c6740f0ecc3c1c4ec383206c75c8265a",
+      "size_bytes": 3922
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/recovery/pitr_drill.py",
+      "sha256": "6814cac864197466256130511fe631e148d53adec73c3123ff2414f7f717360e",
+      "size_bytes": 11454
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/recovery/restore_logical.py",
+      "sha256": "06d32e4f544b0bd8feccd8562efbdd7cf4dc4b4310520e54d04e9e0c772fd46a",
+      "size_bytes": 8473
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/recovery/run_all_recovery_drills.py",
+      "sha256": "c1a5f07d537ff546ed9750de956266ac31f79201f6902acc0304534345d7f1cf",
+      "size_bytes": 14962
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/release/build_aggregate_ledger.py",
+      "sha256": "ad75be69f7559e0bbf2f1314ee64873d685932be8e904d871b38f6ec2312a8a2",
+      "size_bytes": 16068
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/release/build_manifest.py",
+      "sha256": "0f36af4d4e2f99f2d368cff8c0eb9c40eb0fc302d15e4663728d28bb9770f81f",
+      "size_bytes": 6770
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/release/build_third_party_ledger.py",
+      "sha256": "52a54d72e4bb117c9354a4d16fe2dec75683c6dfb4c4471981b6884fa00a9077",
+      "size_bytes": 10326
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/release/generate_sbom.py",
+      "sha256": "4b3f71fa37416e63de49785256007ed6c024f095172d39fcfdc1a4579980d353",
+      "size_bytes": 12535
+    },
+    {
+      "classification": "operational_script",
+      "git_status": "untracked",
+      "path": "scripts/release/scan_secrets.py",
+      "sha256": "d15271edf8d34cbc0a06ee53da9789f576ad568889b60ff81480e911ce987a7f",
+      "size_bytes": 7003
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/__init__.py",
+      "sha256": "f5dc77d40c86cd8ccbbebfc3b97d12dcd4c48e5b0082b942bebf9e6b2523c07d",
+      "size_bytes": 22
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/ai_eval/__init__.py",
+      "sha256": "3672e6f53de603565a31a7645e1706943ee530d2fe9d8b28dcd0deb07a3fa40f",
+      "size_bytes": 30
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/ai_eval/deterministic_model.py",
+      "sha256": "d8ed819b7369b3a20abf95755a54524561a8f707e1b34946dd035b13954ac31b",
+      "size_bytes": 10950
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/ai_eval/evaluator.py",
+      "sha256": "bfd9a8c1f22408d3e6dfb1df44ed06400678de40b435306ba3fc92b31356a050",
+      "size_bytes": 17751
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/ai_eval/test_gold_evaluation.py",
+      "sha256": "c9190d567ff998a6a7b6ead49ee657218db0a8ebcf435475cc3a4cdae4b95691",
+      "size_bytes": 5008
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/ai_eval/test_planner_pipeline.py",
+      "sha256": "44952e7c1e17be9c0ecc40b719284075c78afe176c1063c06c47f46e4c9fbfdb",
+      "size_bytes": 8977
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/contract/__init__.py",
+      "sha256": "ca02263d6a999f24b80b890148dcd44f33db6766bf7fef9e6793043a086c5bfb",
+      "size_bytes": 31
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/contract/test_planning_api.py",
+      "sha256": "f60c6df86eaeac440efe4d4f1af48c8b9d201d5c78bc4fb6ec464f3d2ea71f09",
+      "size_bytes": 13632
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/contract/test_workflow_contracts.py",
+      "sha256": "2f39e51e00936a36167f30cf56270ee898b96599505fae246447d497735f69b0",
+      "size_bytes": 10779
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/e2e/__init__.py",
+      "sha256": "40df98a854e001afe6b02baaa96c8f850f52c640692178f823d63cc3bc8b8615",
+      "size_bytes": 26
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/e2e/phase6/__init__.py",
+      "sha256": "c3abeab8c0b63f6bdab7d636434dfccdd6fa2a0224b12e223a9a32bb288590f7",
+      "size_bytes": 35
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/e2e/phase6/conftest.py",
+      "sha256": "1fd4e6fc89075a6426e67673f647dec137ce92dbf9bf3f967ea35d9ce22a30cd",
+      "size_bytes": 7532
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/e2e/phase6/test_semester_exam_e2e.py",
+      "sha256": "983955994e5d3f59adddb88b2cdb3db0f760ffd459290e94090e8db867debec5",
+      "size_bytes": 56699
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/e2e/phase7/__init__.py",
+      "sha256": "cbced2d2afef18b53eb579443f116b648fd0b2cd1dc43ae5eb080caafb4fe038",
+      "size_bytes": 47
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/e2e/phase7/test_google_calendar_live.py",
+      "sha256": "66c0491efc5cd9f84137fc97dbb919b76072146c4241a12b3cd4c797824c4002",
+      "size_bytes": 9927
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/e2e/phase7/test_mysql_erp_live.py",
+      "sha256": "16d0d920d079385ecf0bd7b062515407d8cf6db0dc0fa6be8ad317fcac259d80",
+      "size_bytes": 7403
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/e2e/phase7/test_phase7_live_vertical_slice.py",
+      "sha256": "63c7b5cf36b3e6aa27f473dbc6701327c8fb9a1e63f06ff00c5d3f32775a6dd5",
+      "size_bytes": 16266
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/MANIFEST.json",
+      "sha256": "23b2caca860b2bc7c3d200eb219471ed4c6f08f54075cbed6bb6f252d16d46cf",
+      "size_bytes": 7676
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/README.md",
+      "sha256": "68db4b02fb99bb4ded92418058ec7cf10084b5f7fb1f7a0564c01afae233578e",
+      "size_bytes": 8515
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/ai_gold_set/TI-GOLD-001.json",
+      "sha256": "092a4e84b1d71b53de88ca7643e1a6472d4c55d4660fd5fce9269546b5bdaf91",
+      "size_bytes": 3818
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/ai_gold_set/TI-GOLD-002.json",
+      "sha256": "8084fe2c725d3869754c6df1d6327509103a39c40d61e4e9740f670261c6c09f",
+      "size_bytes": 4230
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/ai_gold_set/TI-GOLD-003.json",
+      "sha256": "801ec1b93037d0ae608445a64fdbbed62b173aa46bf009f68eba1197dfdb3252",
+      "size_bytes": 4061
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/ai_gold_set/TI-GOLD-004.json",
+      "sha256": "91efd3e6e69c8d1d762dbf6aa8cefbc64d08e084c5484e6b8fda3f910fbbbdbf",
+      "size_bytes": 2871
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/ai_gold_set/TI-GOLD-005.json",
+      "sha256": "81fee9c138786c6a641727673cea4a2e389edb3684863026555b069f075cfef3",
+      "size_bytes": 6236
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/integrations/INT-CALENDAR-001.json",
+      "sha256": "c4eda2204d716a650af29365a5edc0f9064d5967c9aa4ce7d9b0271af3b8cd52",
+      "size_bytes": 2456
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/integrations/INT-CALENDAR-DUP-001.json",
+      "sha256": "3a8f0fc915adb00854dbee7b8a2193753ae23106e8565f7071f14fd7fef26b52",
+      "size_bytes": 2432
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/integrations/INT-NOTIFY-001.json",
+      "sha256": "b8e8ccdc12d1eabc45cc691d08f6e8601a4847de80159dc1c57b3aee50027058",
+      "size_bytes": 2850
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/resources/RS-SYNTH-001.json",
+      "sha256": "a85fed2b6069000bcbaa27c897483bff5a70aee9c00f5f25568a812df1609fb6",
+      "size_bytes": 26119
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/fixtures/scheduling/education/phase5/MANIFEST.json",
+      "sha256": "5c3ec1bc65dca4867a12dc5cb00a0693a012548d2a5a074ab974738b880d01bf",
+      "size_bytes": 1955
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/fixtures/scheduling/education/phase5/PHASE5-RS-EDU-001.json",
+      "sha256": "4a1ca0d0fcccbd53c336d15b1efea75340bc745bbfa390fb217e07f2f57ef02a",
+      "size_bytes": 27931
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/fixtures/scheduling/education/phase5/PHASE5-SC-EXAM-FEASIBLE-001.json",
+      "sha256": "96863cc562b19929f5c0e71a083e675c3d348ccaf2aab38654006eda529d307a",
+      "size_bytes": 16010
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/fixtures/scheduling/education/phase5/PHASE5-SC-EXAM-INFEASIBLE-001.json",
+      "sha256": "ed40a105179764f6794c3a2e1a7543c34fee85a12439a756a6661a2c7de79f67",
+      "size_bytes": 5489
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/fixtures/scheduling/education/phase5/PHASE5-SC-EXAM-REPAIR-001.json",
+      "sha256": "46cb07ef7e6f089dfa32850a5df23cab1c355509c05f028d74e8536259e0e8a4",
+      "size_bytes": 20608
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/scheduling/exam/SC-EXAM-FEASIBLE-001.json",
+      "sha256": "afa37a4c329cd84285d014b57d6fa6904bc1c64be1c817c78d94430840e98781",
+      "size_bytes": 15818
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/scheduling/exam/SC-EXAM-INFEASIBLE-001.json",
+      "sha256": "f9f7d824a43ff67cacad389f887416d683c11580afc4a411d102277cb2c99279",
+      "size_bytes": 5357
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/scheduling/exam/SC-EXAM-REPAIR-001.json",
+      "sha256": "0b7f1cd1446ed0feb2876af107e86716e62f8e09786332d983dc55004e5a4748",
+      "size_bytes": 20225
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/scheduling/maintenance/SC-MAINT-FEASIBLE-001.json",
+      "sha256": "99d9f72fac2f3bfd218fa2caf443baf629c16a2bedbafda9ff4d151f736c654c",
+      "size_bytes": 6292
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/scheduling/maintenance/SC-MAINT-INFEASIBLE-001.json",
+      "sha256": "289f7127786c9a85d0bd93cdd870faa98ee28793cb43c6b3cb1f2df222cfda10",
+      "size_bytes": 2064
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/scheduling/maintenance/SC-MAINT-REPAIR-001.json",
+      "sha256": "0d6a22429a99e1c539fab5978eece0acd1c7bc59892af1dae70a271384da30cd",
+      "size_bytes": 8846
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/scheduling_policies.py",
+      "sha256": "e6756e73cef390b6f4eac94d2df9da139c93a109c75365a22499c5fa4599852e",
+      "size_bytes": 1258
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/fixtures/security/ai_prompt_attacks.json",
+      "sha256": "61fa47f53ed0d49d03617ccacda13b49e026a5ca5104c06db4719139773f2779",
+      "size_bytes": 9253
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/workflows/WF-EXAM-HAPPY-001.json",
+      "sha256": "6a1a0541c593743012a83f4338fad54b879435f163cacddf5da3102808131c71",
+      "size_bytes": 6540
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/workflows/WF-EXAM-REJECT-001.json",
+      "sha256": "4d20c6ea5b35044ce6f70b72b9764c4d1ab2c8f832d1906b30ffd1b46e50ff67",
+      "size_bytes": 6884
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/fixtures/workflows/WF-EXAM-SLA-001.json",
+      "sha256": "19bad551e3ef7fb9b9892a7461e85af7b9c0fa026f3c67913c7dbac6e4b46bb8",
+      "size_bytes": 7460
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/__init__.py",
+      "sha256": "fabae9f789cb194e6f07f683a55031e277b14f2f2378014b89cee578e35579d6",
+      "size_bytes": 34
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/postgres/conftest.py",
+      "sha256": "e1f73d2987c929df68c4028a0cb23f5262ce20dad25ace61e158c866a80b6214",
+      "size_bytes": 7523
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/postgres/test_audit.py",
+      "sha256": "49937628f3ab5d64db7b04a9174fa77b0944ba37f6a8142520e4b594b02945ca",
+      "size_bytes": 6381
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/postgres/test_events.py",
+      "sha256": "6f611826cbd9e5a3d80c5162c1e5339f1ef1d7d36c94ec2463d22727c28742b5",
+      "size_bytes": 5913
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/postgres/test_idempotency.py",
+      "sha256": "1e6f31beb94fa113ada663e3c111e8008b570a9bba7193f0a71c897027b5e771",
+      "size_bytes": 5744
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/postgres/test_jobs.py",
+      "sha256": "8f3299d24c4a3a2f1610a9fb827842a3fa943607a289360a5171ae48632f82b4",
+      "size_bytes": 15320
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/postgres/test_migrations.py",
+      "sha256": "fef76cb6de36a539764fa7e95006f2f9b46fb9f9b98ba428b8bd701be6c84e12",
+      "size_bytes": 9845
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/postgres/test_transactions.py",
+      "sha256": "73dac0b57d50f37f6ae1e5c3a170cc2c81300e8ac47deaf2e1ba15049d77d374",
+      "size_bytes": 5481
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/rabbitmq/__init__.py",
+      "sha256": "2ffc078aac31894e807918a3500f5885355249a18a624069aaa8356ed51219b4",
+      "size_bytes": 88
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/rabbitmq/conftest.py",
+      "sha256": "da66f2b5ad19c1a82f14482cbc50707c60c0cca41884287a9061a028cafe2d2a",
+      "size_bytes": 9984
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/rabbitmq/test_broker.py",
+      "sha256": "04861f08ebf7b4ca76928a8c1f863eb06df2c09ba613b3fc1ef52c53bd4298c9",
+      "size_bytes": 5236
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/rabbitmq/test_consumer.py",
+      "sha256": "4de50797daddd5fd5da18a786e32e38d78d0fd0dfb7397ffc88d41333e951637",
+      "size_bytes": 10292
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/rabbitmq/test_consumer_runner.py",
+      "sha256": "03af22f4a5cf2126d51ab1ad3625af81d094ed2b2beb926e646528cc0e875ed8",
+      "size_bytes": 20818
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/rabbitmq/test_outbox.py",
+      "sha256": "939d837d842f49f0a9358862511b396741adb87d21d3f09d0bad12734e7d9315",
+      "size_bytes": 6081
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/rabbitmq/test_publisher.py",
+      "sha256": "d1ed258457183c7070451f1144ae874c60d4ee936e825bb579b5af449d7ab2ba",
+      "size_bytes": 4411
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/scheduling/__init__.py",
+      "sha256": "602319fc1fb558029648831c2d350934fc6ed060b1cb78d492bffae1369010ff",
+      "size_bytes": 49
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/integration/scheduling/conftest.py",
+      "sha256": "993195732e758919fb49c4e930583c997812b6f48aa1da512fe2899bc6c42975",
+      "size_bytes": 1249
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/integration/scheduling/education/__init__.py",
+      "sha256": "f7b8560d4f7c6c84d1e7d7c382f521a79cf9f89f9ba5c6156ed9ba9b6bd0aeb2",
+      "size_bytes": 59
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/integration/scheduling/education/test_phase5_solver_benchmark.py",
+      "sha256": "4fe34c471acf04ddfeafa8650bfa51b9c80cfae95196083af40be3ab337e79e4",
+      "size_bytes": 8109
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/scheduling/test_live_phase4b_publish_repair.py",
+      "sha256": "04c705118f5096e3efe034e9aeddcf2182894f6e0754c705e1a1686ecbc58afc",
+      "size_bytes": 83863
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/scheduling/test_live_worker.py",
+      "sha256": "daa74870cc5b001c56b4c850b17751ec56c638fef8364733d413ebe50bd8ac26",
+      "size_bytes": 16408
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/scheduling/test_migration_0011.py",
+      "sha256": "176c6b13827d9ecee18e4eff4fb7b8eb6111c331190c6befecf25ac41c3a5fee",
+      "size_bytes": 5893
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/scheduling/test_migration_0012.py",
+      "sha256": "3edbb0d6cc5ae770fca151b2bb154e87b330937331bf6d4db0c0761de2d59592",
+      "size_bytes": 8830
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/task_intelligence/conftest.py",
+      "sha256": "2437841500bebd345292c1d94ae566793dcb17814cac8ce55c2adbfc066fc037",
+      "size_bytes": 5373
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/task_intelligence/test_ai_planner_integration.py",
+      "sha256": "99d67707ed6a353179f538dfbe546b477e886a7ae784b61fabf33c634a695955",
+      "size_bytes": 3626
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/task_intelligence/test_end_to_end_deterministic.py",
+      "sha256": "c3c4f1002c9f3fcb785429a255829204df79e9cca33224a7dc42e77c83a495e3",
+      "size_bytes": 14383
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/task_intelligence/test_plan_service_atomicity.py",
+      "sha256": "2b001ef06475f5c85c23b2a2ba5fae2480b3a098b7ea6e54f4707bbd168ec232",
+      "size_bytes": 8848
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/test_live_observability.py",
+      "sha256": "7392f500b949f63c681fad58e6492a463ffb49ff045cc5f4183e88238b3c8a84",
+      "size_bytes": 19043
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/integration/vertical_slice/__init__.py",
+      "sha256": "d42cce0e5f30730854ed32f15bf3775a658a7ee7d43dbe4a4233dafa4709833f",
+      "size_bytes": 48
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/integration/vertical_slice/test_phase6_vertical_slice.py",
+      "sha256": "7130af5b595611f42907026668acb06e2fb7a444d5ea40fccfc59a84df0e8507",
+      "size_bytes": 39498
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/worker/__init__.py",
+      "sha256": "534f6ce3160dd1cac527d1c33c9f106521a1e21bb6716f84c74c4ff97b6ff286",
+      "size_bytes": 47
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/worker/conftest.py",
+      "sha256": "9f62f64deb0d815d0a62dc3a1a81ffdb327c4b7fd70bc18b65fe87acf592aada",
+      "size_bytes": 10129
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/worker/test_worker_runtime.py",
+      "sha256": "7b6d4ca42ddda3c074886c47430d6534495f28d3ab5a5009205e431e54b97b4b",
+      "size_bytes": 14200
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/workflow/__init__.py",
+      "sha256": "3f1b34258b8bc96dc11d4f53d49f70ef1a4af5334b1cbf8864741d0bb3cbfafd",
+      "size_bytes": 81
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/workflow/conftest.py",
+      "sha256": "b1fda8d4822237369ed2825a3d8e3871430469214c95083b8cc832c7bd60d57b",
+      "size_bytes": 7437
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/workflow/test_flowable_live.py",
+      "sha256": "a841eae68b95762c755ca96a3a45c9bfb1fe9b2df34e575e5ff2046a5a6970cf",
+      "size_bytes": 46006
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/integration/workflow/test_migration_matrix.py",
+      "sha256": "1b508b865292bae26585ca3d4b9cb30f98da4fe19506285d80e663cf3da90b13",
+      "size_bytes": 6151
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/performance/__init__.py",
+      "sha256": "6ed20ee5ef13c1442c8af5c31859f28f624d445145f4b42421e22581e345e3ab",
+      "size_bytes": 64
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/api_server.py",
+      "sha256": "5e371671533c3465c0e17c9e2076814bf166b36d1faf042d2645f0643a95ca72",
+      "size_bytes": 1189
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/datasets.py",
+      "sha256": "1cd2010426bc076774ef30325bc6689f8d0209da693e2c9a38de224980d58371",
+      "size_bytes": 6159
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/fixtures.py",
+      "sha256": "4002005cc9a10b338c8bc35b3b8cbd94166dcfc260e7c63676d51456176a0890",
+      "size_bytes": 6997
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/locustfile.py",
+      "sha256": "3372d28d5e1309421bbc03010471093a4b886d0fa9171b141fc1c226fe99e4aa",
+      "size_bytes": 2058
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/metrics.py",
+      "sha256": "9d722e492354b5966b56d63f173d977f7829f10ae45cc3161441ba64be62487d",
+      "size_bytes": 3663
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/resource_sampler.py",
+      "sha256": "ead5aafc5aec9215d677e85461503d124eeef59806cc0f843b0f9fef636a26da",
+      "size_bytes": 9216
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/run_all_benchmarks.py",
+      "sha256": "a574bce8939cbd936386b9cbe43322ca3c4c0ec9351b537e2118685e3eb7ff30",
+      "size_bytes": 29204
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/test_http_crud_load.py",
+      "sha256": "15945f9e5c8ce2216905b804d27dad737290b4c31bc063892ef507a745dd30c8",
+      "size_bytes": 14575
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/test_outbox_inbox_throughput.py",
+      "sha256": "4064a7a2c4759f2d2efcaa80fa72eaa50761fc63a15c5e05a0fb660e99347a78",
+      "size_bytes": 8415
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/test_plan_generation_load.py",
+      "sha256": "e5224673126599e7d04f500bbbac508703f4ea46bfc829494747573d1b89bda1",
+      "size_bytes": 8625
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/test_real_http_load.py",
+      "sha256": "a6b4caa13c957550bb58aec80078f64b94046510a7827a6ef05241eb0df891b6",
+      "size_bytes": 24650
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/test_risk_repair_analytics_load.py",
+      "sha256": "1e5e184aec8bbcf79c90fe5c28173e4f91975554d90cd97f5110c095e190962c",
+      "size_bytes": 8971
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/test_scheduler_solver_load.py",
+      "sha256": "269785d66c5caf28a8b2f7b10dbca69a8493ba9139d20c15e012b64ed8b48982",
+      "size_bytes": 9262
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/performance/test_workflow_concurrency.py",
+      "sha256": "f38a7c68ac16d9f768e477d08868cf8b1f7feb299779e29bee6cc4a337e6702d",
+      "size_bytes": 7150
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/__init__.py",
+      "sha256": "fdb05c55bef07fb6cf291ef0cc9975d7c5c1ccc2182d38e279b766235882a5e5",
+      "size_bytes": 51
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/test_api_auth_recovery.py",
+      "sha256": "f728a5efe95b942375eaf2e532138f21466a5c78121208ec63d0d9226ab7c3c4",
+      "size_bytes": 22907
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/test_flowable_recovery.py",
+      "sha256": "a003f6a8f4ff15e9b7ed191597fbb1f97108d2e032715392be4b04981c3598d9",
+      "size_bytes": 3241
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/test_inbox_crash_recovery.py",
+      "sha256": "81f1672f7bf6c64c875dffc7007591b8be5aabe933ebe5ca9f0b9c961532962f",
+      "size_bytes": 5027
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/test_integrations_recovery.py",
+      "sha256": "8becd9f4539023b0ac1827a53e7bd78885d317ffca18aeaad80c316e3b32ddc3",
+      "size_bytes": 5074
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/test_postgresql_recovery.py",
+      "sha256": "84cdbb5e221165c6adba77ea040f3700dce25086a74a7d3c29a079f947b3a7a3",
+      "size_bytes": 6563
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/test_rabbitmq_broker_recovery.py",
+      "sha256": "117f7a5643c688cb2dc8433fa018e2c0baf72c560fcec1bd54d5b9b000ff9258",
+      "size_bytes": 10596
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/recovery/test_scheduler_worker_recovery.py",
+      "sha256": "6702e2a5dc660c30e52ceb72c473e810f4065424db5f483f4c15a1b0ccae18d8",
+      "size_bytes": 8272
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/security/__init__.py",
+      "sha256": "9e814eda8c16ace26d23cc47dd352a6195fe7a121fc66e59607389af52617c87",
+      "size_bytes": 31
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/__init__.py",
+      "sha256": "544ce7cf71ac4ffd8695269c58b6d3bcb96c5e67ef74cf651118b8ac30e2de18",
+      "size_bytes": 74
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_context_allowlist.py",
+      "sha256": "fbe421fa8e365320de58b6c9d2ef2bffaa0035af5b28340b909b811752a10a21",
+      "size_bytes": 5244
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_model_fallback_security.py",
+      "sha256": "abf23592b3e980ced5f595149663490e4c033eb0c1fd842eec458289d83652ed",
+      "size_bytes": 4618
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_model_output_validation.py",
+      "sha256": "65578a70fa5e6d6a979b900aaff84612ce357240f9b897bd95a590b9d852ce65",
+      "size_bytes": 6392
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_non_authoritative_boundary.py",
+      "sha256": "dcb56c58cab09d40229e1e833b320a7084cec750a01c83408ceba8e58695e83e",
+      "size_bytes": 5502
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_pii_redaction.py",
+      "sha256": "d87fffe4b76b406d6a8eeaffe201523c1219ed7b562daa2a773aaafe4ac51764",
+      "size_bytes": 5850
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_prompt_injection.py",
+      "sha256": "3f3a608923b460db1cd861b97a681d2a4b1434f13812556305177b4f0d0af052",
+      "size_bytes": 18147
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_repair_loop_security.py",
+      "sha256": "caf61c81a640ac84ffc78a1fe4eec40dfa2894e2bd50c4fb6f8b43fd0e9498e2",
+      "size_bytes": 5035
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_secret_leakage.py",
+      "sha256": "727ea6f771688c2592bedd5d11fc51a3528608b325c81d28a5fd53e19176c423",
+      "size_bytes": 8341
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_size_controls.py",
+      "sha256": "872e562b4c6074c57531b77f737cf797cd10c83867f5251177b05fab435b8333",
+      "size_bytes": 2884
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_telemetry_security.py",
+      "sha256": "409c781350a2e4eb27dc189029420306ef42c1fa0bcc4a2f46f48feae479eec2",
+      "size_bytes": 1710
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/ai/test_tenant_ai_isolation.py",
+      "sha256": "4f88018e9f0f51360f4b9980066ba098a88803a94e2ddb49952649a539449038",
+      "size_bytes": 2578
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/conftest.py",
+      "sha256": "df43561011d934e33e5c4f8e788203665a290b3f44589490578de79c1674df05",
+      "size_bytes": 44663
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_auth_boundary.py",
+      "sha256": "d054989988ec4d3d211ec5976c8996778c5364598d49677fd8fae88b987e9b10",
+      "size_bytes": 6614
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_authorization_matrix.py",
+      "sha256": "f972e87dc4ebbd26fd5b14eb144dd15734913bc5bde1157a2ab6c71b7b9a8b19",
+      "size_bytes": 15130
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_cross_tenant_bola.py",
+      "sha256": "4a9f8f59d87a01bcfd35b7ba3aa787a1e2e3dbbe02d6c4cec0c8be140b55fc90",
+      "size_bytes": 11434
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_event_tenant_propagation.py",
+      "sha256": "3ee35f774cf4fcc387c52976b7d52c41ed4e3dc0e2d0d899b778594a58f98be2",
+      "size_bytes": 4389
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_http_hardening.py",
+      "sha256": "f454b6dec8989fa903290056adb3826577f8857428bc293bcb7e47e342a05a9f",
+      "size_bytes": 10802
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_separation_of_duties.py",
+      "sha256": "d447cb3c79ec25440c69f004efaa31426ae400e87d8b73249ae6cd8d87d460fc",
+      "size_bytes": 8273
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_tenant_tampering.py",
+      "sha256": "eea302aa26216257a7f8526ab77a17b5afdd003b1039c0f63224a254a545b0c6",
+      "size_bytes": 5842
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/security/test_webhook_security.py",
+      "sha256": "987bf7dce180b1f6e838027d807c8c67b5dc48aaf65acd8766f457c395f07be0",
+      "size_bytes": 11738
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/uat/__init__.py",
+      "sha256": "8b90f6522b4b36a2f6b46edc4d4594a35b2b1f812e935dbd508e2bee8047fbea",
+      "size_bytes": 54
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/uat/conftest.py",
+      "sha256": "6dd164ab74e629a5335a6d0e23040c0955146e56da64cec0e16f23cf2a9ae2b5",
+      "size_bytes": 22344
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/uat/test_role_based_uat.py",
+      "sha256": "dede3b24f958cf41502fb71bd983f767ddbddb62a860e25ec5fe23b8c8122834",
+      "size_bytes": 59707
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/__init__.py",
+      "sha256": "28d7e7eb2c62663296cea653595473b21acb8a6f6f9bc00183566144be2bc755",
+      "size_bytes": 27
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/capacity/test_capacity_controls.py",
+      "sha256": "21632dd7fb4c3a4e7fe8d46aa98cbef6eec7dc77814147f7bf6b66e6fc480920",
+      "size_bytes": 17351
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/integrations/test_calendar.py",
+      "sha256": "818b0a4c604a27e53b34e8f62566b5e1529fcec5749a5f7182cb5b705de6086a",
+      "size_bytes": 9467
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_e8_notification_dispatcher.py",
+      "sha256": "e36b5a753cfdea3551056ab03e9ec14a0f041659ecdf0678cf80e9d5035b0820",
+      "size_bytes": 7671
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_external_identity_mapping.py",
+      "sha256": "4f10fd9f72ac3b5d4a1de175b79e9463f2f7758bce5410ba5db600e401c073fc",
+      "size_bytes": 6372
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_failure_recovery_scenarios.py",
+      "sha256": "aa35262337513918ad9a4733c36adeb469b4d9c694456066aab27906aac55d97",
+      "size_bytes": 12313
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_google_calendar_adapter.py",
+      "sha256": "af73dd259629b87b5179e42271980d9283c1169a3e88d60051277c61fd841c86",
+      "size_bytes": 24258
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_google_calendar_adc.py",
+      "sha256": "7b8665fca83e8e66dc4aefd1f381ddff6e0de02dbef1c61f499630441f0c5d69",
+      "size_bytes": 18794
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_google_calendar_codec.py",
+      "sha256": "e970dd01f4ac30d69ebc0d7b3c74dc30f265e5f8c82a0a3afb95423fa5ead91c",
+      "size_bytes": 3692
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_google_calendar_production.py",
+      "sha256": "7303af8a52e3b85ae0d37b906aa2a16e5c4e0958ff149d17f83c79f4455e419b",
+      "size_bytes": 56108
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/integrations/test_mysql_erp_adapter.py",
+      "sha256": "316871cbaae9023d71a5172d971152f3bd29aaeee3ec5bbed2f3406fabc89dcb",
+      "size_bytes": 22072
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/operations/__init__.py",
+      "sha256": "a0dd6c46368fce0473dfde0d47c8a314580f60ac9c979cf1c13d3b73d0f51c47",
+      "size_bytes": 37
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/operations/test_durable_repair_and_freshness.py",
+      "sha256": "e5ff1bc62c5e9ffa5fe8e01fb0daead2d4e04030d9e0007d72b1b4f32025a2b2",
+      "size_bytes": 11017
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/operations/test_operations_risk_repair.py",
+      "sha256": "1a88de956c423f927a4bc692c28b95625f85d4c4fad333429722573aab9541d6",
+      "size_bytes": 16264
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/education/__init__.py",
+      "sha256": "4e5401600b786f4d2fa7e023d4585415ffad12c431d3bfdd90608f1177d3e59f",
+      "size_bytes": 56
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/education/test_education_scheduler.py",
+      "sha256": "d754deb7dc4a26531817ca76a66b6f6509a552954bc5423e4adfabe72bc554c2",
+      "size_bytes": 22217
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_api_contracts.py",
+      "sha256": "9d0ba93ae88a5b310cf0d91f95f12e5a4a4a0094d8f9b8ad0c8641fe5a366d27",
+      "size_bytes": 10235
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_canonical_repair_fixtures.py",
+      "sha256": "4039cb48520048a0c948fab2b1b719f91ee9ca61d967a72ab842f2d96f7c53e8",
+      "size_bytes": 18278
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_constraints.py",
+      "sha256": "e33ecef77b1826f5d9d20ef5b6ef2a9f3ddb65a388aaab588894ebb09ae3ff30",
+      "size_bytes": 5048
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_cpsat_solver.py",
+      "sha256": "c77fc1ad0b2e36f32b9b4bbabe07635ff369832b88ebfaf5279e85482fdd77e3",
+      "size_bytes": 8700
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_hard_constraints_matrix.py",
+      "sha256": "cb76e089d3b27b43ef0f3e3639b0ad66666cbeb94889df3d73cc8a788fb69b1f",
+      "size_bytes": 15725
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_hashing.py",
+      "sha256": "dc95a3a59eb73b63bd6026ea6da8c2446a0f9e763b4811cb527f3fdaf2053904",
+      "size_bytes": 3490
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_objective_normalization.py",
+      "sha256": "8b4548c90e12260eda5c0cd3bde2955e0d231a4ee7e5d118fbd2ae9ea673f99b",
+      "size_bytes": 12816
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_phase_0_fixtures.py",
+      "sha256": "2e33a8dd46304a2e4c75e48e992c384133c71348cf4d1343a9375dc93523ff10",
+      "size_bytes": 7524
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_phase_4a_baseline.py",
+      "sha256": "7cd3a05ba77b532b5d01329b315029d3b29efea6943b3ae2f4e3444a42a58b71",
+      "size_bytes": 8377
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_profiles.py",
+      "sha256": "80505d0c2745d295fe1d3017aa4ff0f0a3869cd501e42ca0dd2452f603a3ed1d",
+      "size_bytes": 3752
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_publish_policy_and_transitions.py",
+      "sha256": "fc83a86c72ccd774ad6981d755886ad81a5729948152f9113c15c3411f120f66",
+      "size_bytes": 7893
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_repair_scope_builder.py",
+      "sha256": "6741f41d2c5373cddb79dbc20f73b9ae6ed1ae539bd8c096c8046c2a9f85843d",
+      "size_bytes": 9462
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_resources.py",
+      "sha256": "7ce2a7f53add1184259a4522ae46cb9086e995d017e561a53bcaf06a3076ba31",
+      "size_bytes": 4003
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_service.py",
+      "sha256": "ec18e112bd7d9af865cb3e5b6115cf66c5ccf448fb0ea02c77c699f873db4f95",
+      "size_bytes": 7716
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_states.py",
+      "sha256": "048453a513ffa5fc4a823bf41a2dc19e12ad346816ca032aae37aff97ef329a4",
+      "size_bytes": 3423
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_stress_benchmark.py",
+      "sha256": "7c0232e82086d475fce2991a37d858d5c5aaac3eb2b83b8db4f940f4611984e3",
+      "size_bytes": 6489
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_telemetry.py",
+      "sha256": "e26c10f137690085a92816eefedd815a9467ba09855d3cc8918bdedefa338d76",
+      "size_bytes": 2871
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/scheduling/test_worker_config.py",
+      "sha256": "510a0c1bad9c915b409b450390eea4a31bfa1f6ad7493221d2de413522eaf3dc",
+      "size_bytes": 4200
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_cpm.py",
+      "sha256": "f8c078e28f8a8fb7f385054c633d045c579bd88ef689346f92e0b21b7c12fb76",
+      "size_bytes": 5227
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_dependency_graph.py",
+      "sha256": "6b80d0c1eafad66087a1e8d3657a7a4f694489ff416591e72ea582866b2b76a7",
+      "size_bytes": 5891
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_effort_risk_progress.py",
+      "sha256": "74bf735642b76c81d8f1867bbaf69c3f2b24ea9dbbc7d775a3fc0c524453cfcb",
+      "size_bytes": 8784
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_plan_service.py",
+      "sha256": "bd794d78ff635dd6d9e45c153f3a03267cef7eac5623c7cb75674c5a49915736",
+      "size_bytes": 993
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_plan_validator.py",
+      "sha256": "126e1ad0c5aed8eb496e13edcf5b4dd63dcc6c8c76769c0f28bb2f09e7c842c5",
+      "size_bytes": 7164
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_planner_config.py",
+      "sha256": "10a67edad13727fad8e870fe58e2cb65134545e172b250bbe1b303c5e009eac1",
+      "size_bytes": 7926
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_schemas.py",
+      "sha256": "915af4caa1005e8fd3a484fd2a71c436d29e77f17d9ed0e6c1f35631485cc0c5",
+      "size_bytes": 5872
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/task_intelligence/test_security_governance.py",
+      "sha256": "f2a45371b65457a5c58974778302dc7e35b8f06e98040f7781b32db4ec904900",
+      "size_bytes": 6277
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/task_intelligence/test_task_update_regression.py",
+      "sha256": "4244fdb19a4bcc13d1f56dbb69d28ebb3b9691d8c580e2039845c6e9347427c0",
+      "size_bytes": 4725
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_alembic.py",
+      "sha256": "777414130175f528d09f6bd6f0e78691ace9c3aef1f030a70dabf3ec9db34f15",
+      "size_bytes": 11104
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_api_errors.py",
+      "sha256": "17da535aca604a33356ff369ee823ea89447c609d36d96a53103c5090eaf7f12",
+      "size_bytes": 36385
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_api_idempotency.py",
+      "sha256": "8ad724d83507295ce6364fb2a3a3d0bb092ab9c6d7bfc3460bf6e08add0dc766",
+      "size_bytes": 32969
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_api_jobs.py",
+      "sha256": "5f3c050413c3b67cb8495f14c6f0f9afb68e35590d99592de191d2543ec37cf9",
+      "size_bytes": 26643
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/test_api_reference_coverage.py",
+      "sha256": "3d2f5a73e3bc4f561752cd682c5167141c5f148b76b86fba603901a3fb1d1e6d",
+      "size_bytes": 2032
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_api_telemetry_lifecycle.py",
+      "sha256": "161dcd690e23e94b8fa44732d2839dab30a665bd7eba3adf843f61163087b578",
+      "size_bytes": 9855
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_api_tracing.py",
+      "sha256": "a77dcf6b3b4a5a9a84533eb5de876b90a10d08e1fc52eb18f8588b8d9c0780b2",
+      "size_bytes": 12698
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_api_v1_composition.py",
+      "sha256": "e14dc44b9189e1c3285a0e424f2562c9b99fb4c58ba473e701f61c1e7bc4b56b",
+      "size_bytes": 16551
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_audit_migration.py",
+      "sha256": "867c26526109a4aeb4cb3cc878ef38ee7990d6ff3964f06ca62336f72d6f65c4",
+      "size_bytes": 7831
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_audit_repository.py",
+      "sha256": "c312ef578a0582f7ab49ed473a4e650b485c2a0bb785df66d64f3dae291e199d",
+      "size_bytes": 8327
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_audit_schema.py",
+      "sha256": "7392de374c9eda98676f1f6229affb1a1eb665e4e63a084d604eb1964f79fbc9",
+      "size_bytes": 16593
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_auth.py",
+      "sha256": "6cfe46f47b6845bf9ee99f0d36ebed1d287051c03d6e41602dde32465f9daff9",
+      "size_bytes": 23739
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_config.py",
+      "sha256": "6ce41eca400a5be863bfd58c327d8504c1381d3bc8b3be8c1fb639df8969b833",
+      "size_bytes": 2856
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_correlation.py",
+      "sha256": "e50ceea33b4b19c81522bdc51dab750c1e3ff71eb209e795bd391e22a4161918",
+      "size_bytes": 3550
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_database.py",
+      "sha256": "74cfd5bb62c7545bddc7e94ddd11936b329b5cac19616c764e241b1256d02c51",
+      "size_bytes": 14136
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_docker_compose.py",
+      "sha256": "8973469e7846b9ca91da6172e5b450611a8a8df3c73fdc0d18eee980f142d98a",
+      "size_bytes": 17332
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_docker_observability.py",
+      "sha256": "592d8217a3fedeea6002df0b288d8f7fec50cd66dbfb7522260b7254eb87415c",
+      "size_bytes": 8727
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/test_docs_links.py",
+      "sha256": "fd3a2ccaea4fe6925db399f1e0d55b2869ebb816089080558e73eb748bae51c9",
+      "size_bytes": 2991
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_event_envelope.py",
+      "sha256": "3d84e9dca30a6abfa529e0790e6a2052567643ad6f133f22258811d5d44a9ba2",
+      "size_bytes": 32291
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_google_oidc.py",
+      "sha256": "dd79abee18bd80bf81ce6fbeb99b1d691d7690b7138a3ee44199ba46f2a46814",
+      "size_bytes": 34445
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_health.py",
+      "sha256": "a5556826a5e0d05052d639b501247295d1044d49189b448ef69b21472788819a",
+      "size_bytes": 1629
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_idempotency_contracts.py",
+      "sha256": "3629922ae1bc5e24c24a44fbcbfa1b7b522387d738091cae013a1a71c9440420",
+      "size_bytes": 23420
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_idempotency_executor.py",
+      "sha256": "18d4d9154454c3d720e6125b4c41f53d881616b6c01bcfcdbcd031c83d8114f8",
+      "size_bytes": 41003
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_idempotency_migration.py",
+      "sha256": "fb9da2c1c7c0a9d30021118a3d1c6de621507b7249c4fc6373f51110307d0efb",
+      "size_bytes": 4767
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_idempotency_model.py",
+      "sha256": "92842c59be0043c2111aeb9d2f1d405687ae9b52d76e30345866224b0c118d51",
+      "size_bytes": 6814
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_idempotency_repository.py",
+      "sha256": "4561cbc073ab37e8c56781ad93e8353f48a16a60be2ead9cf43666ede9ff5732",
+      "size_bytes": 23650
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_inbox_migration.py",
+      "sha256": "d4fbb2f623714b909fdcfce69382df39b0df79942399c56ab3bc9aaae8ecff16",
+      "size_bytes": 4337
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_inbox_model.py",
+      "sha256": "ecad88d787d50fc721521f79996a0c49e05467a0a75c04abcee0010e62db6571",
+      "size_bytes": 5716
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_inbox_processor.py",
+      "sha256": "ebf526853b7788651f5ab0f1802dc3b2dd4fd9c5c42834b9041373737d7e781f",
+      "size_bytes": 27275
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_inbox_repository.py",
+      "sha256": "aa0ff1d05b15b15e13aa08e6ed58aaf0ebc574f88ceb1bdc7461af2cec12f8c4",
+      "size_bytes": 17890
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_job_contracts.py",
+      "sha256": "15658c2611554f46b6da87bec0b85b3beb93a021c06c71d0144685d16fa9cd91",
+      "size_bytes": 30270
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_job_migration.py",
+      "sha256": "f824974433fc19dec7b1d12abe4f36f7de23a456e2edca05a319058e676b66f6",
+      "size_bytes": 5038
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_job_model.py",
+      "sha256": "d4f277eeb3e01b9e3512303c23256c152e365c658cd6972a1adaa3a29a3ebcd0",
+      "size_bytes": 11338
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_job_repository.py",
+      "sha256": "d550f1cfd78cf938fb68033127cd619856f495aca5caecb8d09a16897ba2f600",
+      "size_bytes": 38905
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_logging.py",
+      "sha256": "4c41f7d21f6975119be01b73b3fe51073795d8df61ea71e285543ffa7560ba71",
+      "size_bytes": 4960
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/test_openapi_drift.py",
+      "sha256": "2ff2ba6b1df67b577040e22e3a7693c6e52eb185c3e222bf6f4cccd9f25a35ac",
+      "size_bytes": 17750
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_dispatch_migration.py",
+      "sha256": "871c572b4338517f4b3600e74a565296ef1db37bffb5f54d3287ce4d8c589112",
+      "size_bytes": 4648
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_dispatch_model.py",
+      "sha256": "88305dfc4d80c1df965ce6a51afdbaf8fd79fa88b2a649c0085939e87ba54d82",
+      "size_bytes": 7453
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_dispatch_repository.py",
+      "sha256": "b7c29ff38cc01d5c09b9ab900c386db142bad78657528648ee15a33ef340a5d4",
+      "size_bytes": 19963
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_dispatcher.py",
+      "sha256": "6c4afec1da3a7a8f49f00ca0e55cf9ac4662385e3c584e781fe5a75f4059e823",
+      "size_bytes": 34886
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_migration.py",
+      "sha256": "08b86945db99efc69f822aa1a91f0ac72fd63863698b99a50012cca88eaced1d",
+      "size_bytes": 6029
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_model.py",
+      "sha256": "f40c11d84ae9120e354bcb066ecbbf220b9872f73625dc3d397f00b1a0a115c4",
+      "size_bytes": 9665
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_repository.py",
+      "sha256": "d073eb9f4beedb6eb29aa8bf1409b03ed9d54c275faa2a889b3454447a99ba03",
+      "size_bytes": 6956
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_runner.py",
+      "sha256": "244cf2232ad5edef23819363d4a7699bda649e588a2b80f48825c7409d68ac7c",
+      "size_bytes": 26208
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_outbox_telemetry.py",
+      "sha256": "42ec769877da8751b85c756d9e152d8cea4edd02328f2ebcd02d13bef5d6ec40",
+      "size_bytes": 20514
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/test_phase6_components.py",
+      "sha256": "cefbe5382380f0960ce3c585b9b3d87a2b64493120acc52fcab0cba4dc75c26d",
+      "size_bytes": 46465
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_phase_3b_baseline.py",
+      "sha256": "d0c1578ca4f46d52c4dbc888c8aab8c6b07112bd43b27f0edc233b30e41a6bc1",
+      "size_bytes": 3402
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_rabbitmq_consumer_message.py",
+      "sha256": "9ee8171a618e403ffd2e05654fc15c75883293b9d29aa967f6d5ffc927b1c241",
+      "size_bytes": 40148
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_rabbitmq_consumer_runner.py",
+      "sha256": "5d47f4fe6b56880c4ad607d549ff710ca4400d90d10bd6c92f58aa7e6da743e7",
+      "size_bytes": 54942
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_rabbitmq_publisher.py",
+      "sha256": "e76925e4363825fc030530ab2012d0dce217199cf579079f3f5e01c460bb5e74",
+      "size_bytes": 29787
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_repository.py",
+      "sha256": "e2ea4fa30e3768537a4effa248672ae0f35eeaaa36231021e7c9a96140914aa0",
+      "size_bytes": 5055
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_service_api_key.py",
+      "sha256": "8888afd23f61ac097fcea2dc55ed80e1091b9bed587739e0dbd15f9145f74573",
+      "size_bytes": 18468
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_smoke.py",
+      "sha256": "f56b9f5e5ecf65e8621e547aba7a1457643963de70bfc8b3c0e2fc2f04263fc1",
+      "size_bytes": 2126
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_telemetry_config.py",
+      "sha256": "687e94a48f390ff8d135fa5735aab0fb7e1559fe5546d67b19569e00ade90cc8",
+      "size_bytes": 8887
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_telemetry_logging.py",
+      "sha256": "953be2025c99d8f68ace017b5f74ca4c8aea88bae1bd034df1c8d280e7f7c569",
+      "size_bytes": 3945
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_telemetry_runtime.py",
+      "sha256": "85e7f444589a755ae1267d93e35bbb75629805b5876ebfa5629ba7569a841adb",
+      "size_bytes": 9104
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_uow.py",
+      "sha256": "273164703f56c44276a617e0f1bbd050a58ceef7c4e101c32d63df7eb9317306",
+      "size_bytes": 26125
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/test_worker_entrypoint.py",
+      "sha256": "c55e890558c9a7d29a1cd6f80c6535fc8b235cc60b1d18eba82607ef58ce2336",
+      "size_bytes": 31190
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/__init__.py",
+      "sha256": "e8a803193daf650c8765f4be2e57f2b29a16ee17eb0a28ec14b0d5a089b3a76a",
+      "size_bytes": 53
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_approval_compiler.py",
+      "sha256": "c5f2e5bbf6439658705d4366a710c20653216ddfa2155e30c417e90d849de9fa",
+      "size_bytes": 4903
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_bpmn_validator.py",
+      "sha256": "3c3d1400c0abd41151225333a94e1a5850c149aa36c57480abb1e405ad0c60a6",
+      "size_bytes": 13477
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_delegation_policy.py",
+      "sha256": "b9ed3224e3d5a569a82af7378f510f8943682a0dd5791ac769821ca80e872e22",
+      "size_bytes": 4102
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_dmn_runtime.py",
+      "sha256": "b760ef313ec1572c76df17c393ef7a96c5479f2699776bb22a79db7b1b26972d",
+      "size_bytes": 4438
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_flowable_adapter.py",
+      "sha256": "6bfea140e837e468f06881b155895c0034b5572db9c140262d5bfc0e82aba620",
+      "size_bytes": 10512
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_flowable_config.py",
+      "sha256": "af396d0b91a9efa3a15218623901213cbdc4207ce82b0cbe6f601131506f5367",
+      "size_bytes": 8709
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_form_validation.py",
+      "sha256": "6625969f80772ea3707b125d45cecd02ecfbbe396e562f5de987d32fd37023aa",
+      "size_bytes": 5578
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/workflow/test_phase6_database_resolution.py",
+      "sha256": "7a88726a6d78d36cfdf41b873d306887f02ef19369f30470e4525d2c41dfc656",
+      "size_bytes": 5316
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "untracked",
+      "path": "tests/unit/workflow/test_phase6_definition_lifecycle.py",
+      "sha256": "d4a748ad0f1dfdc5bc32511c9e26d35a8a6216840e66cb09cbbf57ac1e2e07e5",
+      "size_bytes": 10549
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_sla_engine.py",
+      "sha256": "59e393d83244c13214880c2e75873d6e8651ce846a43d51eede1e1369b21ac53",
+      "size_bytes": 6186
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_workflow_api.py",
+      "sha256": "9d09fafa7aa9ddd9b3bb7ac0453643e2b3509a92774e8a6b18370b0c66d94935",
+      "size_bytes": 10119
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_workflow_authorization.py",
+      "sha256": "8d0cb274224c6497fc5e9ac9c5aaccbee565f3ea857da2dc30021d60c82548bb",
+      "size_bytes": 8388
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_workflow_idempotency.py",
+      "sha256": "5510b4777d1d9dcec7f98dd01842a0abdf5d879237310a6433df452948c86967",
+      "size_bytes": 19598
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_workflow_service.py",
+      "sha256": "2307f4631c05198748a81830af826cd5ece8a99cd42d6fd687ab8ea06edcb6fc",
+      "size_bytes": 18994
+    },
+    {
+      "classification": "verification_test",
+      "git_status": "tracked",
+      "path": "tests/unit/workflow/test_workflow_variables.py",
+      "sha256": "d0ebcde711eae16315a4863ab7f8e4d73f1924f21244a02cb0cef67cff7f4f22",
+      "size_bytes": 4068
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/.eslintrc.cjs",
+      "sha256": "201f0db94492fcebb150f86e13f8855f66096f97a41d775962af869dcc53e247",
+      "size_bytes": 580
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/index.html",
+      "sha256": "dfa92c30fffc4a30f645ef48d65fdb192ed3f528f039af7e61b15aa874265a57",
+      "size_bytes": 403
+    },
+    {
+      "classification": "dependency_specification",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/package-lock.json",
+      "sha256": "7840320a8514424d0acb392ca96ccb539989899d93eff3746f8cd6f330fa1865",
+      "size_bytes": 208072
+    },
+    {
+      "classification": "dependency_specification",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/package.json",
+      "sha256": "5f672b455e9e767904cd8457f0b42398615ba896b7882befe65e37d56fba7e55",
+      "size_bytes": 938
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/App.tsx",
+      "sha256": "84d647d4276fe35fcaa1f6090cbd588df5142b14a889ee50c04f78d3ed091a5f",
+      "size_bytes": 4357
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/api/client.test.ts",
+      "sha256": "ec68b75353bcd7d96c05edacfde7f7a2b502b7e77392aa0e0961fac73a84828c",
+      "size_bytes": 4421
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/api/client.ts",
+      "sha256": "a657f0652bd7de28fdfb43d8ef2c03e8e3aef72100bf4de06a696a9757ce0f59",
+      "size_bytes": 7809
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/BpmnDesigner.test.tsx",
+      "sha256": "f0665e1858129c6d4399546c9bfe96af2d2618c2210b6e7dea4a5c57848eaf02",
+      "size_bytes": 3850
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/BpmnDesigner.tsx",
+      "sha256": "a8c8a01b4523c39c664b3d5858f010c1fdb92bfd3cb6646e7e34a72746618e0d",
+      "size_bytes": 8567
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/DmnEditor.test.tsx",
+      "sha256": "58d288bfd09fc54726bfc143ff5e7c8cd675d1f3961911a542ebb7febe9e5b17",
+      "size_bytes": 3345
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/DmnEditor.tsx",
+      "sha256": "51c674a4a1305985943f4e3c8320d29d42410c647be12c1aef8fb0c624ff01e8",
+      "size_bytes": 9492
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/FormEditor.test.tsx",
+      "sha256": "656aeee7ce0dcf150efd512096a4f96b206098415382e401c30beb5788f31de7",
+      "size_bytes": 2049
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/FormEditor.tsx",
+      "sha256": "0e1037cb393ad29472de09281a85d909a596a65fad08421b7fd20545716c97a2",
+      "size_bytes": 13378
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "untracked",
+      "path": "ui/operations-ui/src/components/OperationsDashboard.test.tsx",
+      "sha256": "92026283779b00d5690d846ea23e0e3e15e90d405fbfa76c4cb81cb0541272a1",
+      "size_bytes": 3701
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "untracked",
+      "path": "ui/operations-ui/src/components/OperationsDashboard.tsx",
+      "sha256": "cb8023eb72db53c00342ece7da5893aec7e6bb6363476c8782a0eba62e7e42bb",
+      "size_bytes": 21401
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/TaskInbox.test.tsx",
+      "sha256": "114f376799a0997aae8b1735dba625b2243d297360d171e20bad743609c19791",
+      "size_bytes": 2823
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/components/TaskInbox.tsx",
+      "sha256": "9283ba87172b08fdb126c8a293d05df597a88f71b6d8a4bae808b4404a2c7695",
+      "size_bytes": 9588
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/index.css",
+      "sha256": "32f91f24c33d74e1662db72d868ef06ddacd4d40862fab8bf5d7e9007d1814d9",
+      "size_bytes": 2008
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/main.tsx",
+      "sha256": "d9fd4133d1f21df0e88b3f04369a464b8a69e35c7187abf5383aaa10e325c388",
+      "size_bytes": 250
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/test/setup.ts",
+      "sha256": "90ec9100c29e008c3d9194acd818e2cfa6dc6e177154bc8e10c5959aa35619ed",
+      "size_bytes": 36
+    },
+    {
+      "classification": "ui_frontend",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/src/vite-env.d.ts",
+      "sha256": "65996936fbb042915f7b74a200fcdde7e410f32a669b1ab9597cfaa4b0faddb5",
+      "size_bytes": 38
+    },
+    {
+      "classification": "configuration_template",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/tsconfig.json",
+      "sha256": "2d6bc5c20d34dc47fe9bd3cf168089b7f9daca801911dea0409c4c0161fb6b7c",
+      "size_bytes": 563
+    },
+    {
+      "classification": "configuration_template",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/tsconfig.node.json",
+      "sha256": "9e2abb169ea87b7190613a1d4da57ca608463a453bd4231fa3aeee5e308370dd",
+      "size_bytes": 213
+    },
+    {
+      "classification": "configuration_template",
+      "git_status": "tracked",
+      "path": "ui/operations-ui/vite.config.ts",
+      "sha256": "1bcb925555a94a72fa0ded8ec8da721d8003233bffac384a2f018540d0d4ecdb",
+      "size_bytes": 301
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "tracked",
+      "path": "workflows/bpmn/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "untracked",
+      "path": "workflows/bpmn/semester_exam_readiness.bpmn20.xml",
+      "sha256": "3c4d82f140aed65866ba35aab76b2ad344953691206cf6713b1d4db8a94a8b04",
+      "size_bytes": 5100
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "tracked",
+      "path": "workflows/bpmn/two_step_approval.bpmn20.xml",
+      "sha256": "7a0cc6fede1fd2c35ffbe0c5265b851c662c8ff6e3c947500a09d78b033ba63a",
+      "size_bytes": 1165
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "tracked",
+      "path": "workflows/dmn/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "tracked",
+      "path": "workflows/dmn/approval_routing.dmn13.xml",
+      "sha256": "b29f56c6858912540b4b2fdfff79bfee2f3d8eebe890e644468a48a2d1a0e6a5",
+      "size_bytes": 3025
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "untracked",
+      "path": "workflows/dmn/exam_readiness_rules_v1.dmn13.xml",
+      "sha256": "48cc4acd8af1186fd8b365b943e4753c46de3ca5456141a938a10314cbb64ddd",
+      "size_bytes": 2981
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "tracked",
+      "path": "workflows/forms/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size_bytes": 0
+    },
+    {
+      "classification": "workflow_definition",
+      "git_status": "tracked",
+      "path": "workflows/forms/expense_approval_form.json",
+      "sha256": "b703d3ab5fedde8a775ad0f850778d538fb6e475e62b3c555f48edf511373ff8",
+      "size_bytes": 1367
+    }
+  ],
+  "git_branch": "master",
+  "git_head": "69349b093a71ab5b8bbb83ec9d97e4f7de6b90b5",
+  "manifest_version": "1.0.0",
+  "summary": {
+    "total_files": 730,
+    "total_size_bytes": 11568286,
+    "tracked_files": 547,
+    "untracked_files": 183
+  },
+  "tree_state": "dirty_preserved"
+}

@@ -1,5 +1,7 @@
 """app.api.v1 package."""
 
+from app.api.v1.analytics import create_analytics_router
+from app.api.v1.audit import create_audit_router
 from app.api.v1.jobs import (
     JobFailureResponse,
     JobReadResponse,
@@ -29,6 +31,8 @@ __all__ = [
     "OPENAPI_TITLE",
     "OPENAPI_VERSION",
     "api_router",
+    "create_analytics_router",
+    "create_audit_router",
     "create_job_read_router",
     "health_check",
     "job_snapshot_to_response",

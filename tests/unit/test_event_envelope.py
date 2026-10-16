@@ -783,19 +783,23 @@ def test_no_database_persistence_tables_created() -> None:
         "schedule_assignments",
         # Phase 4B Calendar (1)
         "calendar_links",
+        # Phase 7 Calendar Watch (1)
+        "calendar_watch_channels",
+        # Phase 8D Service Credentials Persistence (1)
+        "service_api_credentials",
     }
     assert phase1_tables <= set(Base.metadata.tables.keys())
     assert set(Base.metadata.tables.keys()) == canonical_phase4_tables
-    assert len(Base.metadata.tables) == 24
+    assert len(Base.metadata.tables) == 26
 
 
 def test_migration_chain_is_0007_with_no_0008() -> None:
-    """Verify Alembic migration head is 0012 for Phase 4B and no 0013 migration exists."""
+    """Verify Alembic migration head is 0014 for Phase 8D and no 0015 migration exists."""
     config = Config("alembic.ini")
     script_dir = ScriptDirectory.from_config(config)
 
     head = script_dir.get_current_head()
-    assert head == "0012"
+    assert head == "0014"
 
     versions_dir = Path("app/db/migrations/versions")
     version_files = [f.name for f in versions_dir.glob("*.py")]
@@ -811,4 +815,6 @@ def test_migration_chain_is_0007_with_no_0008() -> None:
     assert any(f.startswith("0010") for f in version_files)
     assert any(f.startswith("0011") for f in version_files)
     assert any(f.startswith("0012") for f in version_files)
-    assert not any(f.startswith("0013") for f in version_files)
+    assert any(f.startswith("0013") for f in version_files)
+    assert any(f.startswith("0014") for f in version_files)
+    assert not any(f.startswith("0015") for f in version_files)

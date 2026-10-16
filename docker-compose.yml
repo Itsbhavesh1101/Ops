@@ -3,7 +3,7 @@ services:
   # PostgreSQL: Canonical System of Record, Outbox, and Audit
   # ----------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
     container_name: e7-postgres
     restart: unless-stopped
     environment:
@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-operations_engine}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-55432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
@@ -25,7 +25,7 @@ services:
   # RabbitMQ: Asynchronous Event Transport and Messaging
   # ----------------------------------------------------------------------------
   rabbitmq:
-    image: rabbitmq:3-management-alpine
+    image: rabbitmq:3.13-management@sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69
     container_name: e7-rabbitmq
     restart: unless-stopped
     environment:
@@ -48,7 +48,7 @@ services:
   # Flowable owns native workflow runtime state; E-7 Alembic does NOT manage Flowable tables.
   # ----------------------------------------------------------------------------
   flowable:
-    image: flowable/flowable-rest:7.0.0
+    image: flowable/flowable-rest:7.0.0@sha256:64a0d7c12a2bb9da1b3645c8150f6ddaba31a23b23c1f9f8af1d3d819fa9f8b6
     container_name: e7-flowable
     restart: unless-stopped
     environment:
@@ -56,8 +56,8 @@ services:
       SPRING_DATASOURCE_USERNAME: ${FLOWABLE_DB_USER:-${POSTGRES_USER:-postgres}}
       SPRING_DATASOURCE_PASSWORD: ${FLOWABLE_DB_PASSWORD:-${POSTGRES_PASSWORD:-postgres}}
       SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
-    ports:
-      - "${FLOWABLE_PORT:-8080}:8080"
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,7 +69,6 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-      network: host
     container_name: e7-api
     restart: unless-stopped
     environment:
@@ -79,7 +78,7 @@ services:
       E7_RABBITMQ_EXCHANGE_NAME: ${E7_RABBITMQ_EXCHANGE_NAME:-events}
       FLOWABLE_BASE_URL: http://flowable:8080/flowable-rest/service
       E7_OTEL_ENABLED: ${E7_OTEL_ENABLED:-false}
-      E7_OTEL_EXPORTER_OTLP_ENDPOINT: ${E7_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      E7_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       E7_OTEL_SERVICE_NAME: ${E7_OTEL_SERVICE_NAME:-e7-api}
       E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS: ${E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS:-60.0}
     ports:
@@ -107,8 +106,8 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile
-      network: host
     container_name: e7-worker
+    restart: on-failure
     environment:
       E7_ENVIRONMENT: ${E7_ENVIRONMENT:-local}
       E7_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-operations_engine}
@@ -123,9 +122,18 @@ services:
       E7_OUTBOX_RETRY_MAX_DELAY_SECONDS: ${E7_OUTBOX_RETRY_MAX_DELAY_SECONDS:-60.0}
       E7_OUTBOX_RETRY_MULTIPLIER: ${E7_OUTBOX_RETRY_MULTIPLIER:-2.0}
       E7_OTEL_ENABLED: ${E7_OTEL_ENABLED:-false}
-      E7_OTEL_EXPORTER_OTLP_ENDPOINT: ${E7_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      E7_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       E7_OTEL_SERVICE_NAME: ${E7_OTEL_SERVICE_NAME:-e7-worker}
       E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS: ${E7_OTEL_METRIC_EXPORT_INTERVAL_SECONDS:-60.0}
+      E7_GOOGLE_CALENDAR_ENABLED: ${E7_GOOGLE_CALENDAR_ENABLED:-false}
+      E7_GOOGLE_CALENDAR_CLIENT_EMAIL: ${E7_GOOGLE_CALENDAR_CLIENT_EMAIL:-}
+      E7_GOOGLE_CALENDAR_PRIVATE_KEY: ${E7_GOOGLE_CALENDAR_PRIVATE_KEY:-}
+      E7_GOOGLE_CALENDAR_CALENDAR_ID: ${E7_GOOGLE_CALENDAR_CALENDAR_ID:-}
+      E7_GOOGLE_CALENDAR_WEBHOOK_CALLBACK_URL: ${E7_GOOGLE_CALENDAR_WEBHOOK_CALLBACK_URL:-}
+      E7_GOOGLE_CALENDAR_WEBHOOK_TOKEN: ${E7_GOOGLE_CALENDAR_WEBHOOK_TOKEN:-}
+      E7_GOOGLE_CALENDAR_CHANNEL_TTL_SECONDS: ${E7_GOOGLE_CALENDAR_CHANNEL_TTL_SECONDS:-604800}
+      E7_GOOGLE_CALENDAR_RECONCILIATION_INTERVAL_SECONDS: ${E7_GOOGLE_CALENDAR_RECONCILIATION_INTERVAL_SECONDS:-3600.0}
+      E7_GOOGLE_CALENDAR_RENEWAL_INTERVAL_SECONDS: ${E7_GOOGLE_CALENDAR_RENEWAL_INTERVAL_SECONDS:-300.0}
     command: python -m app.worker
     depends_on:
       postgres:
@@ -141,7 +149,7 @@ services:
   otel-collector:
     profiles:
       - observability
-    image: otel/opentelemetry-collector-contrib:0.100.0
+    image: otel/opentelemetry-collector-contrib:0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6
     container_name: e7-otel-collector
     restart: unless-stopped
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
@@ -158,7 +166,7 @@ services:
   prometheus:
     profiles:
       - observability
-    image: prom/prometheus:v2.51.0
+    image: prom/prometheus:v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e
     container_name: e7-prometheus
     restart: unless-stopped
     command:

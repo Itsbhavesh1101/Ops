@@ -1,0 +1,204 @@
+{
+  "dataset_id": "PHASE5-SC-EXAM-INFEASIBLE-001",
+  "dataset_version": "1.0.0",
+  "fixture_type": "education_exam_scheduling_case",
+  "fixture_only": true,
+  "provider_neutral": true,
+  "scenario_id": "E7-REF-EXAM-001",
+  "variant_id": "EX-SCHED-INFEASIBLE-001",
+  "tenant_id": "tenant-synth-001",
+  "timezone": "Asia/Kolkata",
+  "resource_dataset_ref": "PHASE5-RS-EDU-001@1.0.0",
+  "horizon": {
+    "start_at": "2026-11-09T08:00:00+05:30",
+    "end_at": "2026-11-11T17:00:00+05:30"
+  },
+  "cohorts": [
+    {
+      "id": "cohort-g10-a",
+      "display_label": "Grade 10 A",
+      "student_count": 24
+    }
+  ],
+  "exams": [
+    {
+      "id": "exam-g10-math",
+      "title": "Mathematics",
+      "duration_minutes": 120,
+      "major_subject": true,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": [
+        "MATHEMATICS"
+      ]
+    },
+    {
+      "id": "exam-g10-science",
+      "title": "Science",
+      "duration_minutes": 120,
+      "major_subject": true,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": [
+        "SCIENCE"
+      ],
+      "required_equipment": [
+        "LAB_KIT"
+      ]
+    },
+    {
+      "id": "exam-g10-language",
+      "title": "Language",
+      "duration_minutes": 120,
+      "major_subject": true,
+      "required_invigilator_skills": [
+        "INVIGILATION_GENERAL"
+      ],
+      "preferred_invigilator_skills": [
+        "LANGUAGE"
+      ]
+    }
+  ],
+  "major_subject_gap_policy": {
+    "scope": "PER_COHORT",
+    "minimum_clear_calendar_days_between": 1
+  },
+  "exam_sessions": [
+    {
+      "id": "session-inf-math-g10a",
+      "exam_id": "exam-g10-math",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-002"
+      ]
+    },
+    {
+      "id": "session-inf-science-g10a",
+      "exam_id": "exam-g10-science",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-001"
+      ],
+      "required_equipment": [
+        "LAB_KIT"
+      ]
+    },
+    {
+      "id": "session-inf-language-g10a",
+      "exam_id": "exam-g10-language",
+      "cohort_id": "cohort-g10-a",
+      "minimum_room_capacity": 24,
+      "allowed_windows": [
+        {
+          "start_at": "2026-11-09T09:00:00+05:30",
+          "end_at": "2026-11-09T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-10T09:00:00+05:30",
+          "end_at": "2026-11-10T16:00:00+05:30"
+        },
+        {
+          "start_at": "2026-11-11T09:00:00+05:30",
+          "end_at": "2026-11-11T16:00:00+05:30"
+        }
+      ],
+      "preferred_room_ids": [
+        "res-room-003",
+        "res-room-002"
+      ],
+      "preferred_invigilator_ids": [
+        "res-inv-003"
+      ]
+    }
+  ],
+  "hard_constraint_expectations": [
+    "RESOURCE_AVAILABILITY",
+    "ROOM_CAPACITY",
+    "INVIGILATOR_ROLE_ELIGIBILITY",
+    "DURATION_WITHIN_WINDOW",
+    "MAJOR_SUBJECT_MIN_GAP"
+  ],
+  "soft_constraint_expectations": [
+    {
+      "kind": "PREFERRED_INVIGILATOR",
+      "weight": 2
+    },
+    {
+      "kind": "PREFERRED_ROOM",
+      "weight": 1
+    },
+    {
+      "kind": "INVIGILATOR_WORKLOAD_BALANCE",
+      "weight": 1
+    }
+  ],
+  "known_conflict": {
+    "type": "MAJOR_SUBJECT_GAP_WINDOW_UNSATISFIABLE",
+    "cohort_id": "cohort-g10-a",
+    "major_exam_ids": [
+      "exam-g10-math",
+      "exam-g10-science",
+      "exam-g10-language"
+    ],
+    "minimum_clear_calendar_days_between": 1,
+    "available_calendar_dates": [
+      "2026-11-09",
+      "2026-11-10",
+      "2026-11-11"
+    ],
+    "minimum_calendar_span_dates_required": 5
+  },
+  "relaxation_expectations": [
+    "extend the examination window sufficiently to satisfy the configured major-subject gap",
+    "reduce the configured major-subject gap only if authorized policy permits",
+    "move one major exam outside the constrained scheduling scope/window"
+  ],
+  "expected_properties": {
+    "expected_outcome": "INFEASIBLE",
+    "candidate_must_be_absent": true,
+    "silent_partial_success_forbidden": true,
+    "conflict_diagnostics_required": true,
+    "relaxation_suggestions_required": true,
+    "expected_primary_conflict_type": "MAJOR_SUBJECT_GAP_WINDOW_UNSATISFIABLE"
+  }
+}

@@ -1158,20 +1158,24 @@ def test_schema_stability_and_frozen_persistence() -> None:
         "schedule_assignments",
         # Phase 4B Calendar (1)
         "calendar_links",
+        # Phase 7 Calendar Watch (1)
+        "calendar_watch_channels",
+        # Phase 8D Service Credentials Persistence (1)
+        "service_api_credentials",
     }
     assert phase1_tables <= set(Base.metadata.tables.keys())
     assert set(Base.metadata.tables.keys()) == canonical_phase4_tables
-    assert len(Base.metadata.tables) == 24
+    assert len(Base.metadata.tables) == 26
 
     config = Config("alembic.ini")
     script_dir = ScriptDirectory.from_config(config)
-    assert script_dir.get_current_head() == "0012"
+    assert script_dir.get_current_head() == "0014"
 
-    # Confirm migration 0012 exists and 0013 does NOT exist
+    # Confirm migration 0014 exists and 0015 does NOT exist
     revisions = [rev.revision for rev in script_dir.walk_revisions()]
-    assert "0012" in revisions
-    assert "0013" not in revisions
-    assert len(revisions) == 12
+    assert "0014" in revisions
+    assert "0015" not in revisions
+    assert len(revisions) == 14
 
 
 def test_deferred_runtime_integration_constant() -> None:

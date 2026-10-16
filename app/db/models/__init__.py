@@ -22,6 +22,7 @@ from app.db.models.planning import (
 )
 from app.db.models.scheduling import (
     CalendarLinkRecord,
+    CalendarWatchChannelRecord,
     ConstraintDefinitionRecord,
     ResourceAvailabilityRecord,
     ResourceRecord,
@@ -30,6 +31,7 @@ from app.db.models.scheduling import (
     ScheduleRecord,
     SolverProfileRecord,
 )
+from app.db.models.service_credential import ServiceApiKeyCredentialRecordModel
 from app.db.models.sla import SlaPolicyRecord
 from app.db.models.workflow import (
     WorkflowArtifactRecord,
@@ -43,6 +45,7 @@ from app.events.outbox.models import OutboxEventRecord
 __all__ = [
     "AuditEventRecord",
     "CalendarLinkRecord",
+    "CalendarWatchChannelRecord",
     "ConstraintDefinitionRecord",
     "GoalRecord",
     "IdempotencyRecord",
@@ -56,6 +59,7 @@ __all__ = [
     "ScheduleAssignmentRecord",
     "ScheduleJobRecord",
     "ScheduleRecord",
+    "ServiceApiKeyCredentialRecordModel",
     "SlaPolicyRecord",
     "SolverProfileRecord",
     "TaskDependencyRecord",

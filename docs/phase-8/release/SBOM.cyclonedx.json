@@ -1,0 +1,1435 @@
+{
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "description": "Debian-based official minimal Python 3.11 runtime image",
+      "name": "python",
+      "properties": [
+        {
+          "name": "distribution",
+          "value": "Debian GNU/Linux 13 (trixie)"
+        },
+        {
+          "name": "runtime_role",
+          "value": "production_base_image"
+        }
+      ],
+      "purl": "pkg:docker/python@3.11-slim?digest=sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce",
+      "scope": "required",
+      "type": "container",
+      "version": "3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce"
+    },
+    {
+      "description": "PostgreSQL 16 relational datastore",
+      "name": "postgres",
+      "properties": [
+        {
+          "name": "distribution",
+          "value": "Alpine Linux"
+        },
+        {
+          "name": "runtime_role",
+          "value": "external_datastore"
+        }
+      ],
+      "purl": "pkg:docker/postgres@16.15-alpine?digest=sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea",
+      "scope": "required",
+      "type": "container",
+      "version": "16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea"
+    },
+    {
+      "description": "RabbitMQ message broker",
+      "name": "rabbitmq",
+      "properties": [
+        {
+          "name": "distribution",
+          "value": "Ubuntu 24.04 LTS"
+        },
+        {
+          "name": "runtime_role",
+          "value": "external_message_broker"
+        }
+      ],
+      "purl": "pkg:docker/rabbitmq@3.13-management?digest=sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69",
+      "scope": "required",
+      "type": "container",
+      "version": "3.13-management@sha256:e582c0bc7766f3342496d8485efb5a1df782b5ce3886ad017e2eaae442311f69"
+    },
+    {
+      "description": "Flowable BPMN 2.0 orchestration engine",
+      "name": "flowable",
+      "properties": [
+        {
+          "name": "runtime_role",
+          "value": "external_workflow_engine"
+        }
+      ],
+      "purl": "pkg:docker/flowable-rest@7.0.0?digest=sha256:64a0d7c12a2bb9da1b3645c8150f6ddaba31a23b23c1f9f8af1d3d819fa9f8b6",
+      "scope": "required",
+      "type": "container",
+      "version": "flowable-rest:7.0.0@sha256:64a0d7c12a2bb9da1b3645c8150f6ddaba31a23b23c1f9f8af1d3d819fa9f8b6"
+    },
+    {
+      "description": "OpenTelemetry telemetry collector",
+      "name": "opentelemetry-collector-contrib",
+      "properties": [
+        {
+          "name": "runtime_role",
+          "value": "observability_collector"
+        }
+      ],
+      "purl": "pkg:docker/opentelemetry-collector-contrib@0.162.0?digest=sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6",
+      "scope": "optional",
+      "type": "container",
+      "version": "0.162.0@sha256:39923a8e431bd1f57be82411999d389fcfe40857492e4365456d97a4c1f74be6"
+    },
+    {
+      "description": "Prometheus metrics monitoring system",
+      "name": "prometheus",
+      "properties": [
+        {
+          "name": "runtime_role",
+          "value": "observability_metrics"
+        }
+      ],
+      "purl": "pkg:docker/prometheus@v3.15.0?digest=sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e",
+      "scope": "optional",
+      "type": "container",
+      "version": "v3.15.0@sha256:efd719c99d83b060d9daefdcf00360461adf279f45ef5391f8d111892118753e"
+    },
+    {
+      "description": "FastAPI framework, high performance, easy to learn, fast to code, ready for production",
+      "name": "fastapi",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/fastapi@0.115.6",
+      "scope": "required",
+      "type": "library",
+      "version": "0.115.6"
+    },
+    {
+      "description": "The lightning-fast ASGI server.",
+      "name": "uvicorn",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/uvicorn@0.54.0",
+      "scope": "required",
+      "type": "library",
+      "version": "0.54.0"
+    },
+    {
+      "description": "Data validation using Python type hints",
+      "name": "pydantic",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/pydantic@2.13.5",
+      "scope": "required",
+      "type": "library",
+      "version": "2.13.5"
+    },
+    {
+      "description": "Settings management using Pydantic",
+      "name": "pydantic-settings",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/pydantic-settings@2.15.0",
+      "scope": "required",
+      "type": "library",
+      "version": "2.15.0"
+    },
+    {
+      "description": "Structured Logging for Python",
+      "name": "structlog",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/structlog@26.1.0",
+      "scope": "required",
+      "type": "library",
+      "version": "26.1.0"
+    },
+    {
+      "description": "The next generation HTTP client.",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "name": "httpx",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/httpx@0.28.1",
+      "scope": "required",
+      "type": "library",
+      "version": "0.28.1"
+    },
+    {
+      "description": "JSON Web Token implementation in Python",
+      "name": "pyjwt",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/pyjwt@2.15.1",
+      "scope": "required",
+      "type": "library",
+      "version": "2.15.1"
+    },
+    {
+      "description": "Database Abstraction Library",
+      "name": "sqlalchemy",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/sqlalchemy@2.1.3",
+      "scope": "required",
+      "type": "library",
+      "version": "2.1.3"
+    },
+    {
+      "description": "An asyncio PostgreSQL driver",
+      "name": "asyncpg",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/asyncpg@0.31.0",
+      "scope": "required",
+      "type": "library",
+      "version": "0.31.0"
+    },
+    {
+      "description": "A database migration tool for SQLAlchemy.",
+      "name": "alembic",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/alembic@1.20.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.20.0"
+    },
+    {
+      "description": "Wrapper around the aiormq for asyncio and humans",
+      "name": "aio-pika",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/aio-pika@9.6.2",
+      "scope": "required",
+      "type": "library",
+      "version": "9.6.2"
+    },
+    {
+      "description": "Python package for creating and manipulating graphs and networks",
+      "name": "networkx",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/networkx@3.7",
+      "scope": "required",
+      "type": "library",
+      "version": "3.7"
+    },
+    {
+      "description": "OpenTelemetry Python API",
+      "name": "opentelemetry-api",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/opentelemetry-api@1.45.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.45.0"
+    },
+    {
+      "description": "OpenTelemetry Python SDK",
+      "name": "opentelemetry-sdk",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/opentelemetry-sdk@1.45.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.45.0"
+    },
+    {
+      "description": "OpenTelemetry Collector Protobuf over HTTP Exporter",
+      "name": "opentelemetry-exporter-otlp-proto-http",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-http@1.45.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.45.0"
+    },
+    {
+      "description": "OpenTelemetry FastAPI Instrumentation",
+      "name": "opentelemetry-instrumentation-fastapi",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/opentelemetry-instrumentation-fastapi@0.66b0",
+      "scope": "required",
+      "type": "library",
+      "version": "0.66b0"
+    },
+    {
+      "description": "AI Agent Framework, the Pydantic way, slim package",
+      "name": "pydantic-ai-slim",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/pydantic-ai-slim@2.54.0",
+      "scope": "required",
+      "type": "library",
+      "version": "2.54.0"
+    },
+    {
+      "description": "The official Python library for the openai API",
+      "name": "openai",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/openai@3.24.0",
+      "scope": "required",
+      "type": "library",
+      "version": "3.24.0"
+    },
+    {
+      "description": "Google OR-Tools python libraries and modules",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache 2.0"
+          }
+        }
+      ],
+      "name": "ortools",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/ortools@9.15.6755",
+      "scope": "required",
+      "type": "library",
+      "version": "9.15.6755"
+    },
+    {
+      "description": "MySQL driver for asyncio.",
+      "name": "aiomysql",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/aiomysql@0.3.2",
+      "scope": "required",
+      "type": "library",
+      "version": "0.3.2"
+    },
+    {
+      "description": "Google Authentication Library",
+      "licenses": [
+        {
+          "license": {
+            "name": "Apache 2.0"
+          }
+        }
+      ],
+      "name": "google-auth",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/google-auth@2.61.0",
+      "scope": "required",
+      "type": "library",
+      "version": "2.61.0"
+    },
+    {
+      "description": "XML bomb protection for Python stdlib modules",
+      "licenses": [
+        {
+          "license": {
+            "name": "PSFL"
+          }
+        }
+      ],
+      "name": "defusedxml",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_direct"
+        }
+      ],
+      "purl": "pkg:pypi/defusedxml@0.7.1",
+      "scope": "required",
+      "type": "library",
+      "version": "0.7.1"
+    },
+    {
+      "description": "The little ASGI library that shines.",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-3-Clause"
+          }
+        }
+      ],
+      "name": "starlette",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/starlette@0.41.3",
+      "scope": "required",
+      "type": "library",
+      "version": "0.41.3"
+    },
+    {
+      "description": "High-level concurrency and networking framework on top of asyncio or Trio",
+      "name": "anyio",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/anyio@4.15.1",
+      "scope": "required",
+      "type": "library",
+      "version": "4.15.1"
+    },
+    {
+      "description": "cryptography is a package which provides cryptographic recipes and primitives to Python developers.",
+      "name": "cryptography",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/cryptography@50.0.2",
+      "scope": "required",
+      "type": "library",
+      "version": "50.0.2"
+    },
+    {
+      "description": "Lightweight in-process concurrent programming",
+      "name": "greenlet",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/greenlet@3.5.6",
+      "scope": "required",
+      "type": "library",
+      "version": "3.5.6"
+    },
+    {
+      "description": "Backported and Experimental Type Hints for Python 3.9+",
+      "name": "typing-extensions",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/typing-extensions@4.16.0",
+      "scope": "required",
+      "type": "library",
+      "version": "4.16.0"
+    },
+    {
+      "description": "Sniff out which async library your code is running under",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT OR Apache-2.0"
+          }
+        }
+      ],
+      "name": "sniffio",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/sniffio@1.3.1",
+      "scope": "required",
+      "type": "library",
+      "version": "1.3.1"
+    },
+    {
+      "description": "A pure-Python, bring-your-own-I/O implementation of HTTP/1.1",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "name": "h11",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/h11@0.16.0",
+      "scope": "required",
+      "type": "library",
+      "version": "0.16.0"
+    },
+    {
+      "description": "Python package for providing Mozilla's CA Bundle.",
+      "licenses": [
+        {
+          "license": {
+            "name": "MPL-2.0"
+          }
+        }
+      ],
+      "name": "certifi",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/certifi@2026.7.22",
+      "scope": "required",
+      "type": "library",
+      "version": "2026.7.22"
+    },
+    {
+      "description": "The Real First Universal Charset Detector. Open, modern and actively maintained alternative to Chardet.",
+      "licenses": [
+        {
+          "license": {
+            "name": "MIT"
+          }
+        }
+      ],
+      "name": "charset-normalizer",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/charset-normalizer@3.5.2",
+      "scope": "required",
+      "type": "library",
+      "version": "3.5.2"
+    },
+    {
+      "description": "Internationalized Domain Names in Applications (IDNA)",
+      "name": "idna",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/idna@3.20",
+      "scope": "required",
+      "type": "library",
+      "version": "3.20"
+    },
+    {
+      "description": "HTTP library with thread-safe connection pooling, file post, and more.",
+      "name": "urllib3",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/urllib3@2.8.0",
+      "scope": "required",
+      "type": "library",
+      "version": "2.8.0"
+    },
+    {
+      "description": "Pure python AMQP asynchronous client library",
+      "name": "aiormq",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/aiormq@6.9.4",
+      "scope": "required",
+      "type": "library",
+      "version": "6.9.4"
+    },
+    {
+      "description": "RabbitMQ Focused AMQP low-level library",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD 3-Clause License"
+          }
+        }
+      ],
+      "name": "pamqp",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/pamqp@3.3.0",
+      "scope": "required",
+      "type": "library",
+      "version": "3.3.0"
+    },
+    {
+      "description": "",
+      "licenses": [
+        {
+          "license": {
+            "name": "3-Clause BSD License"
+          }
+        }
+      ],
+      "name": "protobuf",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/protobuf@6.33.6",
+      "scope": "required",
+      "type": "library",
+      "version": "6.33.6"
+    },
+    {
+      "description": "Abseil Python Common Libraries, see https://github.com/abseil/abseil-py.",
+      "name": "absl-py",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/absl-py@2.5.0",
+      "scope": "required",
+      "type": "library",
+      "version": "2.5.0"
+    },
+    {
+      "description": "Immutable wrapper around dictionaries (a fork of frozendict)",
+      "name": "immutabledict",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/immutabledict@4.3.1",
+      "scope": "required",
+      "type": "library",
+      "version": "4.3.1"
+    },
+    {
+      "description": "Pure-Python implementation of ASN.1 types and DER/BER/CER codecs (X.208)",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD-2-Clause"
+          }
+        }
+      ],
+      "name": "pyasn1",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/pyasn1@0.6.4",
+      "scope": "required",
+      "type": "library",
+      "version": "0.6.4"
+    },
+    {
+      "description": "A collection of ASN.1-based protocols modules",
+      "licenses": [
+        {
+          "license": {
+            "name": "BSD"
+          }
+        }
+      ],
+      "name": "pyasn1-modules",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "production_runtime_transitive"
+        }
+      ],
+      "purl": "pkg:pypi/pyasn1-modules@0.4.2",
+      "scope": "required",
+      "type": "library",
+      "version": "0.4.2"
+    },
+    {
+      "description": "pytest: simple powerful testing with Python",
+      "name": "pytest",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "development_testing"
+        }
+      ],
+      "purl": "pkg:pypi/pytest@9.1.1",
+      "scope": "optional",
+      "type": "library",
+      "version": "9.1.1"
+    },
+    {
+      "description": "Pytest support for asyncio",
+      "name": "pytest-asyncio",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "development_testing"
+        }
+      ],
+      "purl": "pkg:pypi/pytest-asyncio@1.4.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "1.4.0"
+    },
+    {
+      "description": "Pytest plugin for measuring coverage.",
+      "name": "pytest-cov",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "development_testing"
+        }
+      ],
+      "purl": "pkg:pypi/pytest-cov@7.1.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "7.1.0"
+    },
+    {
+      "description": "An extremely fast Python linter and code formatter, written in Rust.",
+      "name": "ruff",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "development_testing"
+        }
+      ],
+      "purl": "pkg:pypi/ruff@0.16.10",
+      "scope": "optional",
+      "type": "library",
+      "version": "0.16.10"
+    },
+    {
+      "description": "Optional static typing for Python",
+      "name": "mypy",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "development_testing"
+        }
+      ],
+      "purl": "pkg:pypi/mypy@2.4.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "2.4.0"
+    },
+    {
+      "description": "A framework for managing and maintaining multi-language pre-commit hooks.",
+      "name": "pre-commit",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "development_testing"
+        }
+      ],
+      "purl": "pkg:pypi/pre-commit@4.6.2",
+      "scope": "optional",
+      "type": "library",
+      "version": "4.6.2"
+    },
+    {
+      "description": "",
+      "name": "deepeval",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "optional_evaluation_tooling"
+        }
+      ],
+      "purl": "pkg:pypi/deepeval@unknown",
+      "scope": "optional",
+      "type": "library",
+      "version": "unknown"
+    },
+    {
+      "description": "Developer-friendly load testing framework",
+      "name": "locust",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "optional_evaluation_tooling"
+        }
+      ],
+      "purl": "pkg:pypi/locust@2.46.7",
+      "scope": "optional",
+      "type": "library",
+      "version": "2.46.7"
+    },
+    {
+      "description": "Cross-platform lib for process and system monitoring.",
+      "name": "psutil",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "python"
+        },
+        {
+          "name": "tier",
+          "value": "optional_evaluation_tooling"
+        }
+      ],
+      "purl": "pkg:pypi/psutil@7.2.2",
+      "scope": "optional",
+      "type": "library",
+      "version": "7.2.2"
+    },
+    {
+      "name": "@bpmn-io/form-js",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_runtime"
+        }
+      ],
+      "purl": "pkg:npm/@bpmn-io/form-js@2.1.1",
+      "scope": "required",
+      "type": "library",
+      "version": "2.1.1"
+    },
+    {
+      "name": "bpmn-js",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_runtime"
+        }
+      ],
+      "purl": "pkg:npm/bpmn-js@18.31.0",
+      "scope": "required",
+      "type": "library",
+      "version": "18.31.0"
+    },
+    {
+      "name": "dmn-js",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_runtime"
+        }
+      ],
+      "purl": "pkg:npm/dmn-js@17.12.2",
+      "scope": "required",
+      "type": "library",
+      "version": "17.12.2"
+    },
+    {
+      "name": "lucide-react",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_runtime"
+        }
+      ],
+      "purl": "pkg:npm/lucide-react@0.475.0",
+      "scope": "required",
+      "type": "library",
+      "version": "0.475.0"
+    },
+    {
+      "name": "react",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_runtime"
+        }
+      ],
+      "purl": "pkg:npm/react@18.3.1",
+      "scope": "required",
+      "type": "library",
+      "version": "18.3.1"
+    },
+    {
+      "name": "react-dom",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_runtime"
+        }
+      ],
+      "purl": "pkg:npm/react-dom@18.3.1",
+      "scope": "required",
+      "type": "library",
+      "version": "18.3.1"
+    },
+    {
+      "name": "@testing-library/jest-dom",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/@testing-library/jest-dom@6.6.3",
+      "scope": "optional",
+      "type": "library",
+      "version": "6.6.3"
+    },
+    {
+      "name": "@testing-library/react",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/@testing-library/react@16.2.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "16.2.0"
+    },
+    {
+      "name": "@types/react",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/@types/react@18.3.18",
+      "scope": "optional",
+      "type": "library",
+      "version": "18.3.18"
+    },
+    {
+      "name": "@types/react-dom",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/@types/react-dom@18.3.5",
+      "scope": "optional",
+      "type": "library",
+      "version": "18.3.5"
+    },
+    {
+      "name": "@typescript-eslint/eslint-plugin",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/@typescript-eslint/eslint-plugin@7.18.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "7.18.0"
+    },
+    {
+      "name": "@typescript-eslint/parser",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/@typescript-eslint/parser@7.18.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "7.18.0"
+    },
+    {
+      "name": "@vitejs/plugin-react",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/@vitejs/plugin-react@4.3.4",
+      "scope": "optional",
+      "type": "library",
+      "version": "4.3.4"
+    },
+    {
+      "name": "eslint",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/eslint@8.57.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "8.57.0"
+    },
+    {
+      "name": "eslint-plugin-react-hooks",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/eslint-plugin-react-hooks@4.6.2",
+      "scope": "optional",
+      "type": "library",
+      "version": "4.6.2"
+    },
+    {
+      "name": "jsdom",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/jsdom@26.0.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "26.0.0"
+    },
+    {
+      "name": "typescript",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/typescript@5.7.3",
+      "scope": "optional",
+      "type": "library",
+      "version": "5.7.3"
+    },
+    {
+      "name": "vite",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/vite@6.1.0",
+      "scope": "optional",
+      "type": "library",
+      "version": "6.1.0"
+    },
+    {
+      "name": "vitest",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "tier",
+          "value": "frontend_dev_testing"
+        }
+      ],
+      "purl": "pkg:npm/vitest@3.0.5",
+      "scope": "optional",
+      "type": "library",
+      "version": "3.0.5"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "description": "IR Infotech E-7 Operations Engine: Unified Task Intelligence, Workflow, and Scheduling Orchestration",
+      "name": "operations-engine",
+      "properties": [
+        {
+          "name": "scanned_rc_content_id",
+          "value": "2b25d7dea6eaf2baeb611cc9aa1222d5ede4b1bfbc4ac6b10280ef87b5d2734c"
+        },
+        {
+          "name": "git_branch",
+          "value": "master"
+        },
+        {
+          "name": "git_head",
+          "value": "69349b093a71ab5b8bbb83ec9d97e4f7de6b90b5"
+        },
+        {
+          "name": "working_tree",
+          "value": "DIRTY_PRESERVED"
+        }
+      ],
+      "purl": "pkg:generic/operations-engine@0.1.0",
+      "type": "application",
+      "version": "0.1.0"
+    },
+    "timestamp": "2026-10-12T12:06:45.386100+00:00",
+    "tools": [
+      {
+        "name": "cyclonedx-python-lib",
+        "vendor": "CycloneDX",
+        "version": "11.12.0"
+      }
+    ]
+  },
+  "serialNumber": "urn:uuid:251ba02b-b868-4599-8415-4086c8df1c01",
+  "specVersion": "1.5",
+  "version": 1
+}

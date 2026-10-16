@@ -288,10 +288,14 @@ def test_declarative_base_and_naming_convention() -> None:
         "schedule_assignments",
         # Phase 4B Calendar (1)
         "calendar_links",
+        # Phase 7 Calendar Watch (1)
+        "calendar_watch_channels",
+        # Phase 8D Service Credentials Persistence (1)
+        "service_api_credentials",
     }
     assert phase1_tables <= set(Base.metadata.tables.keys())
     assert set(Base.metadata.tables.keys()) == canonical_phase4_tables
-    assert len(Base.metadata.tables) == 24
+    assert len(Base.metadata.tables) == 26
 
 
 @pytest.mark.asyncio

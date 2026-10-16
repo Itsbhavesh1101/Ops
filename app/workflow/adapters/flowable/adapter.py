@@ -8,11 +8,13 @@ Provides:
 """
 
 import asyncio
+import time
 from datetime import UTC, datetime
 from typing import Any
 
 import httpx
 
+from app.core.telemetry.flowable import get_flowable_telemetry
 from app.workflow.adapters.dto import (
     EngineDeploymentResult,
     EngineHistoricActivity,
@@ -73,12 +75,11 @@ class FlowableAdapter(WorkflowAdapterProtocol):
         else:
             self.settings = settings
         self._custom_client = client
+        self._shared_client: httpx.AsyncClient | None = None
+        self._telemetry = get_flowable_telemetry()
 
-    def _get_client(self) -> httpx.AsyncClient:
-        """Create or reuse configured httpx client."""
-        if self._custom_client is not None:
-            return self._custom_client
-
+    def _create_client(self) -> httpx.AsyncClient:
+        """Create a new pooled AsyncClient with bounded connection limits."""
         auth: httpx.Auth | None = None
         headers: dict[str, str] = {}
         if self.settings.auth_mode == "basic":
@@ -92,16 +93,57 @@ class FlowableAdapter(WorkflowAdapterProtocol):
             assert self.settings.token is not None
             headers["Authorization"] = f"Bearer {self.settings.token.get_secret_value()}"
 
+        limits = httpx.Limits(
+            max_connections=getattr(self.settings, "pool_max_connections", 20),
+            max_keepalive_connections=getattr(self.settings, "pool_max_keepalive_connections", 10),
+            keepalive_expiry=30.0,
+        )
         return httpx.AsyncClient(
             auth=auth,
             headers=headers if headers else None,
-            timeout=httpx.Timeout(self.settings.timeout_seconds),
+            timeout=httpx.Timeout(
+                self.settings.timeout_seconds,
+                pool=getattr(self.settings, "pool_timeout_seconds", 10.0),
+            ),
+            limits=limits,
         )
 
+    def _get_client(self) -> httpx.AsyncClient:
+        """Return persistent pooled httpx client or custom client."""
+        if self._custom_client is not None:
+            return self._custom_client
+        if self._shared_client is None or self._shared_client.is_closed:
+            self._shared_client = self._create_client()
+        return self._shared_client
+
     async def close(self) -> None:
-        """Close underlying HTTP client if provided."""
+        """Close underlying HTTP client and release connection pool."""
         if self._custom_client is not None:
             await self._custom_client.aclose()
+        if self._shared_client is not None:
+            if not self._shared_client.is_closed:
+                await self._shared_client.aclose()
+            self._shared_client = None
+
+    async def __aenter__(self) -> "FlowableAdapter":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        await self.close()
+
+    def _classify_operation(self, method: str, path: str) -> str:
+        """Classify Flowable REST path into bounded low-cardinality operation label."""
+        p = path.lower()
+        m = method.upper()
+        if "deployment" in p:
+            return "deploy"
+        if "process-instance" in p:
+            return "start" if m == "POST" else "sync"
+        if "task" in p:
+            return "task_complete" if m == "POST" else "task_query"
+        if "history" in p or "management" in p:
+            return "sync"
+        return "other"
 
     async def _request(
         self,
@@ -116,13 +158,14 @@ class FlowableAdapter(WorkflowAdapterProtocol):
     ) -> httpx.Response:
         """Execute HTTP request with safe error wrapping and bounded retry for idempotent calls."""
         client = self._get_client()
-        should_close = self._custom_client is None
         retries = self.settings.max_retries if is_idempotent else 0
         if path.startswith(("http://", "https://")):
             full_url = path
         else:
             full_url = f"{self.settings.base_url.rstrip('/')}/{path.lstrip('/')}"
 
+        op = self._classify_operation(method, path)
+        start_time = time.monotonic()
         last_error: Exception | None = None
         for attempt in range(retries + 1):
             try:
@@ -134,26 +177,26 @@ class FlowableAdapter(WorkflowAdapterProtocol):
                     files=files,
                     data=data,
                 )
-                if should_close:
-                    await client.aclose()
+                duration = time.monotonic() - start_time
+                self._telemetry.record_roundtrip(op, duration, success=resp.is_success)
                 return resp
             except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as exc:
                 last_error = exc
                 if attempt < retries:
                     await asyncio.sleep(0.2 * (2**attempt))
                 else:
-                    if should_close:
-                        await client.aclose()
+                    duration = time.monotonic() - start_time
+                    self._telemetry.record_roundtrip(op, duration, success=False)
                     raise WorkflowEngineConnectionError(
                         f"Failed to connect to Flowable engine at '{self.settings.base_url}': {exc}"
                     ) from exc
             except Exception as exc:
-                if should_close:
-                    await client.aclose()
+                duration = time.monotonic() - start_time
+                self._telemetry.record_roundtrip(op, duration, success=False)
                 raise WorkflowEngineResponseError(f"Unexpected HTTP client error: {exc}") from exc
 
-        if should_close:
-            await client.aclose()
+        duration = time.monotonic() - start_time
+        self._telemetry.record_roundtrip(op, duration, success=False)
         raise WorkflowEngineConnectionError(
             f"Flowable request failed after {retries} retries: {last_error}"
         )
@@ -458,6 +501,7 @@ class FlowableAdapter(WorkflowAdapterProtocol):
                 "tenantId": tenant_id,
                 "sort": "startTime",
                 "order": "asc",
+                "size": 200,
             },
             is_idempotent=True,
         )
@@ -594,3 +638,20 @@ class FlowableAdapter(WorkflowAdapterProtocol):
             )
         body = resp.json()
         return body.get("data", [])
+
+    async def trigger_timer_job(self, job_id: str) -> None:
+        """Trigger an active timer job by moving and executing it in Flowable."""
+        resp = await self._request(
+            "POST", f"/management/timer-jobs/{job_id}", json={"action": "move"}
+        )
+        if resp.status_code not in (200, 204):
+            raise WorkflowEngineResponseError(
+                f"Failed to move timer job '{job_id}': status {resp.status_code}: {resp.text}"
+            )
+        exec_resp = await self._request(
+            "POST", f"/management/jobs/{job_id}", json={"action": "execute"}
+        )
+        if exec_resp.status_code not in (200, 204, 404):
+            raise WorkflowEngineResponseError(
+                f"Failed to execute job '{job_id}': status {exec_resp.status_code}"
+            )

@@ -33,6 +33,20 @@ PHASE_3A_FIXTURE_ALLOWED_VARIABLES: frozenset[str] = frozenset(
     {"priority", "decision", "comment", "approved", "reason"}
 )
 
+# Standard allowlist for Phase-6 semester examination readiness operations & DMN rules
+PHASE_6_ALLOWED_VARIABLES: frozenset[str] = frozenset(
+    {
+        "science_approved",
+        "humanities_approved",
+        "curriculum_coverage",
+        "readiness_status",
+        "recommendation",
+        "sla_warning_at",
+        "sla_breach_at",
+        "moderation_approved",
+    }
+)
+
 
 class WorkflowVariableValidationError(ValueError):
     """Raised when workflow variable payload violates size or serialization constraints."""

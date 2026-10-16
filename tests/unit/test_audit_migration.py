@@ -34,9 +34,10 @@ def test_migration_0002_revision_chain() -> None:
 
     head = script_dir.get_current_head()
     assert head in (
-        "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012"
+        "0002", "0003", "0004", "0005", "0006", "0007",
+        "0008", "0009", "0010", "0011", "0012", "0013", "0014",
     )
-    assert head == "0012"
+    assert head == "0014"
 
     rev_0002 = script_dir.get_revision("0002")
     assert rev_0002 is not None

@@ -85,6 +85,9 @@ class AcademicSubjectDTO(BaseModel):
     preferred_invigilator_skills: list[str] = Field(
         default_factory=list, description="Preferred subject-matter skills"
     )
+    required_equipment: list[str] = Field(
+        default_factory=list, description="Mandatory equipment skills/types required"
+    )
 
 
 class EducationSessionDTO(BaseModel):
@@ -105,6 +108,10 @@ class EducationSessionDTO(BaseModel):
     preferred_invigilator_ids: list[str] = Field(
         default_factory=list, description="Preferred faculty/invigilator IDs"
     )
+    required_equipment: list[str] = Field(
+        default_factory=list,
+        description="Mandatory equipment skills/types required for this session",
+    )
 
 
 class CanonicalEducationAssignment(BaseModel):
@@ -116,6 +123,9 @@ class CanonicalEducationAssignment(BaseModel):
     session_id: str = Field(..., description="Canonical session ID")
     room_resource_id: str = Field(..., description="Assigned room resource ID")
     invigilator_resource_id: str = Field(..., description="Assigned invigilator resource ID")
+    equipment_resource_id: str | None = Field(
+        default=None, description="Assigned equipment resource ID, if equipment required"
+    )
     start_at: datetime = Field(..., description="Scheduled start (timezone-aware)")
     end_at: datetime = Field(..., description="Scheduled end (timezone-aware)")
     locked: bool = Field(default=False, description="True if assignment is pinned/locked")

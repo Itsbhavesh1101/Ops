@@ -6,6 +6,8 @@ Enforces:
 - Fail-clearly configuration error when required settings are missing.
 """
 
+import os
+
 from pydantic import Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -59,6 +61,24 @@ class FlowableSettings(BaseSettings):
         default=None,
         description="Optional Bearer token masked as SecretStr",
     )
+    pool_max_connections: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Maximum concurrent HTTP connections in Flowable client pool",
+    )
+    pool_max_keepalive_connections: int = Field(
+        default=10,
+        ge=0,
+        le=50,
+        description="Maximum idle keep-alive connections in Flowable client pool",
+    )
+    pool_timeout_seconds: float = Field(
+        default=10.0,
+        gt=0.0,
+        le=60.0,
+        description="Maximum wait duration to acquire connection from pool",
+    )
 
     @property
     def auth_mode(self) -> str:
@@ -96,6 +116,26 @@ class FlowableSettings(BaseSettings):
             "Flowable authentication is required: must specify either Basic auth "
             "(username and password) or Bearer auth (token)."
         )
+
+    @model_validator(mode="after")
+    def validate_production_credentials(self) -> "FlowableSettings":
+        """Enforce that known default/synthetic credentials cannot be used in production."""
+        env = os.environ.get("E7_ENVIRONMENT", "").strip().lower()
+        if env == "production":
+            known_insecure_users = {"rest-admin", "admin"}
+            known_insecure_passwords = {"test", "admin"}
+            if self.username and self.username.lower() in known_insecure_users:
+                if (
+                    self.password is not None
+                    and self.password.get_secret_value() in known_insecure_passwords
+                ):
+                    raise ValueError(
+                        "Insecure default Flowable credentials ('rest-admin:test' or 'admin:test') "
+                        "are strictly prohibited in production environment. Operator must inject "
+                        "secure, non-default credentials via FLOWABLE_USERNAME and "
+                        "FLOWABLE_PASSWORD."
+                    )
+        return self
 
     @classmethod
     def from_env(cls) -> "FlowableSettings":

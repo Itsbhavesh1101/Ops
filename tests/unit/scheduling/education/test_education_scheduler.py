@@ -20,7 +20,10 @@ from pathlib import Path
 import pytest
 
 from app.scheduling.constraints.models import MinimumGapConstraint
-from app.scheduling.education.adapters.unitime import UniTimeSchedulerAdapter
+from app.scheduling.education.adapters.unitime import (
+    UniTimeSchedulerAdapter,
+    build_benchmark_unitime_config,
+)
 from app.scheduling.education.benchmark import FET_BENCHMARK_STATUS
 from app.scheduling.education.dataset import (
     build_benchmark_manifest,
@@ -127,26 +130,30 @@ def test_education_session_dto_validation() -> None:
 def test_canonical_manifest_and_hashes() -> None:
     manifest = build_benchmark_manifest()
     assert manifest.manifest_id == "E7-PHASE5-EDUCATION-BENCHMARK-MANIFEST"
-    assert manifest.manifest_version == "1.0.0"
+    assert manifest.manifest_version == "2.0.0"
+    assert (
+        manifest.combined_canonical_benchmark_hash
+        == "e6487b9f78affc5c48e023529f38fa1c18c47eb7a9445dfc99885abb1941566b"
+    )
 
     # Verify cryptographic digests
     hashes = manifest.dataset_hashes
-    assert "RS-SYNTH-001" in hashes
-    assert "SC-EXAM-FEASIBLE-001" in hashes
-    assert "SC-EXAM-INFEASIBLE-001" in hashes
-    assert "SC-EXAM-REPAIR-001" in hashes
+    assert "PHASE5-RS-EDU-001" in hashes
+    assert "PHASE5-SC-EXAM-FEASIBLE-001" in hashes
+    assert "PHASE5-SC-EXAM-INFEASIBLE-001" in hashes
+    assert "PHASE5-SC-EXAM-REPAIR-001" in hashes
 
-    assert hashes["RS-SYNTH-001"] == (
-        "a85fed2b6069000bcbaa27c897483bff5a70aee9c00f5f25568a812df1609fb6"
+    assert hashes["PHASE5-RS-EDU-001"] == (
+        "4a1ca0d0fcccbd53c336d15b1efea75340bc745bbfa390fb217e07f2f57ef02a"
     )
-    assert hashes["SC-EXAM-FEASIBLE-001"] == (
-        "afa37a4c329cd84285d014b57d6fa6904bc1c64be1c817c78d94430840e98781"
+    assert hashes["PHASE5-SC-EXAM-FEASIBLE-001"] == (
+        "96863cc562b19929f5c0e71a083e675c3d348ccaf2aab38654006eda529d307a"
     )
-    assert hashes["SC-EXAM-INFEASIBLE-001"] == (
-        "f9f7d824a43ff67cacad389f887416d683c11580afc4a411d102277cb2c99279"
+    assert hashes["PHASE5-SC-EXAM-INFEASIBLE-001"] == (
+        "ed40a105179764f6794c3a2e1a7543c34fee85a12439a756a6661a2c7de79f67"
     )
-    assert hashes["SC-EXAM-REPAIR-001"] == (
-        "0b7f1cd1446ed0feb2876af107e86716e62f8e09786332d983dc55004e5a4748"
+    assert hashes["PHASE5-SC-EXAM-REPAIR-001"] == (
+        "46cb07ef7e6f089dfa32850a5df23cab1c355509c05f028d74e8536259e0e8a4"
     )
 
     assert manifest.entity_counts["cohorts"] == 2
@@ -154,20 +161,21 @@ def test_canonical_manifest_and_hashes() -> None:
     assert manifest.entity_counts["sessions"] == 10
     assert manifest.entity_counts["rooms"] == 3
     assert manifest.entity_counts["invigilators"] == 4
+    assert manifest.entity_counts["equipment"] == 1
 
 
 def test_load_canonical_education_datasets() -> None:
     dataset_feasible, resources = load_education_dataset("FEASIBLE")
-    assert dataset_feasible.dataset_id == "SC-EXAM-FEASIBLE-001"
+    assert dataset_feasible.dataset_id == "PHASE5-SC-EXAM-FEASIBLE-001"
     assert len(dataset_feasible.sessions) == 10
-    assert len(resources) == 7  # 3 rooms + 4 invigilators
+    assert len(resources) == 8  # 3 rooms + 4 invigilators + 1 equipment
 
     dataset_infeasible, _ = load_education_dataset("INFEASIBLE")
-    assert dataset_infeasible.dataset_id == "SC-EXAM-INFEASIBLE-001"
+    assert dataset_infeasible.dataset_id == "PHASE5-SC-EXAM-INFEASIBLE-001"
     assert len(dataset_infeasible.sessions) == 3
 
     dataset_repair, _ = load_education_dataset("REPAIR")
-    assert dataset_repair.dataset_id == "SC-EXAM-REPAIR-001"
+    assert dataset_repair.dataset_id == "PHASE5-SC-EXAM-REPAIR-001"
     assert len(dataset_repair.published_baseline) == 10
     assert sum(1 for b in dataset_repair.published_baseline if b.locked) == 9
 
@@ -315,6 +323,74 @@ def test_evaluator_detects_violations() -> None:
     assert any("INVIGILATOR_DOUBLE_BOOKING" in v for v in res_inv.hard_violations)
 
 
+def test_evaluator_equipment_validation_and_double_booking() -> None:
+    """Verify independent evaluator rejects missing equipment, deficits, and double booking."""
+    dataset, resources = load_education_dataset("FEASIBLE")
+    evaluator = EducationScheduleEvaluator(dataset, resources)
+
+    tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    d1_m = datetime.datetime(2026, 11, 9, 9, 0, tzinfo=tz)
+    d1_e = datetime.datetime(2026, 11, 9, 11, 0, tzinfo=tz)
+
+    # 1. Negative Case: Session requires LAB_KIT, but no equipment assigned
+    # and room lacks it
+    asgn_missing_eq = [
+        CanonicalEducationAssignment(
+            assignment_id="asgn-1",
+            session_id="session-science-g10a",  # requires LAB_KIT
+            room_resource_id="res-room-001",    # Exam Room Alpha lacks LAB_KIT
+            invigilator_resource_id="res-inv-001",
+            equipment_resource_id=None,         # Missing!
+            start_at=d1_m,
+            end_at=d1_e,
+        )
+    ]
+    res_missing = evaluator.evaluate(asgn_missing_eq)
+    assert res_missing.is_valid is False
+    assert any("REQUIRED_EQUIPMENT_MISSING" in v for v in res_missing.hard_violations)
+
+    # 2. Negative Case: Equipment double booking during overlapping window
+    asgn_double_eq = [
+        CanonicalEducationAssignment(
+            assignment_id="asgn-1",
+            session_id="session-science-g10a",
+            room_resource_id="res-room-001",
+            invigilator_resource_id="res-inv-001",
+            equipment_resource_id="res-eq-004",
+            start_at=d1_m,
+            end_at=d1_e,
+        ),
+        CanonicalEducationAssignment(
+            assignment_id="asgn-2",
+            session_id="session-science-g10b",
+            room_resource_id="res-room-002",
+            invigilator_resource_id="res-inv-002",
+            equipment_resource_id="res-eq-004",  # Same equipment at same time!
+            start_at=d1_m,
+            end_at=d1_e,
+        ),
+    ]
+    res_double = evaluator.evaluate(asgn_double_eq)
+    assert res_double.is_valid is False
+    assert any("EQUIPMENT_DOUBLE_BOOKING" in v for v in res_double.hard_violations)
+
+    # 3. Negative Case: Equipment lacks required capability
+    asgn_wrong_eq = [
+        CanonicalEducationAssignment(
+            assignment_id="asgn-1",
+            session_id="session-science-g10a",
+            room_resource_id="res-room-001",
+            invigilator_resource_id="res-inv-001",
+            equipment_resource_id="res-room-002",  # Not a valid equipment / lacks LAB_KIT
+            start_at=d1_m,
+            end_at=d1_e,
+        )
+    ]
+    res_wrong = evaluator.evaluate(asgn_wrong_eq)
+    assert res_wrong.is_valid is False
+    assert any("EQUIPMENT_CAPABILITY_DEFICIT" in v for v in res_wrong.hard_violations)
+
+
 def test_evaluator_lock_preservation() -> None:
     dataset, resources = load_education_dataset("REPAIR")
     evaluator = EducationScheduleEvaluator(dataset, resources)
@@ -349,7 +425,7 @@ def test_evaluator_lock_preservation() -> None:
 
 
 def test_unitime_adapter_external_id_isolation() -> None:
-    adapter = UniTimeSchedulerAdapter()
+    adapter = UniTimeSchedulerAdapter(config=build_benchmark_unitime_config())
     dataset, resources = load_education_dataset("FEASIBLE")
 
     # Verify input validation rejects non-existent exams
@@ -442,7 +518,7 @@ def test_ortools_native_solve_repair() -> None:
 
 def test_unitime_live_solve_feasible() -> None:
     dataset, resources = load_education_dataset("FEASIBLE")
-    adapter = UniTimeSchedulerAdapter()
+    adapter = UniTimeSchedulerAdapter(config=build_benchmark_unitime_config())
     status, asgns, metadata = adapter.solve(dataset, resources, timeout_seconds=10.0)
 
     assert status == ScheduleStatus.FEASIBLE
@@ -456,18 +532,22 @@ def test_unitime_live_solve_feasible() -> None:
 
 def test_unitime_live_solve_infeasible() -> None:
     dataset, resources = load_education_dataset("INFEASIBLE")
-    adapter = UniTimeSchedulerAdapter()
+    adapter = UniTimeSchedulerAdapter(config=build_benchmark_unitime_config())
     status, asgns, metadata = adapter.solve(dataset, resources, timeout_seconds=10.0)
 
     assert status == ScheduleStatus.INFEASIBLE
     assert len(asgns) == 0
     diagnostic_text = metadata.get("diagnostic", "")
-    assert metadata.get("detected_infeasible") is True or "MAJOR_SUBJECT_GAP" in diagnostic_text
+    assert (
+        metadata.get("adapter_prevalidation_result") == "INFEASIBLE"
+        or "gap policy" in diagnostic_text.lower()
+        or "major_subject_gap" in diagnostic_text.lower()
+    )
 
 
 def test_unitime_live_solve_repair() -> None:
     dataset, resources = load_education_dataset("REPAIR")
-    adapter = UniTimeSchedulerAdapter()
+    adapter = UniTimeSchedulerAdapter(config=build_benchmark_unitime_config())
     disruptions = [
         {
             "disruption_id": "dis-fac-001",

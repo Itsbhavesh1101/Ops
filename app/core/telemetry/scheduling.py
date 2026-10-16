@@ -63,11 +63,63 @@ class SchedulingTelemetry:
             unit="1",
             description="Total count of infeasible solver results",
         )
+        self._translation_histogram = self._meter.create_histogram(
+            name="e7.scheduling.translation.duration",
+            unit="s",
+            description="Duration of problem constraint translation in seconds",
+        )
+        self._cpsat_histogram = self._meter.create_histogram(
+            name="e7.scheduling.cpsat.duration",
+            unit="s",
+            description="Duration of CP-SAT solver search in seconds",
+        )
+        self._persistence_histogram = self._meter.create_histogram(
+            name="e7.scheduling.persistence.duration",
+            unit="s",
+            description="Duration of schedule result database persistence in seconds",
+        )
+        self._job_total_histogram = self._meter.create_histogram(
+            name="e7.scheduling.job.total_duration",
+            unit="s",
+            description="Total end-to-end schedule job execution duration in seconds",
+        )
 
     def record_attempt(self) -> None:
         """Safely record a solve attempt."""
         try:
             self._attempts_counter.add(1)
+        except Exception:
+            pass
+
+    def record_translation_duration(self, duration_seconds: float) -> None:
+        """Safely record problem translation duration."""
+        try:
+            self._translation_histogram.record(max(0.0, duration_seconds))
+        except Exception:
+            pass
+
+    def record_cpsat_duration(self, duration_seconds: float, status: str = "FEASIBLE") -> None:
+        """Safely record CP-SAT engine solve duration."""
+        try:
+            res_status = status if status in VALID_RESULT_STATUSES else "FAILED"
+            self._cpsat_histogram.record(max(0.0, duration_seconds), {"result_status": res_status})
+        except Exception:
+            pass
+
+    def record_persistence_duration(self, duration_seconds: float) -> None:
+        """Safely record schedule persistence duration."""
+        try:
+            self._persistence_histogram.record(max(0.0, duration_seconds))
+        except Exception:
+            pass
+
+    def record_job_duration(self, duration_seconds: float, status: str = "FEASIBLE") -> None:
+        """Safely record total schedule job duration."""
+        try:
+            res_status = status if status in VALID_RESULT_STATUSES else "FAILED"
+            self._job_total_histogram.record(
+                max(0.0, duration_seconds), {"result_status": res_status}
+            )
         except Exception:
             pass
 

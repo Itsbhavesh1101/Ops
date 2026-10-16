@@ -73,6 +73,18 @@ class OutboxWorkerSettings(BaseSettings):
         ge=1.0,
         description="Multiplicative factor for exponential backoff retry progression.",
     )
+    outbox_batch_size: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Batch size for outbox claim and settlement.",
+    )
+    outbox_publish_concurrency: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum concurrent in-flight AMQP publishes during batch dispatch.",
+    )
 
     @model_validator(mode="after")
     def validate_bounds(self) -> Self:
@@ -109,4 +121,6 @@ class OutboxWorkerSettings(BaseSettings):
             retry_base_delay=timedelta(seconds=self.outbox_retry_base_delay_seconds),
             retry_max_delay=timedelta(seconds=self.outbox_retry_max_delay_seconds),
             retry_multiplier=self.outbox_retry_multiplier,
+            batch_size=self.outbox_batch_size,
+            publish_concurrency=self.outbox_publish_concurrency,
         )

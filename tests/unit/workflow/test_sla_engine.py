@@ -162,7 +162,7 @@ async def test_sla_evaluation_triggers_warning_and_breach(sla_service):
     assert len(res4) == 1
     assert "BREACH" in res4[0]
     assert len(outbox.events) == 2
-    assert outbox.events[1].event_type == "workflow.sla.breach"
+    assert outbox.events[1].event_type == "workflow.sla.breached"
 
 
 def test_business_calendar_5x8_pause_resume_weekend():

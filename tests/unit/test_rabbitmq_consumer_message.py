@@ -1008,17 +1008,21 @@ def test_schema_stability() -> None:
         "schedule_assignments",
         # Phase 4B Calendar (1)
         "calendar_links",
+        # Phase 7 Calendar Watch (1)
+        "calendar_watch_channels",
+        # Phase 8D Service Credentials Persistence (1)
+        "service_api_credentials",
     }
     assert phase1_tables <= set(Base.metadata.tables.keys())
     assert set(Base.metadata.tables.keys()) == canonical_phase4_tables
-    assert len(Base.metadata.tables) == 24
+    assert len(Base.metadata.tables) == 26
 
     config = Config("alembic.ini")
     script_dir = ScriptDirectory.from_config(config)
     assert script_dir.get_current_head() in (
-        "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012"
+        "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014"
     )
-    assert script_dir.get_current_head() == "0012"
+    assert script_dir.get_current_head() == "0014"
 
 
 def test_deferred_runtime_integration_constant() -> None:

@@ -8,6 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_api_exception_handlers
 from app.api.idempotency import register_idempotency_exception_handler
+from app.api.v1.calendar import register_calendar_routes
+from app.api.v1.composition import register_domain_routes
 from app.api.v1.router import (
     OPENAPI_DESCRIPTION,
     OPENAPI_TITLE,
@@ -18,7 +20,11 @@ from app.api.v1.router import (
 )
 from app.core.config import get_settings
 from app.core.logging import setup_logging
-from app.core.middleware import CorrelationAndLoggingMiddleware
+from app.core.middleware import (
+    CorrelationAndLoggingMiddleware,
+    RequestBodySizeLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 from app.core.telemetry import (
     TelemetryRuntime,
     TelemetrySettings,
@@ -111,8 +117,9 @@ app = FastAPI(
     title=OPENAPI_TITLE,
     description=OPENAPI_DESCRIPTION,
     version=OPENAPI_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url="/docs" if settings.docs_enabled else None,
+    redoc_url="/redoc" if settings.docs_enabled else None,
+    openapi_url="/openapi.json" if settings.docs_enabled else None,
     lifespan=lifespan,
 )
 
@@ -121,6 +128,12 @@ register_api_exception_handlers(app)
 
 # Register idempotency conflict handler (Task 1I.3)
 register_idempotency_exception_handler(app)
+
+# Defensive security response headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request body size limit middleware
+app.add_middleware(RequestBodySizeLimitMiddleware)
 
 # Correlation and structured request logging middleware
 app.add_middleware(CorrelationAndLoggingMiddleware)
@@ -136,6 +149,10 @@ if settings.cors_allowed_origins:
         allow_headers=["*"],
     )
 
+if settings.mount_domain_routers:
+    register_domain_routes(api_v1_router)
+
+register_calendar_routes(api_v1_router)
 app.include_router(api_v1_router)
 
 

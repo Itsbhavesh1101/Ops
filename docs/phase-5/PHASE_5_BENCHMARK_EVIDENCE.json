@@ -1,0 +1,413 @@
+{
+  "benchmark_id": "PHASE_5_ACCELERATED_EDUCATION_BENCHMARK",
+  "benchmark_version": "2.0.0",
+  "timestamp": "2026-10-06T04:18:35.627918",
+  "environment": {
+    "os": "Windows (AMD64)",
+    "python": "3.12.13",
+    "ortools": "9.15",
+    "unitime_cpsolver": "1.4.94",
+    "trial_count": 3,
+    "time_budget_seconds": 10.0,
+    "random_seed": 42,
+    "fet_legal_gate": "NOT_APPROVED",
+    "fet_benchmark_status": "NOT_RUN_LEGAL_GATE_NOT_APPROVED"
+  },
+  "same_dataset_proof": {
+    "ortools_input_dataset_hash": "96863cc562b19929f5c0e71a083e675c3d348ccaf2aab38654006eda529d307a",
+    "unitime_input_dataset_hash": "96863cc562b19929f5c0e71a083e675c3d348ccaf2aab38654006eda529d307a",
+    "combined_canonical_benchmark_hash": "e6487b9f78affc5c48e023529f38fa1c18c47eb7a9445dfc99885abb1941566b",
+    "hashes_identical": true
+  },
+  "manifest": {
+    "manifest_id": "E7-PHASE5-EDUCATION-BENCHMARK-MANIFEST",
+    "manifest_version": "2.0.0",
+    "dataset_hashes": {
+      "PHASE5-RS-EDU-001": "4a1ca0d0fcccbd53c336d15b1efea75340bc745bbfa390fb217e07f2f57ef02a",
+      "PHASE5-SC-EXAM-FEASIBLE-001": "96863cc562b19929f5c0e71a083e675c3d348ccaf2aab38654006eda529d307a",
+      "PHASE5-SC-EXAM-INFEASIBLE-001": "ed40a105179764f6794c3a2e1a7543c34fee85a12439a756a6661a2c7de79f67",
+      "PHASE5-SC-EXAM-REPAIR-001": "46cb07ef7e6f089dfa32850a5df23cab1c355509c05f028d74e8536259e0e8a4"
+    },
+    "combined_canonical_benchmark_hash": "e6487b9f78affc5c48e023529f38fa1c18c47eb7a9445dfc99885abb1941566b",
+    "entity_counts": {
+      "cohorts": 2,
+      "exams": 5,
+      "sessions": 10,
+      "rooms": 3,
+      "invigilators": 4,
+      "equipment": 1
+    },
+    "constraint_counts": {
+      "hard_no_overlap_cohort": 2,
+      "hard_no_overlap_room": 3,
+      "hard_no_overlap_invigilator": 4,
+      "hard_no_overlap_equipment": 1,
+      "hard_room_capacity": 10,
+      "hard_major_subject_gaps": 2,
+      "hard_equipment_requirement": 2,
+      "soft_preferences": 3
+    },
+    "time_horizon_start": "2026-11-09T08:00:00+05:30",
+    "time_horizon_end": "2026-11-13T17:00:00+05:30",
+    "timezone": "Asia/Kolkata",
+    "hard_policies": [
+      "NO_COHORT_DOUBLE_BOOKING",
+      "NO_ROOM_DOUBLE_BOOKING",
+      "NO_INVIGILATOR_DOUBLE_BOOKING",
+      "NO_EQUIPMENT_DOUBLE_BOOKING",
+      "ROOM_CAPACITY",
+      "INVIGILATOR_ROLE_ELIGIBILITY",
+      "REQUIRED_EQUIPMENT_AVAILABLE",
+      "DURATION_WITHIN_WINDOW",
+      "MAJOR_SUBJECT_MIN_GAP",
+      "LOCK_PRESERVATION"
+    ],
+    "soft_policies": [
+      {
+        "kind": "PREFERRED_INVIGILATOR",
+        "weight": 2
+      },
+      {
+        "kind": "PREFERRED_ROOM",
+        "weight": 1
+      },
+      {
+        "kind": "INVIGILATOR_WORKLOAD_BALANCE",
+        "weight": 1
+      }
+    ],
+    "disruption_cases": [
+      "FACULTY_UNAVAILABILITY",
+      "ROOM_OUTAGE",
+      "EXAM_GAP_EDGE",
+      "FIXED_EVENT",
+      "LOCKED_ASSIGNMENT_MUTATION_FORBIDDEN",
+      "PARTIAL_REPAIR"
+    ]
+  },
+  "baseline": {
+    "ortools_runs": [
+      {
+        "solver_name": "OR-Tools-Native",
+        "scenario": "FEASIBLE_trial_1",
+        "status": "FEASIBLE",
+        "hard_violations": 0,
+        "is_accepted": true,
+        "adapter_duration_seconds": 0.001,
+        "solver_duration_seconds": 0.6131,
+        "evaluator_duration_seconds": 0.0005,
+        "total_wall_clock_seconds": 0.6146,
+        "soft_metrics": {
+          "preferred_room_satisfaction_rate": 1.0,
+          "preferred_invigilator_satisfaction_rate": 0.9,
+          "equipment_satisfaction_rate": 1.0,
+          "invigilator_workload_variance": 0.3333,
+          "repair_moved_assignments_count": 0,
+          "repair_time_shift_minutes": 0,
+          "repair_room_reassignments": 0,
+          "repair_invigilator_reassignments": 0,
+          "locked_assignments_moved": 0
+        },
+        "diagnostics": []
+      },
+      {
+        "solver_name": "OR-Tools-Native",
+        "scenario": "FEASIBLE_trial_2",
+        "status": "FEASIBLE",
+        "hard_violations": 0,
+        "is_accepted": true,
+        "adapter_duration_seconds": 0.0011,
+        "solver_duration_seconds": 0.5594,
+        "evaluator_duration_seconds": 0.0004,
+        "total_wall_clock_seconds": 0.5609,
+        "soft_metrics": {
+          "preferred_room_satisfaction_rate": 1.0,
+          "preferred_invigilator_satisfaction_rate": 0.9,
+          "equipment_satisfaction_rate": 1.0,
+          "invigilator_workload_variance": 0.3333,
+          "repair_moved_assignments_count": 0,
+          "repair_time_shift_minutes": 0,
+          "repair_room_reassignments": 0,
+          "repair_invigilator_reassignments": 0,
+          "locked_assignments_moved": 0
+        },
+        "diagnostics": []
+      },
+      {
+        "solver_name": "OR-Tools-Native",
+        "scenario": "FEASIBLE_trial_3",
+        "status": "FEASIBLE",
+        "hard_violations": 0,
+        "is_accepted": true,
+        "adapter_duration_seconds": 0.0006,
+        "solver_duration_seconds": 0.4266,
+        "evaluator_duration_seconds": 0.0003,
+        "total_wall_clock_seconds": 0.4276,
+        "soft_metrics": {
+          "preferred_room_satisfaction_rate": 1.0,
+          "preferred_invigilator_satisfaction_rate": 0.9,
+          "equipment_satisfaction_rate": 1.0,
+          "invigilator_workload_variance": 0.3333,
+          "repair_moved_assignments_count": 0,
+          "repair_time_shift_minutes": 0,
+          "repair_room_reassignments": 0,
+          "repair_invigilator_reassignments": 0,
+          "locked_assignments_moved": 0
+        },
+        "diagnostics": []
+      }
+    ],
+    "unitime_runs": [
+      {
+        "solver_name": "UniTime-CPSolver",
+        "scenario": "FEASIBLE_trial_1",
+        "status": "FEASIBLE",
+        "hard_violations": 0,
+        "is_accepted": true,
+        "adapter_duration_seconds": 0.0249,
+        "solver_duration_seconds": 0.8335,
+        "evaluator_duration_seconds": 0.0004,
+        "total_wall_clock_seconds": 0.8588,
+        "soft_metrics": {
+          "preferred_room_satisfaction_rate": 1.0,
+          "preferred_invigilator_satisfaction_rate": 1.0,
+          "equipment_satisfaction_rate": 1.0,
+          "invigilator_workload_variance": 1,
+          "repair_moved_assignments_count": 0,
+          "repair_time_shift_minutes": 0,
+          "repair_room_reassignments": 0,
+          "repair_invigilator_reassignments": 0,
+          "locked_assignments_moved": 0
+        },
+        "diagnostics": []
+      },
+      {
+        "solver_name": "UniTime-CPSolver",
+        "scenario": "FEASIBLE_trial_2",
+        "status": "FEASIBLE",
+        "hard_violations": 0,
+        "is_accepted": true,
+        "adapter_duration_seconds": 0.0199,
+        "solver_duration_seconds": 0.8144,
+        "evaluator_duration_seconds": 0.0003,
+        "total_wall_clock_seconds": 0.8345,
+        "soft_metrics": {
+          "preferred_room_satisfaction_rate": 1.0,
+          "preferred_invigilator_satisfaction_rate": 1.0,
+          "equipment_satisfaction_rate": 1.0,
+          "invigilator_workload_variance": 1,
+          "repair_moved_assignments_count": 0,
+          "repair_time_shift_minutes": 0,
+          "repair_room_reassignments": 0,
+          "repair_invigilator_reassignments": 0,
+          "locked_assignments_moved": 0
+        },
+        "diagnostics": []
+      },
+      {
+        "solver_name": "UniTime-CPSolver",
+        "scenario": "FEASIBLE_trial_3",
+        "status": "FEASIBLE",
+        "hard_violations": 0,
+        "is_accepted": true,
+        "adapter_duration_seconds": 0.0245,
+        "solver_duration_seconds": 0.8636,
+        "evaluator_duration_seconds": 0.0005,
+        "total_wall_clock_seconds": 0.8886,
+        "soft_metrics": {
+          "preferred_room_satisfaction_rate": 1.0,
+          "preferred_invigilator_satisfaction_rate": 1.0,
+          "equipment_satisfaction_rate": 1.0,
+          "invigilator_workload_variance": 1,
+          "repair_moved_assignments_count": 0,
+          "repair_time_shift_minutes": 0,
+          "repair_room_reassignments": 0,
+          "repair_invigilator_reassignments": 0,
+          "locked_assignments_moved": 0
+        },
+        "diagnostics": []
+      }
+    ],
+    "median_solve_duration": {
+      "ortools": 0.5594,
+      "unitime": 0.8335
+    },
+    "median_total_duration": {
+      "ortools": 0.5609,
+      "unitime": 0.8588
+    }
+  },
+  "infeasible": {
+    "scenario": "SC-EXAM-INFEASIBLE-001",
+    "ortools": {
+      "status": "INFEASIBLE",
+      "detected_infeasible": true,
+      "duration_seconds": 0.0108,
+      "diagnostics": [
+        "RESOURCE_OVERLAP_CONFLICT"
+      ],
+      "unscheduled_activities": 3
+    },
+    "unitime": {
+      "status": "INFEASIBLE",
+      "detected_infeasible": true,
+      "duration_seconds": 0.0001,
+      "diagnostics": [
+        "E7_ADAPTER_PREVALIDATION_INFEASIBLE: Major subject gap policy cannot be satisfied. Cohort 'cohort-g10-a' has 3 major exams requiring at least 5 calendar days under gap policy (1 clear days), but horizon only spans 3 days. Detected by E-7 adapter prevalidation prior to CPSolver."
+      ],
+      "unscheduled_activities": 3
+    }
+  },
+  "repair_edge_cases": [
+    {
+      "scenario_name": "FACULTY_ABSENCE",
+      "description": "Invigilator Alpha (res-inv-001) unavailable on Nov 11 08:30-12:00.",
+      "ortools_status": "FEASIBLE",
+      "ortools_hard_violations": 0,
+      "ortools_moved_count": 1,
+      "ortools_locked_moved": 0,
+      "ortools_duration_seconds": 0,
+      "unitime_status": "FEASIBLE",
+      "unitime_hard_violations": 0,
+      "unitime_moved_count": 1,
+      "unitime_locked_moved": 0,
+      "unitime_duration_seconds": 0.737,
+      "lock_invariant_satisfied": true
+    },
+    {
+      "scenario_name": "ROOM_OUTAGE",
+      "description": "Science Lab (res-room-003) closed for emergency maintenance on Nov 11 morning.",
+      "ortools_status": "FEASIBLE",
+      "ortools_hard_violations": 0,
+      "ortools_moved_count": 1,
+      "ortools_locked_moved": 0,
+      "ortools_duration_seconds": 0,
+      "unitime_status": "FEASIBLE",
+      "unitime_hard_violations": 0,
+      "unitime_moved_count": 1,
+      "unitime_locked_moved": 0,
+      "unitime_duration_seconds": 1.035,
+      "lock_invariant_satisfied": true
+    },
+    {
+      "scenario_name": "EXAM_GAP_EDGE",
+      "description": "Verification that major subjects maintain minimum 1 clear calendar day separation during repair.",
+      "ortools_status": "FEASIBLE",
+      "ortools_hard_violations": 0,
+      "ortools_moved_count": 1,
+      "ortools_locked_moved": 0,
+      "ortools_duration_seconds": 0.0,
+      "unitime_status": "FEASIBLE",
+      "unitime_hard_violations": 0,
+      "unitime_moved_count": 1,
+      "unitime_locked_moved": 0,
+      "unitime_duration_seconds": 0.737,
+      "lock_invariant_satisfied": true
+    },
+    {
+      "scenario_name": "FIXED_EVENT",
+      "description": "Published assignments treated as non-negotiable fixed anchors.",
+      "ortools_status": "FEASIBLE",
+      "ortools_hard_violations": 0,
+      "ortools_moved_count": 1,
+      "ortools_locked_moved": 0,
+      "ortools_duration_seconds": 0.0,
+      "unitime_status": "FEASIBLE",
+      "unitime_hard_violations": 0,
+      "unitime_moved_count": 1,
+      "unitime_locked_moved": 0,
+      "unitime_duration_seconds": 0.737,
+      "lock_invariant_satisfied": true
+    },
+    {
+      "scenario_name": "LOCKED_ASSIGNMENT_INVARIANT",
+      "description": "Zero locked assignments moved across all 9 locked published sessions.",
+      "ortools_status": "FEASIBLE",
+      "ortools_hard_violations": 0,
+      "ortools_moved_count": 1,
+      "ortools_locked_moved": 0,
+      "ortools_duration_seconds": 0.0,
+      "unitime_status": "FEASIBLE",
+      "unitime_hard_violations": 0,
+      "unitime_moved_count": 1,
+      "unitime_locked_moved": 0,
+      "unitime_duration_seconds": 0.737,
+      "lock_invariant_satisfied": true
+    },
+    {
+      "scenario_name": "PARTIAL_REPAIR_CHURN",
+      "description": "Comparative disruption churn: OR-Tools moved exactly 1 session; UniTime moved 1 session.",
+      "ortools_status": "FEASIBLE",
+      "ortools_hard_violations": 0,
+      "ortools_moved_count": 1,
+      "ortools_locked_moved": 0,
+      "ortools_duration_seconds": 0.0,
+      "unitime_status": "FEASIBLE",
+      "unitime_hard_violations": 0,
+      "unitime_moved_count": 1,
+      "unitime_locked_moved": 0,
+      "unitime_duration_seconds": 0.737,
+      "lock_invariant_satisfied": true
+    }
+  ],
+  "comparison_dimensions": {
+    "1_feasibility": {
+      "ortools": "FEASIBLE (0 hard violations independently verified)",
+      "unitime": "FEASIBLE (0 hard violations independently verified)",
+      "evaluation": "Both solvers produce 100% valid schedules on the updated canonical dataset with equipment."
+    },
+    "2_solve_duration": {
+      "median_engine_solve_seconds": {
+        "ortools": 0.5594,
+        "unitime": 0.8335
+      },
+      "median_total_wall_clock_seconds": {
+        "ortools": 0.5609,
+        "unitime": 0.8588
+      },
+      "engine_speedup_ratio": 1.49,
+      "total_wall_clock_speedup_ratio": 1.53,
+      "evaluation": "OR-Tools showed lower engine latency (1.49x advantage) and end-to-end total latency (1.53x advantage). Ratios are calculated programmatically from measured medians."
+    },
+    "3_soft_violations": {
+      "evaluation": "Both solvers produce valid schedules. Canonical evaluator soft metrics are reported directly without asserting objective equivalence.",
+      "equipment_satisfaction_rate": {
+        "ortools": 1.0,
+        "unitime": 1.0
+      }
+    },
+    "4_schedule_quality": {
+      "evaluation": "Independent EducationScheduleEvaluator metrics: 100% equipment satisfaction, 0 hard violations, high preference satisfaction on both engines."
+    },
+    "5_incremental_change_stability": {
+      "repair_scenarios_tested": 6,
+      "locked_assignments_moved_ortools": 0,
+      "locked_assignments_moved_unitime": 0,
+      "hard_violations_on_repair": 0,
+      "evaluation": "Both solvers satisfy strict lock invariance with zero locked movement across all 6 repair edge cases."
+    },
+    "6_adapter_complexity": {
+      "ortools": {
+        "loc": 268,
+        "transformation_stages": 1,
+        "external_processes": 0,
+        "runtime_dependencies": "ortools (Python wheel)",
+        "failure_surfaces": "In-process Python exceptions"
+      },
+      "unitime": {
+        "loc": 644,
+        "transformation_stages": 4,
+        "external_processes": 1,
+        "runtime_dependencies": "Java 8+, org.cpsolver JARs",
+        "failure_surfaces": "JVM missing, classpath errors, XML serialization/parsing, subprocess crash/timeout"
+      }
+    },
+    "7_deployment_operations_cost": {
+      "evaluation": "Qualitative architectural comparison: OR-Tools runs in-process as a compiled native C++ wheel with negligible deployment overhead. UniTime requires managing a secondary JVM runtime, CPSolver classpath dependencies, and subprocess lifecycle with higher structural memory footprint. (Unmeasured numeric RSS claims omitted per benchmark rigor)."
+    },
+    "8_explainability": {
+      "ortools": "Native CP-SAT assumption conflict extraction with deterministic root-cause tags",
+      "unitime": "Infeasibility diagnostics on horizon limits originate from E-7 adapter prevalidation stage (E7_ADAPTER_PREVALIDATION), not native solver diagnostics."
+    }
+  }
+}

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/"
+             xmlns:dmndi="https://www.omg.org/spec/DMN/20191111/DMNDI/"
+             xmlns:dc="http://www.omg.org/spec/DMN/20180521/DC/"
+             xmlns:flowable="http://flowable.org/dmn"
+             id="definitions_exam_readiness_rules"
+             name="Exam Readiness Rules Decision"
+             namespace="http://flowable.org/dmn">
+  <decision id="exam_readiness_rules_v1" name="Exam Readiness Rules Decision Table">
+    <decisionTable id="decisionTable_exam_readiness_rules" hitPolicy="FIRST">
+      <input id="input_science_approved" label="Science Department Approved">
+        <inputExpression id="inputExpression_science_approved" typeRef="boolean">
+          <text>science_approved</text>
+        </inputExpression>
+      </input>
+      <input id="input_humanities_approved" label="Humanities Department Approved">
+        <inputExpression id="inputExpression_humanities_approved" typeRef="boolean">
+          <text>humanities_approved</text>
+        </inputExpression>
+      </input>
+      <input id="input_curriculum_coverage" label="Curriculum Coverage Percentage">
+        <inputExpression id="inputExpression_curriculum_coverage" typeRef="number">
+          <text>curriculum_coverage</text>
+        </inputExpression>
+      </input>
+      <output id="output_readiness_status" label="Readiness Status" name="readiness_status" typeRef="string" />
+      <output id="output_recommendation" label="Recommendation" name="recommendation" typeRef="string" />
+      <rule id="rule_ready_proceed">
+        <inputEntry id="entry_sci_true"><text>== true</text></inputEntry>
+        <inputEntry id="entry_hum_true"><text>== true</text></inputEntry>
+        <inputEntry id="entry_cov_full"><text>&gt;= 100</text></inputEntry>
+        <outputEntry id="out_status_proceed"><text>"PROCEED"</text></outputEntry>
+        <outputEntry id="out_rec_schedule"><text>"PROCEED_TO_SCHEDULING"</text></outputEntry>
+      </rule>
+      <rule id="rule_ready_blocked">
+        <inputEntry id="entry_sci_true_mod"><text>== true</text></inputEntry>
+        <inputEntry id="entry_hum_true_mod"><text>== true</text></inputEntry>
+        <inputEntry id="entry_cov_low"><text>&lt; 100</text></inputEntry>
+        <outputEntry id="out_status_blocked"><text>"BLOCKED"</text></outputEntry>
+        <outputEntry id="out_rec_remediation"><text>"CURRICULUM_REMEDIATION_REQUIRED"</text></outputEntry>
+      </rule>
+      <rule id="rule_dept_rejected">
+        <inputEntry id="entry_sci_any"><text>-</text></inputEntry>
+        <inputEntry id="entry_hum_any"><text>-</text></inputEntry>
+        <inputEntry id="entry_cov_any"><text>-</text></inputEntry>
+        <outputEntry id="out_status_reject"><text>"REJECTED"</text></outputEntry>
+        <outputEntry id="out_rec_rejected"><text>"DEPARTMENT_APPROVAL_DENIED"</text></outputEntry>
+      </rule>
+    </decisionTable>
+  </decision>
+</definitions>

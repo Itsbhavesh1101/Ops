@@ -65,12 +65,15 @@ def test_strict_absence_of_grafana(compose_data: dict[str, Any]) -> None:
 
 def test_default_compose_excludes_observability() -> None:
     """Verify default docker compose config does not activate observability services."""
-    result = subprocess.run(
-        ["docker", "compose", "config", "--services"],
-        capture_output=True,
-        text=True,
-        cwd=str(REPO_ROOT),
-    )
+    try:
+        result = subprocess.run(
+            ["docker", "compose", "config", "--services"],
+            capture_output=True,
+            text=True,
+            cwd=str(REPO_ROOT),
+        )
+    except FileNotFoundError:
+        pytest.skip("Docker CLI is not installed in the environment")
     if result.returncode == 0:
         services = set(result.stdout.strip().split())
         assert "otel-collector" not in services, (

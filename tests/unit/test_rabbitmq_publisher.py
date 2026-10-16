@@ -161,7 +161,7 @@ def test_missing_rabbitmq_url_fails_closed(monkeypatch: pytest.MonkeyPatch) -> N
     monkeypatch.delenv("E7_RABBITMQ_EXCHANGE_NAME", raising=False)
 
     with pytest.raises(ValidationError) as exc_info:
-        RabbitMqPublisherSettings(rabbitmq_exchange_name="test.events")
+        RabbitMqPublisherSettings(rabbitmq_exchange_name="test.events", _env_file=None)
 
     errors = exc_info.value.errors()
     assert any(e["loc"] == ("rabbitmq_url",) and e["type"] == "missing" for e in errors)
@@ -173,7 +173,7 @@ def test_missing_exchange_name_fails_closed(monkeypatch: pytest.MonkeyPatch) -> 
     monkeypatch.delenv("E7_RABBITMQ_EXCHANGE_NAME", raising=False)
 
     with pytest.raises(ValidationError) as exc_info:
-        RabbitMqPublisherSettings(rabbitmq_url=SecretStr("amqp://host:5672/"))
+        RabbitMqPublisherSettings(rabbitmq_url=SecretStr("amqp://host:5672/"), _env_file=None)
 
     errors = exc_info.value.errors()
     assert any(e["loc"] == ("rabbitmq_exchange_name",) and e["type"] == "missing" for e in errors)
@@ -187,7 +187,7 @@ def test_no_guest_localhost_fallback_when_environment_missing(
     monkeypatch.delenv("E7_RABBITMQ_EXCHANGE_NAME", raising=False)
 
     with pytest.raises(ValidationError) as exc_info:
-        RabbitMqPublisherSettings()
+        RabbitMqPublisherSettings(_env_file=None)
 
     errors = exc_info.value.errors()
     field_names = {e["loc"][0] for e in errors}
@@ -744,10 +744,14 @@ def test_base_metadata_remains_strictly_canonical_tables() -> None:
         "schedule_assignments",
         # Phase 4B Calendar (1)
         "calendar_links",
+        # Phase 7 Calendar Watch (1)
+        "calendar_watch_channels",
+        # Phase 8D Service Credentials Persistence (1)
+        "service_api_credentials",
     }
     assert phase1_tables <= set(Base.metadata.tables.keys())
     assert set(Base.metadata.tables.keys()) == canonical_phase4b_tables
-    assert len(Base.metadata.tables) == 24
+    assert len(Base.metadata.tables) == 26
 
 
 def test_deferred_runtime_integration_constant() -> None:

@@ -833,6 +833,10 @@ class TestDatabaseSchemaStability:
             "schedule_assignments",
             # Phase 4B Calendar (1)
             "calendar_links",
+            # Phase 7 Calendar Watch (1)
+            "calendar_watch_channels",
+            # Phase 8D Service Credentials Persistence (1)
+            "service_api_credentials",
         }
         actual_tables = set(Base.metadata.tables.keys())
         missing = phase1_tables - actual_tables
@@ -840,7 +844,7 @@ class TestDatabaseSchemaStability:
         assert actual_tables == canonical_phase4_tables, (
             f"Expected canonical Phase-4 tables {canonical_phase4_tables}, got {actual_tables}"
         )
-        assert len(actual_tables) == 24
+        assert len(actual_tables) == 26
 
     def test_alembic_head_remains_0007(self) -> None:
         import os
@@ -851,7 +855,7 @@ class TestDatabaseSchemaStability:
         alembic_cfg = Config("alembic.ini")
         script = ScriptDirectory.from_config(alembic_cfg)
         heads = script.get_heads()
-        assert heads == ["0012"], f"Alembic heads expected ['0012'], got {heads}"
+        assert heads == ["0014"], f"Alembic heads expected ['0014'], got {heads}"
 
         rev_0007 = script.get_revision("0007")
         assert rev_0007 is not None
@@ -877,8 +881,16 @@ class TestDatabaseSchemaStability:
         assert rev_0012 is not None
         assert rev_0012.down_revision == "0011"
 
-        # Verify no 0013 migration file exists
+        rev_0013 = script.get_revision("0013")
+        assert rev_0013 is not None
+        assert rev_0013.down_revision == "0012"
+
+        rev_0014 = script.get_revision("0014")
+        assert rev_0014 is not None
+        assert rev_0014.down_revision == "0013"
+
+        # Verify no 0015 migration file exists
         versions_dir = os.path.join("app", "db", "migrations", "versions")
         files = os.listdir(versions_dir)
-        migration_0013 = [f for f in files if "0013" in f]
-        assert len(migration_0013) == 0, f"Found unexpected migration 0013: {migration_0013}"
+        migration_0015 = [f for f in files if "0015" in f]
+        assert len(migration_0015) == 0, f"Found unexpected migration 0015: {migration_0015}"

@@ -1,11 +1,9 @@
-"""Scheduling event handlers package."""
+"""Scheduling event handlers module."""
 
-from app.scheduling.handlers.resource_unavailable import (
-    RESOURCE_UNAVAILABLE_HANDLER,
-    ResourceUnavailableHandler,
-)
+from app.scheduling.handlers.resource_unavailable import ResourceUnavailableHandler
+from app.scheduling.handlers.task_completed import TaskCompletedSchedulingHandler
 
 __all__ = [
-    "RESOURCE_UNAVAILABLE_HANDLER",
     "ResourceUnavailableHandler",
+    "TaskCompletedSchedulingHandler",
 ]

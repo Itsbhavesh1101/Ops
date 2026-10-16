@@ -62,6 +62,7 @@ ALLOWED_JOB_TRANSITIONS: dict[ScheduleJobStatus, set[ScheduleJobStatus]] = {
         ScheduleJobStatus.FAILED,
     },
     ScheduleJobStatus.SOLVING: {
+        ScheduleJobStatus.REQUESTED,  # Lease expiration / abandoned job recovery
         ScheduleJobStatus.FEASIBLE,
         ScheduleJobStatus.INFEASIBLE,
         ScheduleJobStatus.BUDGET_EXHAUSTED,

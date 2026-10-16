@@ -25,7 +25,7 @@ from fastapi import APIRouter, Body, Depends, Header, Path, Response, status
 from pydantic import BaseModel, ConfigDict
 
 from app.api.errors import ApiError, ApiErrorResponse
-from app.core.auth.models import TenantContext
+from app.core.auth.models import AuthenticatedPrincipal, TenantContext
 from app.task_intelligence.graph.models import CPMScheduleResult
 from app.task_intelligence.progress import (
     InvalidTaskProgressTransitionError,
@@ -106,6 +106,7 @@ def create_planning_router(
     tenant_dependency: Callable[..., Any],
     plan_service_dependency: Callable[..., PlanService],
     planner_dependency: Callable[..., Any] | None = None,
+    principal_dependency: Callable[..., Any] | None = None,
 ) -> APIRouter:
     """Construct a safe APIRouter for Task Intelligence planning operations.
 
@@ -116,6 +117,7 @@ def create_planning_router(
     """
     router = APIRouter(tags=["Planning"])
     active_planner = planner_dependency or _null_planner_dependency
+    active_principal = principal_dependency or _null_planner_dependency
 
     @router.post(
         "/goals",
@@ -124,15 +126,26 @@ def create_planning_router(
         summary="Create Operational Goal",
         responses={
             201: {"model": GoalResponse, "description": "Goal created."},
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
             422: {"model": ApiErrorResponse, "description": "Validation error."},
         },
     )
     async def create_goal(
         goal: GoalCreate,
         tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
         service: PlanService = Depends(plan_service_dependency),
         x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
     ) -> GoalResponse:
+        if isinstance(principal, AuthenticatedPrincipal):
+            if principal.has_role("auditor") and not principal.has_any_role(
+                "planner", "tenant_admin", "admin"
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="goal.unauthorized",
+                    message="Auditors cannot create operational goals.",
+                )
         tenant_id = _extract_tenant_id(tenant_context)
         return await service.create_goal(
             tenant_id=tenant_id,
@@ -254,6 +267,7 @@ def create_planning_router(
         summary="Approve Plan Baseline",
         responses={
             200: {"model": PlanResponse, "description": "Plan approved and baseline frozen."},
+            403: {"model": ApiErrorResponse, "description": "Unauthorized or SoD violation."},
             404: {"model": ApiErrorResponse, "description": "Plan not found."},
             422: {
                 "model": ApiErrorResponse,
@@ -264,15 +278,36 @@ def create_planning_router(
     async def approve_plan(
         plan_id: UUID = Path(...),
         tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
         service: PlanService = Depends(plan_service_dependency),
         x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
     ) -> PlanResponse:
+        approver_id = "authorized-planner"
+        if isinstance(principal, AuthenticatedPrincipal):
+            approver_id = principal.principal_id
+            if principal.has_role("planner") and not principal.has_any_role(
+                "tenant_admin", "admin"
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.sod_violation",
+                    message="Separation of Duties violation: planner cannot approve plans.",
+                )
+            if not (
+                principal.has_any_role("approver", "tenant_admin", "admin")
+                or principal.has_permission("plan:approve")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Plan approval requires approver role or plan:approve permission.",
+                )
         tenant_id = _extract_tenant_id(tenant_context)
         try:
             approved = await service.approve_plan(
                 tenant_id=tenant_id,
                 plan_id=plan_id,
-                approver_id="authorized-planner",
+                approver_id=approver_id,
                 correlation_id=x_correlation_id,
             )
             return PlanResponse(
@@ -337,9 +372,19 @@ def create_planning_router(
         task_id: UUID = Path(...),
         update_data: TaskProgressUpdate = Body(...),
         tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
         service: PlanService = Depends(plan_service_dependency),
         x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
     ) -> TaskResponse:
+        if isinstance(principal, AuthenticatedPrincipal):
+            if principal.has_role("auditor") and not principal.has_any_role(
+                "operator", "scheduler", "planner", "tenant_admin", "admin"
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="task.unauthorized",
+                    message="Auditors cannot mutate operational tasks.",
+                )
         tenant_id = _extract_tenant_id(tenant_context)
         try:
             task = await service.update_task_progress(

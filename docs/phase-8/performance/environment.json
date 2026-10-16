@@ -1,0 +1,67 @@
+{
+  "benchmark_phase": "PHASE_8C",
+  "timestamp": "2026-10-09T22:35:00Z",
+  "system": {
+    "os": "Windows-11-10.0.26300-SP0",
+    "architecture": "AMD64",
+    "python_version": "3.12.13",
+    "cpu_logical_cores": 12,
+    "ram_total_gb": 19.70
+  },
+  "docker": {
+    "version": "29.8.2",
+    "build": "7fc2dff",
+    "topology": {
+      "e7-postgres": {
+        "image": "postgres:16",
+        "container_port": 5432,
+        "host_port": 55432,
+        "status": "healthy"
+      },
+      "e7-flowable": {
+        "image": "flowable/flowable-rest:7",
+        "container_port": 8080,
+        "host_port": 8080,
+        "status": "running"
+      },
+      "e7-rabbitmq": {
+        "image": "rabbitmq:3.13-management",
+        "container_ports": [5672, 15672],
+        "host_ports": [5672, 15672],
+        "status": "healthy"
+      }
+    }
+  },
+  "runtime_configuration": {
+    "database": {
+      "pool_size": 20,
+      "max_overflow": 10,
+      "pool_timeout_seconds": 30,
+      "pool_recycle_seconds": 1800,
+      "driver": "postgresql+asyncpg"
+    },
+    "flowable": {
+      "timeout_seconds": 10.0,
+      "max_retries": 3,
+      "auth_mode": "basic"
+    },
+    "scheduling_solver": {
+      "engine": "google-ortools-cpsat",
+      "version": "9.15",
+      "num_search_workers": 1,
+      "max_solve_seconds": 10.0
+    },
+    "task_intelligence_planner": {
+      "mode": "deterministic_test_model",
+      "max_repair_attempts": 2,
+      "timeout_seconds": 5.0
+    }
+  },
+  "measurement_modes": {
+    "in_process_asgi": "IN_PROCESS_ASGI (httpx.ASGITransport directly into FastAPI router)",
+    "real_local_http": "REAL_LOCAL_HTTP (localhost:8008 dedicated live Uvicorn API process over TCP)",
+    "workflow_engine": "LOCAL_REAL_FLOWABLE (localhost:8080 flowable/flowable-rest:7 REST API)",
+    "message_broker": "LOCAL_REAL_RABBITMQ (localhost:5672 rabbitmq:3.13 AMQP publisher confirm)",
+    "synthetic_provider": "SYNTHETIC_PROVIDER (deterministic seed-driven multi-tenant entities)"
+  }
+}

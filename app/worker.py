@@ -43,6 +43,8 @@ from app.events.outbox.config import OutboxWorkerSettings
 from app.events.outbox.runner import ManagedEventPublisher, OutboxDispatcherRunner
 from app.events.publishers.config import RabbitMqPublisherSettings
 from app.events.publishers.rabbitmq import RabbitMqEventPublisher
+from app.integrations.calendar.config import GoogleCalendarSettings
+from app.integrations.calendar.worker import CalendarWorker
 
 logger = structlog.get_logger("app.worker")
 
@@ -97,12 +99,14 @@ async def run_worker(
     publisher_settings: RabbitMqPublisherSettings | None = None,
     outbox_settings: OutboxWorkerSettings | None = None,
     telemetry_settings: TelemetrySettings | None = None,
+    calendar_settings: GoogleCalendarSettings | None = None,
     database_manager_factory: Callable[[Settings], DatabaseManager] = DatabaseManager,
     uow_factory_provider: Callable[[Any], Callable[[], UnitOfWork]] = create_unit_of_work_factory,
     publisher_factory: Callable[[RabbitMqPublisherSettings], ManagedEventPublisher] = (
         RabbitMqEventPublisher
     ),
     runner_factory: Callable[..., OutboxDispatcherRunner] = OutboxDispatcherRunner,
+    calendar_worker_factory: Callable[..., Any] | None = None,
     telemetry_initializer: Callable[..., TelemetryRuntime] = initialize_telemetry,
     telemetry_shutdown: Callable[[], None] = shutdown_telemetry,
 ) -> None:
@@ -165,6 +169,30 @@ async def run_worker(
     db_manager = database_manager_factory(app_settings)
     uow_factory = uow_factory_provider(db_manager.session_factory)
 
+    # Wait for database readiness if manager provides check_readiness (bounded startup retry)
+    if hasattr(db_manager, "check_readiness") and callable(db_manager.check_readiness):
+        max_startup_retries = 10
+        retry_delay = 1.0
+        for attempt in range(max_startup_retries):
+            if actual_stop_event.is_set():
+                break
+            try:
+                is_ready = await db_manager.check_readiness(timeout_seconds=2.0)
+                if is_ready:
+                    break
+            except Exception:
+                pass
+            if attempt < max_startup_retries - 1:
+                logger.info(
+                    "worker_waiting_for_database",
+                    attempt=attempt + 1,
+                    max_attempts=max_startup_retries,
+                )
+                try:
+                    await asyncio.wait_for(actual_stop_event.wait(), timeout=retry_delay)
+                except TimeoutError:
+                    pass
+
     # Publisher is passed UNSTARTED. OutboxDispatcherRunner owns publisher start/close.
     publisher = publisher_factory(pub_settings)
 
@@ -178,9 +206,29 @@ async def run_worker(
         uow_factory=uow_factory,
     )
 
+    # 7. Start optional Google Calendar recurring background loops if enabled (Phase 7C)
+    cal_settings = (
+        calendar_settings if calendar_settings is not None else GoogleCalendarSettings()
+    )
+    calendar_tasks: list[asyncio.Task[Any]] = []
+    if cal_settings.enabled:
+        cal_worker = (
+            calendar_worker_factory(db_manager=db_manager, settings=cal_settings)
+            if calendar_worker_factory is not None
+            else CalendarWorker(db_manager=db_manager, settings=cal_settings)
+        )
+        calendar_tasks = cal_worker.start_background_tasks(actual_stop_event)
+        logger.info(
+            "worker_calendar_loops_started",
+            role="outbox_with_calendar",
+            tasks_count=len(calendar_tasks),
+            renewal_interval=cal_settings.renewal_interval_seconds,
+            reconciliation_interval=cal_settings.reconciliation_interval_seconds,
+        )
+
     logger.info(
         "worker_starting",
-        role="outbox_only",
+        role="outbox_with_calendar" if cal_settings.enabled else "outbox_only",
         concurrency=runner_policy.max_concurrency,
         poll_interval=runner_policy.poll_interval.total_seconds(),
         lease_duration=dispatch_policy.lease_duration.total_seconds(),
@@ -189,17 +237,28 @@ async def run_worker(
     primary_error: BaseException | None = None
     try:
         await runner.run(stop_event=actual_stop_event)
-        logger.info("worker_stopped_cleanly", role="outbox_only")
+        logger.info(
+            "worker_stopped_cleanly",
+            role="outbox_with_calendar" if cal_settings.enabled else "outbox_only",
+        )
     except BaseException as exc:
         primary_error = exc
         logger.error(
             "worker_failed",
-            role="outbox_only",
+            role="outbox_with_calendar" if cal_settings.enabled else "outbox_only",
             error_type=type(exc).__name__,
         )
         raise
     finally:
         _remove_signal_handlers(installed_signals)
+
+        # 3. Calendar background tasks shut down cleanly before telemetry and database disposal
+        if calendar_tasks:
+            for c_task in calendar_tasks:
+                if not c_task.done():
+                    c_task.cancel()
+            await asyncio.gather(*calendar_tasks, return_exceptions=True)
+            logger.info("worker_calendar_loops_shut_down")
 
         # 4. Telemetry runtime force-flushes/shuts down BEFORE database disposal
         try:

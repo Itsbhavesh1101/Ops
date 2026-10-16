@@ -356,7 +356,7 @@ def test_settings_missing_required_fields_fails_closed() -> None:
         invalid_data = dict(valid_data)
         del invalid_data[key]
         with pytest.raises(ValidationError):
-            RabbitMqConsumerSettings(**invalid_data)
+            RabbitMqConsumerSettings(**invalid_data, _env_file=None)
 
 
 def test_settings_url_scheme_validation() -> None:
@@ -1463,15 +1463,19 @@ def test_schema_stability() -> None:
         "schedule_assignments",
         # Phase 4B Calendar (1)
         "calendar_links",
+        # Phase 7 Calendar Watch (1)
+        "calendar_watch_channels",
+        # Phase 8D Service Credentials Persistence (1)
+        "service_api_credentials",
     }
     assert phase1_tables <= set(Base.metadata.tables.keys())
     assert set(Base.metadata.tables.keys()) == canonical_phase4_tables
-    assert len(Base.metadata.tables) == 24
+    assert len(Base.metadata.tables) == 26
 
     script_dir = ScriptDirectory.from_config(Config("alembic.ini"))
     head = script_dir.get_current_head()
-    assert head in ("0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012")
-    assert head == "0012"
+    assert head in ("0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014")
+    assert head == "0014"
 
     # Verify migration chain consistency
     versions_dir = Path("app/db/migrations/versions")
@@ -1481,7 +1485,9 @@ def test_schema_stability() -> None:
     assert any("0010" in f for f in migration_files)
     assert any("0011" in f for f in migration_files)
     assert any("0012" in f for f in migration_files)
-    assert not any("0013" in f for f in migration_files)
+    assert any("0013" in f for f in migration_files)
+    assert any("0014" in f for f in migration_files)
+    assert not any("0015" in f for f in migration_files)
 
 
 def test_deferred_constant() -> None:

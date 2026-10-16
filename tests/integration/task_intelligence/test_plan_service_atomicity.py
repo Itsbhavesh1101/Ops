@@ -215,3 +215,45 @@ async def test_plan_approval_freezes_baseline_and_emits_event(
         ).fetchall()
         assert len(a_rows) == 1
         assert a_rows[0].actor_principal_id == "principal-lead-01"
+
+
+@pytest.mark.ti_integration
+@pytest.mark.asyncio
+async def test_goal_creation_atomicity_commit(uow_factory: Any, test_engine: Any) -> None:
+    service = PlanService(uow_factory=uow_factory)
+    tenant_id = f"tenant-{uuid4().hex[:8]}"
+    correlation_id = f"corr-{uuid4().hex[:8]}"
+
+    goal = await service.create_goal(
+        tenant_id=tenant_id,
+        goal_data=GoalCreate(objective="Conduct semester exams", scope="All schools"),
+        actor_id="operator-01",
+        correlation_id=correlation_id,
+    )
+
+    async with test_engine.connect() as conn:
+        o_rows = (
+            await conn.execute(
+                select(OutboxEventRecord).where(
+                    OutboxEventRecord.envelope["subject_id"].astext == str(goal.id),
+                    OutboxEventRecord.envelope["event_type"].astext == "goal.created",
+                )
+            )
+        ).fetchall()
+        assert len(o_rows) == 1
+        envelope = o_rows[0][1]
+        assert envelope["event_type"] == "goal.created"
+        assert envelope["tenant_id"] == tenant_id
+        assert envelope["correlation_id"] == correlation_id
+        assert envelope["payload"]["goal_id"] == str(goal.id)
+
+        a_rows = (
+            await conn.execute(
+                select(AuditEventRecord).where(
+                    AuditEventRecord.resource_id == str(goal.id),
+                    AuditEventRecord.event_type == "goal.created",
+                )
+            )
+        ).fetchall()
+        assert len(a_rows) == 1
+        assert a_rows[0].correlation_id == correlation_id

@@ -30,11 +30,13 @@ from app.scheduling.education.dtos import (
 from app.scheduling.schemas import SchedulingResourceSnapshot
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures"
-RESOURCES_FILE = FIXTURES_DIR / "resources" / "RS-SYNTH-001.json"
-EXAM_FEASIBLE_FILE = FIXTURES_DIR / "scheduling" / "exam" / "SC-EXAM-FEASIBLE-001.json"
-EXAM_INFEASIBLE_FILE = FIXTURES_DIR / "scheduling" / "exam" / "SC-EXAM-INFEASIBLE-001.json"
-EXAM_REPAIR_FILE = FIXTURES_DIR / "scheduling" / "exam" / "SC-EXAM-REPAIR-001.json"
+PHASE5_FIXTURES_DIR = (
+    REPO_ROOT / "tests" / "fixtures" / "scheduling" / "education" / "phase5"
+)
+RESOURCES_FILE = PHASE5_FIXTURES_DIR / "PHASE5-RS-EDU-001.json"
+EXAM_FEASIBLE_FILE = PHASE5_FIXTURES_DIR / "PHASE5-SC-EXAM-FEASIBLE-001.json"
+EXAM_INFEASIBLE_FILE = PHASE5_FIXTURES_DIR / "PHASE5-SC-EXAM-INFEASIBLE-001.json"
+EXAM_REPAIR_FILE = PHASE5_FIXTURES_DIR / "PHASE5-SC-EXAM-REPAIR-001.json"
 
 
 def compute_file_sha256(path: Path) -> str:
@@ -58,6 +60,7 @@ class EducationBenchmarkManifest:
     manifest_id: str
     manifest_version: str
     dataset_hashes: dict[str, str]
+    combined_canonical_benchmark_hash: str
     entity_counts: dict[str, int]
     constraint_counts: dict[str, int]
     time_horizon_start: str
@@ -79,6 +82,7 @@ def get_canonical_resources() -> list[SchedulingResourceSnapshot]:
         "res-inv-002",
         "res-inv-003",
         "res-inv-004",
+        "res-eq-004",
     }
     snapshots: list[SchedulingResourceSnapshot] = []
     for r in data["resources"]:
@@ -141,6 +145,7 @@ def load_education_dataset(
             major_subject=e.get("major_subject", False),
             required_invigilator_skills=e.get("required_invigilator_skills", []),
             preferred_invigilator_skills=e.get("preferred_invigilator_skills", []),
+            required_equipment=e.get("required_equipment", []),
         )
         for e in data["exams"]
     ]
@@ -160,6 +165,7 @@ def load_education_dataset(
             ],
             preferred_room_ids=s.get("preferred_room_ids", []),
             preferred_invigilator_ids=s.get("preferred_invigilator_ids", []),
+            required_equipment=s.get("required_equipment", []),
         )
         for s in data["exam_sessions"]
     ]
@@ -189,6 +195,7 @@ def load_education_dataset(
                     session_id=b["session_id"],
                     room_resource_id=b["room_resource_id"],
                     invigilator_resource_id=b["invigilator_resource_id"],
+                    equipment_resource_id=b.get("equipment_resource_id"),
                     start_at=datetime.fromisoformat(b["start_at"]),
                     end_at=datetime.fromisoformat(b["end_at"]),
                     locked=is_locked,
@@ -217,24 +224,31 @@ def load_education_dataset(
 def build_benchmark_manifest() -> EducationBenchmarkManifest:
     """Generate deterministic manifest describing the canonical Phase-5 education dataset."""
     hashes = {
-        "RS-SYNTH-001": compute_file_sha256(RESOURCES_FILE),
-        "SC-EXAM-FEASIBLE-001": compute_file_sha256(EXAM_FEASIBLE_FILE),
-        "SC-EXAM-INFEASIBLE-001": compute_file_sha256(EXAM_INFEASIBLE_FILE),
-        "SC-EXAM-REPAIR-001": compute_file_sha256(EXAM_REPAIR_FILE),
+        "PHASE5-RS-EDU-001": compute_file_sha256(RESOURCES_FILE),
+        "PHASE5-SC-EXAM-FEASIBLE-001": compute_file_sha256(EXAM_FEASIBLE_FILE),
+        "PHASE5-SC-EXAM-INFEASIBLE-001": compute_file_sha256(EXAM_INFEASIBLE_FILE),
+        "PHASE5-SC-EXAM-REPAIR-001": compute_file_sha256(EXAM_REPAIR_FILE),
     }
+
+    combined_hasher = hashlib.sha256()
+    for h in hashes.values():
+        combined_hasher.update(h.encode())
+    combined_hash = combined_hasher.hexdigest()
 
     dataset, resources = load_education_dataset("FEASIBLE")
 
     return EducationBenchmarkManifest(
         manifest_id="E7-PHASE5-EDUCATION-BENCHMARK-MANIFEST",
-        manifest_version="1.0.0",
+        manifest_version="2.0.0",
         dataset_hashes=hashes,
+        combined_canonical_benchmark_hash=combined_hash,
         entity_counts={
             "cohorts": len(dataset.cohorts),
             "exams": len(dataset.exams),
             "sessions": len(dataset.sessions),
             "rooms": len([r for r in resources if r.type == ResourceType.ROOM]),
             "invigilators": len([r for r in resources if r.type == ResourceType.PERSON]),
+            "equipment": len([r for r in resources if r.type == ResourceType.EQUIPMENT]),
         },
         constraint_counts={
             "hard_no_overlap_cohort": len(dataset.cohorts),
@@ -242,8 +256,14 @@ def build_benchmark_manifest() -> EducationBenchmarkManifest:
             "hard_no_overlap_invigilator": len(
                 [r for r in resources if r.type == ResourceType.PERSON]
             ),
+            "hard_no_overlap_equipment": len(
+                [r for r in resources if r.type == ResourceType.EQUIPMENT]
+            ),
             "hard_room_capacity": len(dataset.sessions),
             "hard_major_subject_gaps": len(dataset.cohorts),
+            "hard_equipment_requirement": len(
+                [s for s in dataset.sessions if s.required_equipment]
+            ),
             "soft_preferences": len(dataset.soft_preferences),
         },
         time_horizon_start=dataset.horizon_start.isoformat(),
@@ -253,8 +273,10 @@ def build_benchmark_manifest() -> EducationBenchmarkManifest:
             "NO_COHORT_DOUBLE_BOOKING",
             "NO_ROOM_DOUBLE_BOOKING",
             "NO_INVIGILATOR_DOUBLE_BOOKING",
+            "NO_EQUIPMENT_DOUBLE_BOOKING",
             "ROOM_CAPACITY",
             "INVIGILATOR_ROLE_ELIGIBILITY",
+            "REQUIRED_EQUIPMENT_AVAILABLE",
             "DURATION_WITHIN_WINDOW",
             "MAJOR_SUBJECT_MIN_GAP",
             "LOCK_PRESERVATION",
@@ -266,5 +288,6 @@ def build_benchmark_manifest() -> EducationBenchmarkManifest:
             "EXAM_GAP_EDGE",
             "FIXED_EVENT",
             "LOCKED_ASSIGNMENT_MUTATION_FORBIDDEN",
+            "PARTIAL_REPAIR",
         ],
     )

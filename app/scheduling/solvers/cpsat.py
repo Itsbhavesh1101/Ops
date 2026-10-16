@@ -14,6 +14,7 @@ from typing import Any
 
 from ortools.sat.python import cp_model
 
+from app.core.telemetry.scheduling import get_scheduling_telemetry
 from app.scheduling.constraints.builders import (
     ModelBuildContext,
     build_activity_variables,
@@ -39,6 +40,9 @@ from app.scheduling.solvers.objective_normalizer import normalize_soft_objective
 
 class CpSatScheduler:
     """Primary generic scheduling solver built on Google OR-Tools CP-SAT."""
+
+    def __init__(self) -> None:
+        self._telemetry = get_scheduling_telemetry()
 
     def solve(self, request: SchedulingRequest) -> SolverResult:
         """Formulate and solve the generic scheduling problem."""
@@ -145,6 +149,9 @@ class CpSatScheduler:
         if objective_terms:
             model.minimize(sum(objective_terms))
 
+        translation_duration = time.perf_counter() - start_wall_time
+        self._telemetry.record_translation_duration(translation_duration)
+
         # 4. Configure CP-SAT Solver
         solver = cp_model.CpSolver()
         solver.parameters.max_time_in_seconds = request.profile.max_solve_seconds
@@ -155,8 +162,16 @@ class CpSatScheduler:
         # 5. Register Assumptions and Execute Solve
         if ctx.assumptions:
             model.add_assumptions(ctx.assumptions)
+
+        cpsat_start_time = time.perf_counter()
         status = solver.solve(model)
+        cpsat_duration = time.perf_counter() - cpsat_start_time
         wall_time = time.perf_counter() - start_wall_time
+
+        self._telemetry.record_cpsat_duration(
+            cpsat_duration,
+            status="FEASIBLE" if status in (cp_model.FEASIBLE, cp_model.OPTIMAL) else "INFEASIBLE",
+        )
 
         try:
             user_time = round(solver.user_time, 4)

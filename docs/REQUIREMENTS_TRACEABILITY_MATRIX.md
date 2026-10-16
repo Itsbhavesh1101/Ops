@@ -364,7 +364,7 @@ WORKFLOW ENGINE (FR-WF-01 to FR-WF-07)
 * **Implementation Phase**: Phase 3 (Workflow MVP - COMPLETE / FROZEN)
 * **Unit Test Evidence**: `tests/unit/workflow/test_sla_engine.py` (Escalation action execution: reminder emission, task reassignment, service actions, audit recording).
 * **Integration Test Evidence**: `tests/integration/workflow/test_flowable_live.py` (Live Flowable SLA warning and breach escalation triggers).
-* **Contract / E2E Test Evidence**: `tests/unit/workflow/test_sla_engine.py` (Outbox emission of `workflow.sla.warning` and audit logging of `workflow.sla.breach`).
+* **Contract / E2E Test Evidence**: `tests/unit/workflow/test_sla_engine.py` (Outbox emission of `workflow.sla.warning` and audit logging of `workflow.sla.breached`).
 * **Acceptance Evidence**: Configured escalation actions execute upon breach, creating reminders, reassignments, or automated system actions.
 * **Dependencies / Prerequisites**: FR-WF-04, FR-INT-01.
 * **Status**: **VERIFIED / FROZEN**
@@ -836,3 +836,28 @@ The master delivery sequence spans 10 structured phases:
 * **Test & Acceptance Evidence**: 100% of requirements contain unit, integration, and contract/E2E test evidence.
 * **Non-Authoritative AI Compliance**: Zero functional requirements map an LLM as an authoritative workflow or scheduling executor.
 * **Conditional Gating**: All conditional technologies (Temporal, LangGraph, Timefold, Valkey, Kafka) remain strictly gated by ADR.
+
+---
+
+## 13. Phase 8 Production Hardening & Canonical Documentation Traceability
+
+Phase 8 establishes end-to-end production readiness, security boundaries, failure resilience, capacity tuning, and canonical operational runbooks:
+
+| Phase 8 Subphase | Focus / Deliverable | Canonical Production Document | Automated Test / Evidence Reference | Operational Status |
+|---|---|---|---|---|
+| **Phase 8A** | Security & Tenant Isolation | [`docs/production/ERD.md`](file:///f:/operations-engine/docs/production/ERD.md) | `tests/security/test_cross_tenant_bola.py`, `test_separation_of_duties.py`, `test_auth_boundary.py` | `PASS` |
+| **Phase 8B** | AI Prompt & Data Security | [`docs/production/MODEL_EVALUATION_GUIDE.md`](file:///f:/operations-engine/docs/production/MODEL_EVALUATION_GUIDE.md) | `tests/security/ai/test_prompt_injection.py`, `test_indirect_injection.py`, `test_canary_leakage.py` | `PASS` |
+| **Phase 8C** | Performance Load Testing | [`docs/phase-8/performance/BENCHMARK_SUMMARY.md`](file:///f:/operations-engine/docs/phase-8/performance/BENCHMARK_SUMMARY.md) | `tests/performance/run_all_benchmarks.py`, `test_http_crud_load.py`, `test_scheduler_solver_load.py` | `PASS` |
+| **Phase 8D** | Disaster Recovery & DR Drills | [`docs/production/DEPLOYMENT_RUNBOOK.md`](file:///f:/operations-engine/docs/production/DEPLOYMENT_RUNBOOK.md), [`docs/phase-8/recovery/`](file:///f:/operations-engine/docs/phase-8/recovery/) | `tests/recovery/test_disaster_recovery_scenarios.py`, `RECOVERY_DRILL_REPORT.md` | `PASS` |
+| **Phase 8E** | Capacity Tuning & Quotas | [`docs/production/CONSTRAINT_CATALOG.md`](file:///f:/operations-engine/docs/production/CONSTRAINT_CATALOG.md), [`docs/phase-8/capacity/`](file:///f:/operations-engine/docs/phase-8/capacity/) | `tests/unit/capacity/test_tenant_quotas.py`, `CAPACITY_TUNING_REPORT.md`, `RATE_LIMITING_AND_QUOTAS.md` | `PASS` |
+| **Phase 8F** | API Contracts & OpenAPI Spec | [`docs/production/API_REFERENCE.md`](file:///f:/operations-engine/docs/production/API_REFERENCE.md), [`docs/production/openapi.json`](file:///f:/operations-engine/docs/production/openapi.json) | `tests/unit/test_openapi_drift.py` (Zero schema drift gate) | `PASS` |
+| **Phase 8F** | Database ERD & Models | [`docs/production/ERD.md`](file:///f:/operations-engine/docs/production/ERD.md), [`docs/production/erd.mmd`](file:///f:/operations-engine/docs/production/erd.mmd) | Introspected from SQLAlchemy `Base.metadata` (26 application tables + `alembic_version`) | `PASS` |
+| **Phase 8F** | Workflow Authoring Guide | [`docs/production/WORKFLOW_AUTHORING_GUIDE.md`](file:///f:/operations-engine/docs/production/WORKFLOW_AUTHORING_GUIDE.md) | `tests/contract/test_workflow_contracts.py`, `tests/unit/workflow/test_bpmn_validator.py` | `PASS` |
+| **Phase 8F** | Scheduler Constraint Catalog | [`docs/production/CONSTRAINT_CATALOG.md`](file:///f:/operations-engine/docs/production/CONSTRAINT_CATALOG.md) | `tests/unit/scheduling/education/test_education_scheduler.py`, `tests/unit/scheduling/test_phase_4a_baseline.py` | `PASS` |
+| **Phase 8F** | Model Evaluation Guide | [`docs/production/MODEL_EVALUATION_GUIDE.md`](file:///f:/operations-engine/docs/production/MODEL_EVALUATION_GUIDE.md) | `tests/security/ai/test_prompt_injection.py`, `tests/unit/task_intelligence/test_plan_validator.py` | `PASS` |
+| **Phase 8F** | Deployment Runbook | [`docs/production/DEPLOYMENT_RUNBOOK.md`](file:///f:/operations-engine/docs/production/DEPLOYMENT_RUNBOOK.md) | Pre-flight verification scripts, Alembic 0014 head verification | `PASS` |
+| **Phase 8F** | Incident Response Guide | [`docs/production/INCIDENT_RESPONSE_GUIDE.md`](file:///f:/operations-engine/docs/production/INCIDENT_RESPONSE_GUIDE.md) | Triage matrix covering 20 failure modes, security incident procedures, low-cardinality observability | `PASS` |
+| **Phase 8F** | Master Documentation Index | [`docs/production/DOCUMENTATION_INDEX.md`](file:///f:/operations-engine/docs/production/DOCUMENTATION_INDEX.md) | `tests/unit/test_docs_links.py` (Internal offline link verification) | `PASS` |
+| **Phase 8G** | User Acceptance Testing & Role-Based Operational Validation | [`docs/phase-8/uat/UAT_PLAN.md`](file:///f:/operations-engine/docs/phase-8/uat/UAT_PLAN.md), [`docs/phase-8/uat/UAT_RESULTS.md`](file:///f:/operations-engine/docs/phase-8/uat/UAT_RESULTS.md), [`docs/phase-8/uat/ROLE_ACCEPTANCE_MATRIX.md`](file:///f:/operations-engine/docs/phase-8/uat/ROLE_ACCEPTANCE_MATRIX.md), [`docs/phase-8/uat/UAT_SIGNOFF.md`](file:///f:/operations-engine/docs/phase-8/uat/UAT_SIGNOFF.md) | `tests/uat/test_role_based_uat.py` (49 acceptance scenarios, 100% pass) | `PASS` |
+
+

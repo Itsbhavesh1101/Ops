@@ -18,7 +18,8 @@ Enforces:
 
 import hashlib
 import re
-import xml.etree.ElementTree as ET
+
+import defusedxml.ElementTree as ET  # noqa: N817
 
 from app.workflow.dmn.schemas import (
     DmnDecisionMetadata,

@@ -376,3 +376,52 @@ class CalendarLinkRecord(Base):
         "ScheduleAssignmentRecord", back_populates="calendar_links"
     )
 
+
+class CalendarWatchChannelRecord(Base):
+    """Durable state for external calendar push notification watch channels."""
+
+    __tablename__ = "calendar_watch_channels"
+    __table_args__ = (
+        Index(
+            "ix_calendar_watch_channels_tenant_prov_cal",
+            "tenant_id",
+            "provider",
+            "external_calendar_id",
+        ),
+        Index(
+            "ix_calendar_watch_channels_expiration",
+            "expiration_at",
+        ),
+        UniqueConstraint(
+            "channel_id",
+            name="uq_calendar_watch_channels_channel_id",
+        ),
+        CheckConstraint(
+            "status IN ('ACTIVE', 'STOPPED', 'EXPIRED')",
+            name="ck_calendar_watch_channels_status_valid",
+        ),
+        CheckConstraint(
+            "length(trim(channel_id)) > 0",
+            name="ck_calendar_watch_channels_channel_id_non_empty",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    tenant_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False, default="google")
+    external_calendar_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    channel_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    resource_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expiration_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ACTIVE")
+    last_renewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+

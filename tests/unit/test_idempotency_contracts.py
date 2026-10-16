@@ -600,14 +600,18 @@ def test_database_schema_stability() -> None:
         "schedule_assignments",
         # Phase 4B Calendar (1)
         "calendar_links",
+        # Phase 7 Calendar Watch (1)
+        "calendar_watch_channels",
+        # Phase 8D Service Credentials Persistence (1)
+        "service_api_credentials",
     }
     assert phase1_tables <= set(Base.metadata.tables.keys())
     assert set(Base.metadata.tables.keys()) == canonical_phase4_tables
-    assert len(Base.metadata.tables) == 24
+    assert len(Base.metadata.tables) == 26
 
     script_dir = ScriptDirectory.from_config(Config("alembic.ini"))
     head = script_dir.get_current_head()
-    assert head == "0012"
+    assert head == "0014"
 
     version_dir = Path("app/db/migrations/versions")
     migration_files = [f.name for f in version_dir.glob("*.py")]
@@ -616,4 +620,6 @@ def test_database_schema_stability() -> None:
     assert any("0010" in f for f in migration_files)
     assert any("0011" in f for f in migration_files)
     assert any("0012" in f for f in migration_files)
-    assert not any("0013" in f for f in migration_files)
+    assert any("0013" in f for f in migration_files)
+    assert any("0014" in f for f in migration_files)
+    assert not any("0015" in f for f in migration_files)

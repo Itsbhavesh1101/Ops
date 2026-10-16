@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="http://e7.operations.irinfotech.com/workflows">
+  <process id="exam-operations-v1" name="Grade 10 Semester Examination Readiness Process" isExecutable="true">
+    <startEvent id="start_event" name="Process Initiated" />
+    <sequenceFlow id="flow_start_to_fork" sourceRef="start_event" targetRef="fork_approval" />
+
+    <parallelGateway id="fork_approval" name="Parallel Department Review Fork" />
+    <sequenceFlow id="flow_fork_to_science" sourceRef="fork_approval" targetRef="science_dept_review" />
+    <sequenceFlow id="flow_fork_to_humanities" sourceRef="fork_approval" targetRef="humanities_dept_review" />
+
+    <userTask id="science_dept_review" name="Science Department Chair Review" flowable:candidateGroups="chairs">
+      <documentation>Review and approve question paper readiness and lab kit allocation.</documentation>
+    </userTask>
+    <sequenceFlow id="flow_science_to_join" sourceRef="science_dept_review" targetRef="join_approval" />
+
+    <userTask id="humanities_dept_review" name="Humanities Department Chair Review" flowable:candidateGroups="chairs">
+      <documentation>Review and approve languages and social studies exam readiness.</documentation>
+    </userTask>
+    <sequenceFlow id="flow_humanities_to_join" sourceRef="humanities_dept_review" targetRef="join_approval" />
+
+    <parallelGateway id="join_approval" name="Parallel Department Review Join" />
+    <sequenceFlow id="flow_join_to_rules" sourceRef="join_approval" targetRef="exam_readiness_rules" />
+
+    <serviceTask id="exam_readiness_rules" name="Evaluate Exam Readiness Rules" flowable:type="dmn">
+      <extensionElements>
+        <flowable:field name="decisionTableReferenceKey">
+          <flowable:string><![CDATA[exam_readiness_rules_v1]]></flowable:string>
+        </flowable:field>
+      </extensionElements>
+    </serviceTask>
+    <sequenceFlow id="flow_rules_to_gateway" sourceRef="exam_readiness_rules" targetRef="gateway_readiness_decision" />
+
+    <exclusiveGateway id="gateway_readiness_decision" name="Readiness Evaluation Gateway" default="flow_decision_default_remediation" />
+    <sequenceFlow id="flow_decision_proceed" sourceRef="gateway_readiness_decision" targetRef="readiness_moderation">
+      <conditionExpression xsi:type="tFormalExpression">${readiness_status == 'PROCEED'}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow_decision_blocked" sourceRef="gateway_readiness_decision" targetRef="curriculum_remediation">
+      <conditionExpression xsi:type="tFormalExpression">${readiness_status == 'BLOCKED'}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow_decision_rejected" sourceRef="gateway_readiness_decision" targetRef="end_rejected">
+      <conditionExpression xsi:type="tFormalExpression">${readiness_status == 'REJECTED'}</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="flow_decision_default_remediation" sourceRef="gateway_readiness_decision" targetRef="curriculum_remediation" />
+
+    <userTask id="curriculum_remediation" name="Curriculum Remediation Review" flowable:candidateGroups="chairs">
+      <documentation>Remediate curriculum gaps identified during readiness evaluation.</documentation>
+    </userTask>
+    <sequenceFlow id="flow_remediation_to_end" sourceRef="curriculum_remediation" targetRef="end_remediation" />
+    <endEvent id="end_remediation" name="Process Blocked for Remediation" />
+
+    <endEvent id="end_rejected" name="Readiness Rejected" />
+
+    <userTask id="readiness_moderation" name="Academic Dean Final Moderation" flowable:candidateGroups="deans">
+      <documentation>Final sign-off confirming syllabus, proctor roles, and seating capacity.</documentation>
+    </userTask>
+    <boundaryEvent id="timer_warning_readiness_moderation" attachedToRef="readiness_moderation" cancelActivity="false">
+      <timerEventDefinition>
+        <timeDate>${sla_warning_at}</timeDate>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="flow_warn_readiness_moderation"
+                  sourceRef="timer_warning_readiness_moderation"
+                  targetRef="end_warn_readiness_moderation" />
+    <endEvent id="end_warn_readiness_moderation" />
+    <boundaryEvent id="timer_breach_readiness_moderation" attachedToRef="readiness_moderation" cancelActivity="true">
+      <timerEventDefinition>
+        <timeDate>${sla_breach_at}</timeDate>
+      </timerEventDefinition>
+    </boundaryEvent>
+    <sequenceFlow id="flow_breach_readiness_moderation"
+                  sourceRef="timer_breach_readiness_moderation"
+                  targetRef="end_breach_readiness_moderation" />
+    <endEvent id="end_breach_readiness_moderation" />
+    <sequenceFlow id="flow_moderation_to_end" sourceRef="readiness_moderation" targetRef="end_event" />
+
+    <endEvent id="end_event" name="Readiness Certified" />
+  </process>
+</definitions>

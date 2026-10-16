@@ -53,7 +53,7 @@ def _dummy_auth_dependency():
             principal_type=PrincipalType.HUMAN,
             authentication_method=AuthenticationMethod.OIDC,
             tenant_id="tenant-alpha",
-            roles=frozenset({"analyst", "manager"}),
+            roles=frozenset({"analyst", "manager", "tenant_admin"}),
         )
 
     return _dep

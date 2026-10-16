@@ -34,9 +34,11 @@ env/
 ENV/
 
 # Testing & quality caches
+.cache/
 .pytest_cache/
 .coverage
 .coverage.*
+.htmlcov/
 htmlcov/
 .hypothesis/
 .mypy_cache/

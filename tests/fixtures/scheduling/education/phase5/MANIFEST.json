@@ -1,0 +1,48 @@
+{
+  "manifest_id": "E7-PHASE5-EDUCATION-BENCHMARK-MANIFEST",
+  "manifest_version": "2.0.0",
+  "benchmark_version": "2.0.0",
+  "domain": "education_examination_scheduling",
+  "provider_neutral": true,
+  "description": "Phase-5 dedicated canonical education benchmark fixtures with equipment coverage",
+  "combined_canonical_benchmark_hash": "e6487b9f78affc5c48e023529f38fa1c18c47eb7a9445dfc99885abb1941566b",
+  "fixtures": {
+    "resource_fixture": {
+      "dataset_id": "PHASE5-RS-EDU-001",
+      "version": "1.0.0",
+      "file_path": "tests/fixtures/scheduling/education/phase5/PHASE5-RS-EDU-001.json",
+      "sha256": "4a1ca0d0fcccbd53c336d15b1efea75340bc745bbfa390fb217e07f2f57ef02a",
+      "equipment_count": 1,
+      "room_count": 3,
+      "invigilator_count": 3
+    },
+    "feasible_fixture": {
+      "dataset_id": "PHASE5-SC-EXAM-FEASIBLE-001",
+      "version": "1.0.0",
+      "file_path": "tests/fixtures/scheduling/education/phase5/PHASE5-SC-EXAM-FEASIBLE-001.json",
+      "sha256": "96863cc562b19929f5c0e71a083e675c3d348ccaf2aab38654006eda529d307a",
+      "session_count": 5,
+      "cohort_count": 2,
+      "subject_count": 5,
+      "equipment_required_sessions": 1
+    },
+    "infeasible_fixture": {
+      "dataset_id": "PHASE5-SC-EXAM-INFEASIBLE-001",
+      "version": "1.0.0",
+      "file_path": "tests/fixtures/scheduling/education/phase5/PHASE5-SC-EXAM-INFEASIBLE-001.json",
+      "sha256": "ed40a105179764f6794c3a2e1a7543c34fee85a12439a756a6661a2c7de79f67",
+      "session_count": 5,
+      "cohort_count": 2,
+      "subject_count": 5
+    },
+    "repair_fixture": {
+      "dataset_id": "PHASE5-SC-EXAM-REPAIR-001",
+      "version": "1.0.0",
+      "file_path": "tests/fixtures/scheduling/education/phase5/PHASE5-SC-EXAM-REPAIR-001.json",
+      "sha256": "46cb07ef7e6f089dfa32850a5df23cab1c355509c05f028d74e8536259e0e8a4",
+      "baseline_assignment_count": 5,
+      "locked_assignment_count": 1,
+      "disruption_scenarios": 6
+    }
+  }
+}

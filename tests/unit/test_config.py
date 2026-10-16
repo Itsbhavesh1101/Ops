@@ -8,7 +8,7 @@ from app.core.config import Settings, get_settings
 
 def test_default_settings_load() -> None:
     """Verify default technical configuration settings."""
-    settings = Settings()
+    settings = Settings(_env_file=None)
     assert settings.app_name == "IR Infotech E-7 Operations Engine"
     assert settings.environment == "local"
     assert settings.debug is False

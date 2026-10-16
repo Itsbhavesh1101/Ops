@@ -331,16 +331,34 @@ class OutboxDispatcherRunner:
     ) -> None:
         """Run bounded dispatch loop for a single worker."""
         while not internal_stop_event.is_set():
-            result = await self._dispatcher.dispatch_once()
-
-            if result.outcome == DispatchOutcome.IDLE:
-                try:
-                    await asyncio.wait_for(
-                        internal_stop_event.wait(),
-                        timeout=self._runner_policy.poll_interval.total_seconds(),
-                    )
-                except TimeoutError:
-                    pass
+            batch_size = getattr(self._dispatch_policy, "batch_size", 1)
+            if hasattr(self._dispatcher, "dispatch_batch") and batch_size > 1:
+                concurrency = getattr(self._dispatch_policy, "publish_concurrency", 1)
+                batch_results = await self._dispatcher.dispatch_batch(
+                    batch_size=batch_size,
+                    publish_concurrency=concurrency,
+                )
+                if not batch_results:
+                    try:
+                        await asyncio.wait_for(
+                            internal_stop_event.wait(),
+                            timeout=self._runner_policy.poll_interval.total_seconds(),
+                        )
+                    except TimeoutError:
+                        pass
+                else:
+                    continue
             else:
-                # Non-IDLE outcome: immediately continue without sleep
-                continue
+                result = await self._dispatcher.dispatch_once()
+
+                if result.outcome == DispatchOutcome.IDLE:
+                    try:
+                        await asyncio.wait_for(
+                            internal_stop_event.wait(),
+                            timeout=self._runner_policy.poll_interval.total_seconds(),
+                        )
+                    except TimeoutError:
+                        pass
+                else:
+                    # Non-IDLE outcome: immediately continue without sleep
+                    continue

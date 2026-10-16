@@ -45,6 +45,10 @@ EXPECTED_24_APPLICATION_TABLES = {
     "schedule_assignments",
     # Phase 4B Calendar Boundary (1)
     "calendar_links",
+    # Phase 7 Calendar Watch (1)
+    "calendar_watch_channels",
+    # Phase 8D Service Credentials Persistence (1)
+    "service_api_credentials",
 }
 
 PROHIBITED_IDENTITY_TABLES = {
@@ -58,10 +62,10 @@ PROHIBITED_IDENTITY_TABLES = {
 
 
 def test_base_metadata_exact_24_tables() -> None:
-    """Verify Base.metadata contains exactly the 24 canonical application tables."""
+    """Verify Base.metadata contains exactly the canonical application tables."""
     actual_tables = set(Base.metadata.tables.keys())
     assert actual_tables == EXPECTED_24_APPLICATION_TABLES
-    assert len(actual_tables) == 24
+    assert len(actual_tables) == 26
 
 
 def test_prohibited_identity_tables_absent_from_orm() -> None:
@@ -80,11 +84,23 @@ def test_flowable_and_alembic_internal_tables_absent_from_orm() -> None:
 
 
 def test_alembic_head_and_migration_lineage() -> None:
-    """Verify Alembic head is exactly '0012' with down_revision '0011' and correct filename."""
+    """Verify Alembic head is exactly '0014' with down_revision '0013' and correct filename."""
     cfg = Config(str(ALEMBIC_INI))
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    assert heads == ["0012"], f"Expected single head ['0012'], got {heads}"
+    assert heads == ["0014"], f"Expected single head ['0014'], got {heads}"
+
+    rev_0014 = script.get_revision("0014")
+    assert rev_0014 is not None
+    assert rev_0014.down_revision == "0013"
+    assert rev_0014.path is not None
+    assert rev_0014.path.endswith("0014_service_api_credentials.py")
+
+    rev_0013 = script.get_revision("0013")
+    assert rev_0013 is not None
+    assert rev_0013.down_revision == "0012"
+    assert rev_0013.path is not None
+    assert rev_0013.path.endswith("0013_calendar_watch_channels.py")
 
     rev_0012 = script.get_revision("0012")
     assert rev_0012 is not None
@@ -99,7 +115,7 @@ def test_alembic_head_and_migration_lineage() -> None:
     assert rev_0011.path.endswith("0011_create_generic_scheduling_core.py")
 
     all_revs = [rev.revision for rev in script.walk_revisions()]
-    assert not any("0013" in r for r in all_revs), "Migration 0013 must not exist"
+    assert not any("0015" in r for r in all_revs), "Migration 0015 must not exist"
 
 
 def test_rtm_source_requirements_present_once_each() -> None:

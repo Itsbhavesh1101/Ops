@@ -157,3 +157,21 @@ class DatabaseManager:
         from app.db.health import check_database_ready
 
         return await check_database_ready(self._engine, timeout_seconds=timeout_seconds)
+
+    def get_pool_status(self) -> dict[str, int]:
+        """Return low-cardinality pool status metrics for observability.
+
+        Reports pool size, checked out connections, overflow count, and idle connections.
+        Zero exposure of credentials, database URLs, or tenant identities.
+        """
+        pool = self._engine.sync_engine.pool
+        size_fn = getattr(pool, "size", None)
+        checkedout_fn = getattr(pool, "checkedout", None)
+        overflow_fn = getattr(pool, "overflow", None)
+        checkedin_fn = getattr(pool, "checkedin", None)
+        return {
+            "size": int(size_fn()) if callable(size_fn) else 0,
+            "checked_out": int(checkedout_fn()) if callable(checkedout_fn) else 0,
+            "overflow": int(overflow_fn()) if callable(overflow_fn) else 0,
+            "checked_in": int(checkedin_fn()) if callable(checkedin_fn) else 0,
+        }

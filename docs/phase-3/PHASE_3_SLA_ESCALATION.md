@@ -13,4 +13,4 @@
 - **Warning Event**: Emits canonical event `workflow.sla.warning` to outbox.
   - Payload contains minimal tracking metadata: `task_id`, `instance_id`, `policy_key`, `warning_at`, `breach_at`.
 - **Breach Actions**: Closed typed policy: `REMINDER`, `REASSIGN`, `ESCALATE`, `SERVICE_ACTION`.
-- **Append-Only Audit**: Warning and breach triggers record `workflow.sla.warning` and `workflow.sla.breach` in the append-only audit trail.
+- **Append-Only Audit**: Warning and breach triggers record `workflow.sla.warning` and `workflow.sla.breached` in the append-only audit trail.

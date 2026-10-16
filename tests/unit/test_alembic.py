@@ -136,7 +136,7 @@ def test_alembic_script_directory_loads_baseline_revision() -> None:
     script_dir = ScriptDirectory.from_config(config)
 
     head = script_dir.get_current_head()
-    assert head == "0012"
+    assert head == "0014"
 
     rev_0001 = script_dir.get_revision("0001")
     assert rev_0001 is not None
@@ -203,9 +203,23 @@ def test_alembic_script_directory_loads_baseline_revision() -> None:
     assert rev_0012.down_revision == "0011"
     assert "schedule_publish_repair_calendar" in (rev_0012.doc or "")
 
-    # Verify no migration 0013 exists
+    # Phase-7 calendar watch channels migration 0013
+    rev_0013 = script_dir.get_revision("0013")
+    assert rev_0013 is not None
+    assert rev_0013.down_revision == "0012"
+    assert "calendar_watch_channels" in (rev_0013.doc or "")
+
+    # Phase-8D persistent service credentials migration 0014
+    rev_0014 = script_dir.get_revision("0014")
+    assert rev_0014 is not None
+    assert rev_0014.down_revision == "0013"
+    assert "service_api_credentials" in (rev_0014.doc or "")
+
+    # Verify no migration 0015 exists
     revisions = [rev.revision for rev in script_dir.walk_revisions()]
-    assert "0013" not in revisions
+    assert "0015" not in revisions
+    assert "0014" in revisions
+    assert "0013" in revisions
     assert "0012" in revisions
     assert "0011" in revisions
     assert "0010" in revisions

@@ -10,7 +10,8 @@ Enforces:
 - State machine transition rules (REQUESTED -> SOLVING -> FEASIBLE/INFEASIBLE, FEASIBLE -> REVIEW).
 """
 
-from datetime import UTC, datetime
+import time
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
@@ -132,27 +133,92 @@ class SchedulingService:
         session: AsyncSession,
         worker_id: str,
         batch_size: int = 5,
+        max_concurrent_per_tenant: int | None = None,
     ) -> list[ScheduleJobRecord]:
-        """Claim pending jobs atomically using FOR UPDATE SKIP LOCKED."""
+        """Claim pending jobs atomically using FOR UPDATE SKIP LOCKED with tenant fairness."""
+        if max_concurrent_per_tenant is not None and max_concurrent_per_tenant > 0:
+            candidate_stmt = (
+                select(ScheduleJobRecord)
+                .where(ScheduleJobRecord.status == ScheduleJobStatus.REQUESTED.value)
+                .order_by(ScheduleJobRecord.created_at.asc())
+                .limit(batch_size * 10)
+                .with_for_update(skip_locked=True)
+            )
+            candidate_result = await session.execute(candidate_stmt)
+            candidates = list(candidate_result.scalars().all())
+
+            active_counts_stmt = (
+                select(ScheduleJobRecord.tenant_id, func.count(ScheduleJobRecord.id))
+                .where(ScheduleJobRecord.status == ScheduleJobStatus.SOLVING.value)
+                .group_by(ScheduleJobRecord.tenant_id)
+            )
+            active_counts_result = await session.execute(active_counts_stmt)
+            active_per_tenant: dict[str, int] = dict(active_counts_result.all())
+
+            now = datetime.now(UTC)
+            claimed: list[ScheduleJobRecord] = []
+            for job in candidates:
+                if len(claimed) >= batch_size:
+                    break
+                active_count = active_per_tenant.get(job.tenant_id, 0)
+                if active_count >= max_concurrent_per_tenant:
+                    continue
+                validate_job_transition(job.status, ScheduleJobStatus.SOLVING)
+                job.status = ScheduleJobStatus.SOLVING.value
+                job.claimed_by = worker_id
+                job.claimed_at = now
+                active_per_tenant[job.tenant_id] = active_count + 1
+                claimed.append(job)
+
+            await session.flush()
+            return claimed
+        else:
+            stmt = (
+                select(ScheduleJobRecord)
+                .where(ScheduleJobRecord.status == ScheduleJobStatus.REQUESTED.value)
+                .order_by(ScheduleJobRecord.created_at.asc())
+                .limit(batch_size)
+                .with_for_update(skip_locked=True)
+            )
+            result = await session.execute(stmt)
+            jobs = list(result.scalars().all())
+
+            now = datetime.now(UTC)
+            for job in jobs:
+                validate_job_transition(job.status, ScheduleJobStatus.SOLVING)
+                job.status = ScheduleJobStatus.SOLVING.value
+                job.claimed_by = worker_id
+                job.claimed_at = now
+
+            await session.flush()
+            return jobs
+
+    async def reclaim_stale_jobs(
+        self,
+        session: AsyncSession,
+        lease_timeout_seconds: float = 300.0,
+    ) -> list[ScheduleJobRecord]:
+        """Reclaim abandoned SOLVING jobs whose worker lease has expired."""
+        cutoff = datetime.now(UTC) - timedelta(seconds=lease_timeout_seconds)
         stmt = (
             select(ScheduleJobRecord)
-            .where(ScheduleJobRecord.status == ScheduleJobStatus.REQUESTED.value)
-            .order_by(ScheduleJobRecord.created_at.asc())
-            .limit(batch_size)
+            .where(
+                ScheduleJobRecord.status == ScheduleJobStatus.SOLVING.value,
+                ScheduleJobRecord.claimed_at <= cutoff,
+            )
             .with_for_update(skip_locked=True)
         )
         result = await session.execute(stmt)
-        jobs = list(result.scalars().all())
+        stale_jobs = list(result.scalars().all())
 
-        now = datetime.now(UTC)
-        for job in jobs:
-            validate_job_transition(job.status, ScheduleJobStatus.SOLVING)
-            job.status = ScheduleJobStatus.SOLVING.value
-            job.claimed_by = worker_id
-            job.claimed_at = now
+        for job in stale_jobs:
+            validate_job_transition(job.status, ScheduleJobStatus.REQUESTED)
+            job.status = ScheduleJobStatus.REQUESTED.value
+            job.claimed_by = None
+            job.claimed_at = None
 
         await session.flush()
-        return jobs
+        return stale_jobs
 
     async def execute_job_solve(
         self,
@@ -171,6 +237,7 @@ class SchedulingService:
             raise JobNotFoundError(f"Schedule job {job_id} not found.")
 
         # Reconstruct request from immutable snapshot
+        job_start_mono = time.monotonic()
         request = SchedulingRequest.model_validate(job.input_snapshot)
 
         with self.telemetry.span_solve():
@@ -191,6 +258,8 @@ class SchedulingService:
                 duration_seconds=duration_sec,
                 assignment_count=len(result.assignments),
             )
+
+        persist_start_mono = time.monotonic()
 
         if result.status == ScheduleStatus.FEASIBLE:
             # Hard violation invariant check
@@ -279,6 +348,10 @@ class SchedulingService:
             job.completed_at = datetime.now(UTC)
 
         await session.flush()
+        persist_duration = time.monotonic() - persist_start_mono
+        self.telemetry.record_persistence_duration(persist_duration)
+        job_duration = time.monotonic() - job_start_mono
+        self.telemetry.record_job_duration(job_duration, status=result.status.value)
         return result
 
     async def transition_to_review(
@@ -461,10 +534,23 @@ class SchedulingService:
                 payload={
                     "schedule_id": str(sched.id),
                     "schedule_version": sched.version,
+                    "version": sched.version,
                     "published_at": now.isoformat(),
                     "published_by": principal,
                     "source_job_id": str(sched.source_job_id),
                     "assignment_count": len(sched.assignments),
+                    "assignments": [
+                        {
+                            "session_id": a.activity_id,
+                            "activity_id": a.activity_id,
+                            "resource_id": a.resource_id,
+                            "room_resource_id": a.resource_id,
+                            "start_at": a.start_at.isoformat() if a.start_at else None,
+                            "end_at": a.end_at.isoformat() if a.end_at else None,
+                        }
+                        for a in sched.assignments
+                    ],
+                    "recipients": ["faculty@school.edu"],
                 },
             )
         )
@@ -479,14 +565,20 @@ class SchedulingService:
                     subject_type="schedule",
                     subject_id=str(sched.id),
                     payload={
+                        "schedule_id": str(sched.id),
                         "old_schedule_id": str(old_sched.id),
                         "old_schedule_version": old_sched.version,
+                        "old_version": old_sched.version,
                         "new_schedule_id": str(sched.id),
                         "new_schedule_version": sched.version,
+                        "new_version": sched.version,
+                        "version": sched.version,
                         "change_reason": sched.repair_reason or "repair",
+                        "repair_reason": sched.repair_reason or "resource.unavailable",
                         "movement_score": sched.score_components.get("movement_penalty", 0)
                         if sched.score_components
                         else 0,
+                        "recipients": ["faculty@school.edu"],
                     },
                 )
             )

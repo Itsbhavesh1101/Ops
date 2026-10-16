@@ -65,6 +65,30 @@ class Settings(BaseSettings):
         default_factory=list,
         description="List of allowed CORS origins for browser ingress",
     )
+    docs_enabled: bool = Field(
+        default=True,
+        description="Enable /docs, /redoc, and /openapi.json documentation endpoints",
+    )
+    max_request_body_bytes: int = Field(
+        default=10 * 1024 * 1024,
+        description="Maximum permitted request body size in bytes (default: 10MB)",
+    )
+    security_headers_enabled: bool = Field(
+        default=True,
+        description="Enable security response headers (X-Content-Type-Options, CSP, etc.)",
+    )
+    hsts_enabled: bool = Field(
+        default=False,
+        description="Enable Strict-Transport-Security header (strictly over HTTPS)",
+    )
+    hsts_max_age_seconds: int = Field(
+        default=31536000,
+        description="HSTS max-age duration in seconds (default: 1 year)",
+    )
+    mount_domain_routers: bool = Field(
+        default=False,
+        description="Mount authenticated business domain routes on API v1",
+    )
 
     # Google OIDC technical verifier configuration (Task 1C.2)
     google_oidc_discovery_url: str = Field(
@@ -112,7 +136,7 @@ class Settings(BaseSettings):
         description="SQLAlchemy connection pool size",
     )
     database_max_overflow: int = Field(
-        default=10,
+        default=5,
         description="SQLAlchemy max overflow connections beyond pool_size",
     )
     database_pool_timeout_seconds: float = Field(
@@ -168,6 +192,88 @@ class Settings(BaseSettings):
     llm_base_url: str | None = Field(
         default=None,
         description="Base URL for provider endpoint",
+    )
+
+    # Capacity, Queue Limits, Worker & Quota Configuration (Phase 8E)
+    capacity_flowable_pool_max_connections: int = Field(
+        default=20,
+        description="Flowable HTTP client connection pool maximum connections",
+    )
+    capacity_flowable_pool_max_keepalive_connections: int = Field(
+        default=10,
+        description="Flowable HTTP client connection pool maximum keepalive connections",
+    )
+    capacity_flowable_pool_timeout_seconds: float = Field(
+        default=10.0,
+        description="Flowable HTTP client pool timeout in seconds",
+    )
+    capacity_outbox_batch_size: int = Field(
+        default=20,
+        description="Transactional outbox batch claim size",
+    )
+    capacity_outbox_publish_concurrency: int = Field(
+        default=5,
+        description="Transactional outbox concurrent broker publish pipeline limit",
+    )
+    capacity_outbox_poll_interval_seconds: float = Field(
+        default=0.5,
+        description="Transactional outbox idle poll interval in seconds",
+    )
+    capacity_outbox_lease_duration_seconds: float = Field(
+        default=30.0,
+        description="Transactional outbox worker lease duration in seconds",
+    )
+    capacity_solver_time_budget_seconds: float = Field(
+        default=60.0,
+        description="Authoritative schedule solver CPU time budget in seconds (< 60s)",
+    )
+    capacity_solver_repair_time_budget_seconds: float = Field(
+        default=30.0,
+        description="Schedule repair solver CPU time budget in seconds",
+    )
+    capacity_solver_max_concurrency: int = Field(
+        default=2,
+        description="Maximum concurrent schedule solve worker processes per node",
+    )
+    capacity_solver_worker_poll_interval_seconds: float = Field(
+        default=1.0,
+        description="Schedule worker idle poll interval in seconds",
+    )
+    capacity_solver_claim_batch_size: int = Field(
+        default=5,
+        description="Schedule worker batch claim size",
+    )
+    capacity_tenant_max_queued_solves: int = Field(
+        default=5,
+        description="Maximum queued/active schedule solve jobs per tenant",
+    )
+    capacity_tenant_max_concurrent_solves: int = Field(
+        default=1,
+        description="Maximum concurrent schedule solve executions per tenant (tenant fairness)",
+    )
+    capacity_tenant_max_queued_repairs: int = Field(
+        default=5,
+        description="Maximum queued schedule repair requests per tenant",
+    )
+    capacity_tenant_max_active_plans: int = Field(
+        default=50,
+        description="Maximum concurrent active plan generation requests per tenant",
+    )
+    capacity_tenant_max_running_workflows: int = Field(
+        default=20,
+        description="Maximum concurrent running workflow instances per tenant",
+    )
+    capacity_tenant_max_concurrent_analytics: int = Field(
+        default=5,
+        description="Maximum concurrent analytics queries per tenant",
+    )
+    capacity_rate_limit_policy_mode: str = Field(
+        default="hybrid",
+        description="Rate limiting policy enforcement mode ('hybrid', 'gateway', 'application')",
+    )
+    capacity_rate_limit_default_retry_after_seconds: int = Field(
+        default=30,
+        description="Default Retry-After header duration in seconds for HTTP 429 responses",
     )
 
     @field_validator("environment", mode="before")
@@ -523,15 +629,119 @@ class Settings(BaseSettings):
             return None
         return SecretStr(raw)
 
+    @field_validator(
+        "capacity_flowable_pool_max_connections",
+        "capacity_flowable_pool_max_keepalive_connections",
+        "capacity_outbox_batch_size",
+        "capacity_outbox_publish_concurrency",
+        "capacity_solver_max_concurrency",
+        "capacity_solver_claim_batch_size",
+        "capacity_tenant_max_queued_solves",
+        "capacity_tenant_max_concurrent_solves",
+        "capacity_tenant_max_queued_repairs",
+        "capacity_tenant_max_active_plans",
+        "capacity_tenant_max_running_workflows",
+        "capacity_tenant_max_concurrent_analytics",
+        "capacity_rate_limit_default_retry_after_seconds",
+        mode="before",
+    )
+    @classmethod
+    def validate_capacity_positive_ints(cls, value: Any, info: Any) -> int:
+        """Validate capacity integer settings are strictly positive within bounded safe ranges."""
+        field_name = info.field_name
+        try:
+            val = int(value)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"{field_name} must be an integer") from exc
+
+        limits: dict[str, tuple[int, int]] = {
+            "capacity_flowable_pool_max_connections": (1, 500),
+            "capacity_flowable_pool_max_keepalive_connections": (0, 200),
+            "capacity_outbox_batch_size": (1, 500),
+            "capacity_outbox_publish_concurrency": (1, 50),
+            "capacity_solver_max_concurrency": (1, 64),
+            "capacity_solver_claim_batch_size": (1, 50),
+            "capacity_tenant_max_queued_solves": (1, 100),
+            "capacity_tenant_max_concurrent_solves": (1, 32),
+            "capacity_tenant_max_queued_repairs": (1, 100),
+            "capacity_tenant_max_active_plans": (1, 100),
+            "capacity_tenant_max_running_workflows": (1, 500),
+            "capacity_tenant_max_concurrent_analytics": (1, 100),
+            "capacity_rate_limit_default_retry_after_seconds": (1, 3600),
+        }
+        min_val, max_val = limits.get(field_name, (1, 1000))
+        if val < min_val or val > max_val:
+            raise ValueError(
+                f"{field_name} must be between {min_val} and {max_val} (got {val})"
+            )
+        return val
+
+    @field_validator(
+        "capacity_flowable_pool_timeout_seconds",
+        "capacity_outbox_poll_interval_seconds",
+        "capacity_outbox_lease_duration_seconds",
+        "capacity_solver_time_budget_seconds",
+        "capacity_solver_repair_time_budget_seconds",
+        "capacity_solver_worker_poll_interval_seconds",
+        mode="before",
+    )
+    @classmethod
+    def validate_capacity_positive_floats(cls, value: Any, info: Any) -> float:
+        """Validate capacity float settings are strictly positive within bounded safe ranges."""
+        field_name = info.field_name
+        try:
+            val = float(value)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"{field_name} must be a float") from exc
+
+        limits: dict[str, tuple[float, float]] = {
+            "capacity_flowable_pool_timeout_seconds": (0.1, 120.0),
+            "capacity_outbox_poll_interval_seconds": (0.01, 60.0),
+            "capacity_outbox_lease_duration_seconds": (1.0, 600.0),
+            "capacity_solver_time_budget_seconds": (1.0, 600.0),
+            "capacity_solver_repair_time_budget_seconds": (1.0, 300.0),
+            "capacity_solver_worker_poll_interval_seconds": (0.05, 60.0),
+        }
+        min_val, max_val = limits.get(field_name, (0.1, 1000.0))
+        if val < min_val or val > max_val:
+            raise ValueError(
+                f"{field_name} must be between {min_val} and {max_val} (got {val})"
+            )
+        return val
+
+    @field_validator("capacity_rate_limit_policy_mode", mode="before")
+    @classmethod
+    def validate_rate_limit_policy_mode(cls, value: Any) -> str:
+        """Validate rate limiting policy mode identifier."""
+        if not isinstance(value, str):
+            raise ValueError("capacity_rate_limit_policy_mode must be a string")
+        norm = value.strip().lower()
+        allowed = {"hybrid", "gateway", "application"}
+        if norm not in allowed:
+            raise ValueError(
+                f"capacity_rate_limit_policy_mode must be one of {sorted(allowed)} (got '{value}')"
+            )
+        return norm
+
     @model_validator(mode="after")
-    def validate_cache_bounds(self) -> "Settings":
-        """Ensure maximum cache TTL is greater than or equal to fallback cache TTL."""
+    def validate_runtime_bounds(self) -> "Settings":
+        """Validate cross-field bounds and capacity invariants."""
         if self.google_oidc_cache_max_seconds < self.google_oidc_cache_fallback_seconds:
             max_sec = self.google_oidc_cache_max_seconds
             fb_sec = self.google_oidc_cache_fallback_seconds
             raise ValueError(
                 f"google_oidc_cache_max_seconds ({max_sec}) "
                 f"must be >= google_oidc_cache_fallback_seconds ({fb_sec})"
+            )
+        if (
+            self.capacity_flowable_pool_max_keepalive_connections
+            > self.capacity_flowable_pool_max_connections
+        ):
+            keep = self.capacity_flowable_pool_max_keepalive_connections
+            max_c = self.capacity_flowable_pool_max_connections
+            raise ValueError(
+                f"capacity_flowable_pool_max_keepalive_connections ({keep}) "
+                f"cannot exceed capacity_flowable_pool_max_connections ({max_c})"
             )
         return self
 

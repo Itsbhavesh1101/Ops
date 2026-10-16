@@ -25,7 +25,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 import app.worker as worker_module
 from app.core.config import Settings
@@ -40,6 +40,7 @@ from app.events.outbox.config import OutboxWorkerSettings
 from app.events.outbox.dispatcher import OutboxDispatchPolicy
 from app.events.outbox.runner import OutboxRunnerPolicy
 from app.events.publishers.config import RabbitMqPublisherSettings
+from app.integrations.calendar.config import GoogleCalendarSettings
 from app.worker import _install_signal_handlers, _remove_signal_handlers, main, run_worker
 
 # -----------------------------------------------------------------------------
@@ -547,6 +548,10 @@ async def test_worker_telemetry_ordering_clean_run() -> None:
 
     await run_worker(
         stop_event=stop_event,
+        telemetry_settings=resolve_telemetry_settings(
+            default_service_name="e7-worker",
+            _env_file=None,
+        ),
         telemetry_initializer=fake_telemetry_init,
         telemetry_shutdown=fake_telemetry_shutdown,
         database_manager_factory=lambda s: OrderedDbManager(),
@@ -673,3 +678,157 @@ def test_worker_service_identity_preserves_operator_override() -> None:
         otel_exporter_otlp_endpoint="http://localhost:4318",
     )
     assert settings.otel_service_name == "custom-operations-worker"
+
+
+def test_worker_service_identity_rejects_api_name_from_shared_env() -> None:
+    """When shared .env has E7_OTEL_SERVICE_NAME=e7-api, worker retains e7-worker identity."""
+    settings = resolve_telemetry_settings(
+        default_service_name="e7-worker",
+        _env_file=None,
+        otel_enabled=True,
+        otel_service_name="e7-api",
+        otel_exporter_otlp_endpoint="http://localhost:4318",
+    )
+    assert settings.otel_service_name == "e7-worker"
+
+
+def test_worker_service_identity_resolves_correctly_with_host_env() -> None:
+    """Worker entrypoint resolves to e7-worker when reading developer .env."""
+    settings = resolve_telemetry_settings(
+        default_service_name="e7-worker",
+    )
+    assert settings.otel_service_name == "e7-worker"
+
+
+# -----------------------------------------------------------------------------
+# 7. Google Calendar Worker Integration Tests (Phase 7C)
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_worker_google_calendar_disabled_starts_zero_loops() -> None:
+    """When Google Calendar is disabled, worker starts zero calendar background tasks."""
+    fake_db = FakeDatabaseManager()
+    fake_pub = FakePublisher()
+    cal_settings = GoogleCalendarSettings(enabled=False)
+
+    stop_event = asyncio.Event()
+    stop_event.set()
+
+    worker_created = False
+
+    def dummy_worker_factory(*args: Any, **kwargs: Any) -> Any:
+        nonlocal worker_created
+        worker_created = True
+        return MagicMock()
+
+    await run_worker(
+        stop_event=stop_event,
+        calendar_settings=cal_settings,
+        calendar_worker_factory=dummy_worker_factory,
+        database_manager_factory=lambda s: fake_db,
+        uow_factory_provider=lambda sf: lambda: None,
+        publisher_factory=lambda ps: fake_pub,
+        runner_factory=lambda **kwargs: FakeRunner(**kwargs),
+    )
+
+    assert worker_created is False
+    assert fake_db.dispose_call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_worker_google_calendar_enabled_starts_and_stops_background_loops() -> None:
+    """When Google Calendar is enabled, worker starts background loops and stops them cleanly."""
+    from pydantic import SecretStr
+
+    fake_db = FakeDatabaseManager()
+    fake_pub = FakePublisher()
+    cal_settings = GoogleCalendarSettings(
+        enabled=True,
+        client_email="sa@school.iam.gserviceaccount.com",
+        calendar_id="primary",
+        private_key=SecretStr("mock_key"),
+        webhook_callback_url="https://api.school.edu/callback",
+        webhook_token=SecretStr("secret"),
+    )
+
+    stop_event = asyncio.Event()
+    task_ran = False
+    task_stopped = False
+
+    class FakeCalendarWorker:
+        def __init__(self, **kwargs: Any) -> None:
+            self.tasks: list[asyncio.Task[Any]] = []
+
+        def start_background_tasks(self, stop_ev: asyncio.Event) -> list[asyncio.Task[Any]]:
+            async def _dummy_loop() -> None:
+                nonlocal task_ran, task_stopped
+                task_ran = True
+                try:
+                    await stop_ev.wait()
+                finally:
+                    task_stopped = True
+
+            t = asyncio.create_task(_dummy_loop())
+            self.tasks.append(t)
+            return [t]
+
+    class StoppingRunner:
+        def __init__(self, **kwargs: Any) -> None:
+            pass
+
+        async def run(self, *, stop_event: asyncio.Event) -> None:
+            await asyncio.sleep(0.01)
+            stop_event.set()
+
+    cal_worker_inst: FakeCalendarWorker | None = None
+
+    def worker_factory(**kwargs: Any) -> FakeCalendarWorker:
+        nonlocal cal_worker_inst
+        cal_worker_inst = FakeCalendarWorker(**kwargs)
+        return cal_worker_inst
+
+    await run_worker(
+        stop_event=stop_event,
+        calendar_settings=cal_settings,
+        calendar_worker_factory=worker_factory,
+        database_manager_factory=lambda s: fake_db,
+        uow_factory_provider=lambda sf: lambda: None,
+        publisher_factory=lambda ps: fake_pub,
+        runner_factory=StoppingRunner,
+    )
+
+    assert task_ran is True
+    assert task_stopped is True
+    assert cal_worker_inst is not None
+    assert all(t.done() for t in cal_worker_inst.tasks)
+    assert fake_db.dispose_call_count == 1
+
+
+def test_worker_google_calendar_invalid_config_fails_closed() -> None:
+    """When Google Calendar is enabled but config is invalid, fails closed with ValueError."""
+    with pytest.raises(ValueError, match="calendar_id is empty"):
+        GoogleCalendarSettings(
+            enabled=True,
+            calendar_id="",
+        )
+
+    with pytest.raises(ValueError, match="client_email is empty"):
+        GoogleCalendarSettings(
+            enabled=True,
+            auth_mode="service_account_key",
+            client_email="",
+            calendar_id="primary",
+            private_key=SecretStr("key"),
+        )
+
+    with pytest.raises(ValueError, match="private_key is empty"):
+        GoogleCalendarSettings(
+            enabled=True,
+            auth_mode="service_account_key",
+            client_email="sa@google.com",
+            calendar_id="primary",
+            private_key=SecretStr(""),
+        )
+
+

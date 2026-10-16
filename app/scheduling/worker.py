@@ -88,6 +88,7 @@ class SchedulerWorker:
                     session=session,
                     worker_id=self.settings.worker_id,
                     batch_size=self.settings.claim_batch_size,
+                    max_concurrent_per_tenant=self.settings.max_concurrent_per_tenant,
                 )
 
             # Settle each claimed job in its own transaction

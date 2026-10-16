@@ -59,3 +59,9 @@ class SchedulerSettings(BaseSettings):
         default_factory=lambda: f"scheduler-worker-{uuid4().hex[:8]}",
         description="Unique identifier for the worker claiming jobs.",
     )
+    max_concurrent_per_tenant: int = Field(
+        default=1,
+        ge=1,
+        le=32,
+        description="Maximum concurrent solves claimed per tenant for fairness",
+    )
