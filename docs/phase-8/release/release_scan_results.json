@@ -1,5 +1,5 @@
 {
-  "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+  "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
   "candidate_name": "operations-engine",
   "candidate_version": "0.1.0",
   "git_branch": "master",
@@ -33,7 +33,7 @@
   },
   "scans": [
     {
-      "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+      "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
       "tool": "cyclonedx-python-lib",
       "tool_version": "11.12.0",
       "scan_type": "sbom_generation",
@@ -50,7 +50,7 @@
       "result": "PASS"
     },
     {
-      "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+      "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
       "tool": "pip-audit",
       "tool_version": "2.10.1",
       "scan_type": "dependency_vulnerability_python",
@@ -66,7 +66,7 @@
       "result": "PASS"
     },
     {
-      "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+      "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
       "tool": "npm-audit",
       "tool_version": "10.8.2",
       "scan_type": "dependency_vulnerability_node",
@@ -82,7 +82,7 @@
       "result": "PASS"
     },
     {
-      "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+      "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
       "tool": "bandit",
       "tool_version": "1.9.4",
       "scan_type": "sast_python",
@@ -98,7 +98,7 @@
       "result": "PASS"
     },
     {
-      "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+      "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
       "tool": "scan_secrets.py",
       "tool_version": "1.0.0",
       "scan_type": "secrets_scanning",
@@ -114,13 +114,13 @@
       "result": "PASS_CLEAN"
     },
     {
-      "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+      "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
       "tool": "trivy",
       "tool_version": "0.59.1",
       "scan_type": "container_image_scan",
       "start_timestamp": "2026-10-12T17:15:21Z",
       "end_timestamp": "2026-10-12T17:15:41Z",
-      "target_image": "e7-operations-engine:rc-11c81e412c49",
+      "target_image": "e7-operations-engine:rc-38d080fadab8",
       "critical_count": 0,
       "high_count": 44,
       "medium_count": 58,
@@ -131,7 +131,7 @@
       "result": "NO_FIX_AVAILABLE_WITH_COMPENSATING_CONTROLS"
     },
     {
-      "rc_content_id": "11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a",
+      "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
       "tool": "syft_trivy_grype",
       "tool_version": "syft:1.54.1,trivy:0.59.1,grype:0.87.0",
       "scan_type": "flowable_java_sca",

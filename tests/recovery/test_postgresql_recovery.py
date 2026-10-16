@@ -9,6 +9,7 @@ Validates:
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 
@@ -50,7 +51,8 @@ async def test_logical_backup_and_restore_drill(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_pitr_physical_drill_isolated() -> None:
     """Verify physical base backup + WAL replay PITR on isolated disposable container."""
-    pitr_result = run_pitr_drill(disposable_port=55433)
+    port = int(os.environ.get("PITR_DISPOSABLE_PORT", "55533"))
+    pitr_result = run_pitr_drill(disposable_port=port)
     assert pitr_result["status"] == "PASS"
     details = pitr_result["details"]
     assert details["has_marker_a"] is True

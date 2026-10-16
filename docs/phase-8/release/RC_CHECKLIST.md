@@ -1,6 +1,6 @@
 # Phase 8H Release Candidate Checklist
 
-- **Candidate Content ID**: `11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a`
+- **Candidate Content ID**: `38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897`
 - **Candidate Name**: `operations-engine`
 - **Version**: `0.1.0`
 - **Evaluation Date**: `2026-10-12T17:15:00Z`
@@ -12,7 +12,7 @@
 - [x] **Working Tree Safety**: `DIRTY / PRESERVED` (Uncommitted work from Phases 8A–8G retained intact; zero destructive git commands executed).
 - [x] **Deterministic Manifest**: `docs/phase-8/release/RC_CONTENT_MANIFEST.json` generated.
 - [x] **Integrity Hash**: `docs/phase-8/release/RC_CONTENT_MANIFEST.sha256` computed from actual file bytes.
-- [x] **RC_CONTENT_ID**: `11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a` unified across all security scan reports.
+- [x] **RC_CONTENT_ID**: `38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897` unified across all security scan reports.
 - [x] **Candidate File Boundary**: 730 candidate files (547 tracked, 183 untracked) strictly inventoried.
 - [x] **Non-Release Artifacts ExCLUDED**: `.git`, `.venv`, `scratch/`, `node_modules/`, `dist/`, caches.
 

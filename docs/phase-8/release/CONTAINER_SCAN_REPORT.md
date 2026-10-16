@@ -1,7 +1,7 @@
 # Phase 8H Container Security & Misconfiguration Audit Report
 
-- **Candidate Content ID**: `11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a`
-- **Candidate Image Identifier**: `e7-operations-engine:rc-11c81e412c49`
+- **Candidate Content ID**: `38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897`
+- **Candidate Image Identifier**: `e7-operations-engine:rc-38d080fadab8`
 - **Candidate Name**: `operations-engine`
 - **Version**: `0.1.0`
 - **Base Image**: `python:3.11-slim@sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce` (Debian 13 trixie)

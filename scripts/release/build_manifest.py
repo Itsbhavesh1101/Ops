@@ -2,8 +2,9 @@
 
 Inventories all candidate source content (RC_SOURCE_CONTENT), computes SHA-256
 for each file, classifies files, and outputs:
-- docs/phase-8/release/RC_CONTENT_MANIFEST.json (clean source manifest with NO self-references)
+- docs/phase-8/release/RC_CONTENT_MANIFEST.json (clean manifest with pure content identity)
 - docs/phase-8/release/RC_CONTENT_MANIFEST.sha256 (matches RC_CONTENT_MANIFEST.json exactly)
+- docs/phase-8/release/RC_PROVENANCE.json (non-identity git & working tree provenance)
 - Computes canonical RC_CONTENT_ID = sha256(RC_CONTENT_MANIFEST.json bytes on disk)
 """
 
@@ -13,10 +14,24 @@ import os
 import subprocess
 from pathlib import Path
 
-REPO_ROOT = Path("F:/operations-engine").resolve()
+
+def get_repo_root() -> Path:
+    env_root = os.environ.get("OPERATIONS_ENGINE_ROOT")
+    if env_root and Path(env_root).is_dir():
+        return Path(env_root).resolve()
+    script_root = Path(__file__).resolve().parents[2]
+    if (script_root / "docker-compose.yml").is_file():
+        return script_root
+    if (Path.cwd() / "docker-compose.yml").is_file():
+        return Path.cwd().resolve()
+    return Path("F:/operations-engine").resolve()
+
+
+REPO_ROOT = get_repo_root()
 
 # Directories/files belonging to candidate release source boundary
 CANDIDATE_ROOTS = [
+    ".gitattributes",
     "app",
     "workflows",
     "alembic",
@@ -26,6 +41,7 @@ CANDIDATE_ROOTS = [
     "docker-compose.yml",
     ".dockerignore",
     "pyproject.toml",
+    "requirements.lock.txt",
     "README.md",
     ".env.example",
     "docs",
@@ -62,6 +78,7 @@ def classify_file(rel_path: str) -> str:
     norm = rel_path.replace("\\", "/")
     dep_specs = (
         "pyproject.toml",
+        "requirements.lock.txt",
         "ui/operations-ui/package.json",
         "ui/operations-ui/package-lock.json",
     )
@@ -77,7 +94,10 @@ def classify_file(rel_path: str) -> str:
         return "workflow_definition"
     elif norm.startswith("alembic/") or norm == "alembic.ini":
         return "database_migration"
-    elif norm.startswith("docker/") or norm in ("docker-compose.yml", ".dockerignore"):
+    elif (
+        norm.startswith("docker/")
+        or norm in ("docker-compose.yml", ".dockerignore", ".gitattributes")
+    ):
         return "deployment_manifest"
     elif norm in dep_specs:
         return "dependency_specification"
@@ -95,15 +115,64 @@ def classify_file(rel_path: str) -> str:
         return "release_metadata"
 
 
-def get_tracked_files() -> set[str]:
-    res = subprocess.run(
-        ["git", "ls-files"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return {line.strip().replace("\\", "/") for line in res.stdout.splitlines() if line.strip()}
+def get_git_provenance() -> dict:
+    repo = get_repo_root()
+    try:
+        branch = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except Exception:
+        branch = "detached"
+
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+    except Exception:
+        head = "unknown"
+
+    try:
+        res = subprocess.run(
+            ["git", "ls-files"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        tracked = {
+            line.strip().replace("\\", "/")
+            for line in res.stdout.splitlines()
+            if line.strip()
+        }
+    except Exception:
+        tracked = set()
+
+    try:
+        status_res = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        tree_state = "dirty" if status_res.stdout.strip() else "clean"
+    except Exception:
+        tree_state = "unknown"
+
+    return {
+        "git_branch": branch or "detached",
+        "git_head": head,
+        "tree_state": tree_state,
+        "tracked_files": tracked,
+    }
 
 
 def compute_sha256(file_path: Path) -> str:
@@ -128,11 +197,14 @@ def is_excluded(rel_path: str) -> bool:
 
 
 def build_manifest() -> str:
-    tracked = get_tracked_files()
+    repo_root = get_repo_root()
+    provenance_data = get_git_provenance()
+    tracked = provenance_data.pop("tracked_files")
+
     candidate_files = []
 
     for item in CANDIDATE_ROOTS:
-        full_path = REPO_ROOT / item
+        full_path = repo_root / item
         if not full_path.exists():
             continue
         if full_path.is_file():
@@ -141,15 +213,13 @@ def build_manifest() -> str:
                 candidate_files.append(rel)
         elif full_path.is_dir():
             for root, dirs, files in os.walk(full_path):
-                # prune dirs
                 dirs[:] = [d for d in dirs if d not in EXCLUDED_PARTS]
                 for f in files:
                     file_path = Path(root) / f
-                    rel = file_path.relative_to(REPO_ROOT).as_posix()
+                    rel = file_path.relative_to(repo_root).as_posix()
                     if not is_excluded(rel):
                         candidate_files.append(rel)
 
-    # Sort files deterministically
     candidate_files = sorted(list(set(candidate_files)))
 
     manifest_entries = []
@@ -158,7 +228,7 @@ def build_manifest() -> str:
     total_bytes = 0
 
     for rel in candidate_files:
-        p = REPO_ROOT / rel
+        p = repo_root / rel
         size = p.stat().st_size
         sha = compute_sha256(p)
         is_tracked = rel in tracked
@@ -171,44 +241,57 @@ def build_manifest() -> str:
 
         manifest_entries.append({
             "classification": classification,
-            "git_status": "tracked" if is_tracked else "untracked",
             "path": rel,
             "sha256": sha,
             "size_bytes": size,
         })
 
-    # The manifest strictly describes RC_SOURCE_CONTENT with NO self-reference key.
     manifest_obj = {
         "candidate_name": "operations-engine",
         "candidate_version": "0.1.0",
         "files": manifest_entries,
-        "git_branch": "master",
-        "git_head": "69349b093a71ab5b8bbb83ec9d97e4f7de6b90b5",
         "manifest_version": "1.0.0",
+        "summary": {
+            "total_files": len(manifest_entries),
+            "total_size_bytes": total_bytes,
+        },
+    }
+
+    out_dir = repo_root / "docs" / "phase-8" / "release"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    manifest_path = out_dir / "RC_CONTENT_MANIFEST.json"
+    manifest_bytes = (json.dumps(manifest_obj, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    with open(manifest_path, "wb") as f:
+        f.write(manifest_bytes)
+
+    rc_content_id = hashlib.sha256(manifest_bytes).hexdigest()
+
+    sha_path = out_dir / "RC_CONTENT_MANIFEST.sha256"
+    with open(sha_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write(f"{rc_content_id}  RC_CONTENT_MANIFEST.json\n")
+
+    # Non-identity provenance metadata saved separately
+    provenance_data.update({
+        "candidate_name": "operations-engine",
+        "candidate_version": "0.1.0",
+        "rc_content_id": rc_content_id,
         "summary": {
             "total_files": len(manifest_entries),
             "total_size_bytes": total_bytes,
             "tracked_files": tracked_count,
             "untracked_files": untracked_count,
         },
-        "tree_state": "dirty_preserved",
-    }
-
-    out_dir = REPO_ROOT / "docs" / "phase-8" / "release"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    manifest_path = out_dir / "RC_CONTENT_MANIFEST.json"
-    with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump(manifest_obj, f, indent=2, sort_keys=True)
-
-    # Compute FINAL RC_CONTENT_ID directly from the manifest file bytes on disk
-    rc_content_id = compute_sha256(manifest_path)
-
-    sha_path = out_dir / "RC_CONTENT_MANIFEST.sha256"
-    with open(sha_path, "w", encoding="utf-8") as f:
-        f.write(f"{rc_content_id}  RC_CONTENT_MANIFEST.json\n")
+    })
+    provenance_path = out_dir / "RC_PROVENANCE.json"
+    provenance_bytes = (
+        json.dumps(provenance_data, indent=2, sort_keys=True) + "\n"
+    ).encode("utf-8")
+    with open(provenance_path, "wb") as f:
+        f.write(provenance_bytes)
 
     print(f"Manifest written to: {manifest_path}")
+    print(f"Provenance written to: {provenance_path}")
     print(f"Total candidate files: {len(manifest_entries)}")
     print(f"Tracked candidate files: {tracked_count}")
     print(f"Untracked candidate files: {untracked_count}")

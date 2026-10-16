@@ -12,11 +12,21 @@ def load_json(path_str: str) -> dict:
         with open(p, encoding="utf-16") as f:
             return json.load(f)
 
+def get_rc_image_tag() -> str:
+    sha_path = Path("docs/phase-8/release/RC_CONTENT_MANIFEST.sha256")
+    if sha_path.is_file():
+        h = sha_path.read_text(encoding="utf-8").split()[0].strip()
+        if len(h) >= 12:
+            return f"e7-operations-engine:rc-{h[:12]}"
+    return "e7-operations-engine:rc-latest"
+
+
 def build_ledger():
     records = []
 
     # 1. E-7 Debian 13 Base OS Highs (44 records, 0 Critical)
     e7_data = load_json("docs/phase-8/release/trivy_e7_rc_2b25d7dea6ea.json")
+    rc_image = get_rc_image_tag()
     for res in e7_data.get("Results", []):
         for v in res.get("Vulnerabilities", []):
             sev = v.get("Severity", "")
@@ -27,7 +37,7 @@ def build_ledger():
                 fix = v.get("FixedVersion")
                 records.append({
                     "service": "api_and_worker",
-                    "image": "e7-operations-engine:rc-58a06fd1e868",
+                    "image": rc_image,
                     "digest": "sha256:e88e9763f943ec1834f992a4b51e0f24500486803e8bc534e5767af9ea65f6ce",
                     "component": pkg,
                     "installed_version": ver,

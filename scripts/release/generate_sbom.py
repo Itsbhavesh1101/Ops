@@ -11,11 +11,14 @@ Generates authoritative Software Bill of Materials (SBOM) covering:
 
 import importlib.metadata
 import json
+import os
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-REPO_ROOT = Path("F:/operations-engine").resolve()
+REPO_ROOT = Path(
+    os.environ.get("OPERATIONS_ENGINE_ROOT", Path(__file__).resolve().parents[2])
+).resolve()
 
 # Production runtime dependencies defined in pyproject.toml
 PYTHON_PROD_DIRECT = [

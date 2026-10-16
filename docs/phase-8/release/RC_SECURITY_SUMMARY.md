@@ -1,6 +1,6 @@
 # Phase 8H Release Candidate Security Summary & Governance Decision
 
-- **Candidate Content ID**: `11c81e412c49b9f72edc16066be3599ab4d879ece67842be37ae0c36459fec4a`
+- **Candidate Content ID**: `38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897`
 - **Candidate Name**: `operations-engine`
 - **Candidate Version**: `0.1.0`
 - **Git Branch**: `master`

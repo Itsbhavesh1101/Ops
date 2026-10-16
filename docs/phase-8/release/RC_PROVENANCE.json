@@ -1,0 +1,14 @@
+{
+  "candidate_name": "operations-engine",
+  "candidate_version": "0.1.0",
+  "git_branch": "master",
+  "git_head": "128ff6a3da6f798bc9a71e409caaf2eb9ae7c3f3",
+  "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
+  "summary": {
+    "total_files": 732,
+    "total_size_bytes": 11493556,
+    "tracked_files": 732,
+    "untracked_files": 0
+  },
+  "tree_state": "dirty"
+}

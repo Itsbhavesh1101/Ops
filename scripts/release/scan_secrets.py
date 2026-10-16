@@ -25,7 +25,9 @@ import re
 import subprocess
 from pathlib import Path
 
-REPO_ROOT = Path("F:/operations-engine").resolve()
+REPO_ROOT = Path(
+    os.environ.get("OPERATIONS_ENGINE_ROOT", Path(__file__).resolve().parents[2])
+).resolve()
 
 # Regex rules for secret scanning
 RULES = [
