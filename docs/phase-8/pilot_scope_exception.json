@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "document_type": "pilot_scope_exception",
+  "phase": "PHASE_8I",
+  "phase_title": "RESTRICTED_PILOT_SCOPE_EXCEPTION_AND_DEPLOYMENT_BOUNDARY",
+  "generated_at": "2026-10-19T02:21:00+05:30",
+  "frozen_release_candidate": {
+    "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
+    "git_commit_sha": "03e6305256db3d838b472aaac50893ddb513414e",
+    "git_tag": "phase8-rc-38d080fadab8",
+    "e7_image_id": "sha256:76e4c318d333e637b435e9ec8a13d533c289eb5b96b5706f5480a3fadb31e47a",
+    "verified_immutable": true
+  },
+  "restricted_pilot_scope_exceptions": [
+    {
+      "dependency_key": "MYSQL_LIVE_READ_VERIFICATION",
+      "pilot_scope_status": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+      "production_canonical_status": "BLOCKED_ON_MYSQL_READ_ONLY_ACCOUNT_PRIVILEGES",
+      "reason": "Institutional DBA has not yet provisioned a dedicated SELECT-only account.",
+      "pilot_behavior": [
+        "do not use live ERP/MySQL synchronization",
+        "do not use broader company DB credentials",
+        "no grant mutation",
+        "application may use local/test/demo data where appropriate"
+      ]
+    },
+    {
+      "dependency_key": "E8_NOTIFICATION_INTEGRATION",
+      "pilot_scope_status": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+      "production_canonical_status": "BLOCKED_ON_E8_ENDPOINT",
+      "e8_local_contract_dispatch": "PASS",
+      "reason": "Live E-8 Engagement service endpoint is not yet provisioned by external platform team.",
+      "pilot_behavior": [
+        "E-7 may create/persist notification commands",
+        "transactional outbox behavior remains enabled",
+        "CloudEvent/contract generation remains enabled",
+        "do not claim real SMS/email/WhatsApp/external delivery",
+        "do not fabricate an E8 URL"
+      ]
+    }
+  ],
+  "pilot_gateway_verification": {
+    "status": "PASS",
+    "gateway_image": "nginx:1.31.7-alpine@sha256:892bb2152464f0c5d8972593a5f5afaf8054552580b699d95f8ff4af08c2d33d",
+    "local_port": "127.0.0.1:8088",
+    "rate_limit_spec": "10r/s burst=20 nodelay",
+    "client_ip_keying": "$binary_remote_addr",
+    "nginx_t_syntax": "PASS",
+    "requests_sent": 60,
+    "http_200_count": 20,
+    "http_429_count": 40,
+    "unexpected_errors_count": 0,
+    "retry_after_header_verified": true,
+    "retry_after_value": "1",
+    "post_burst_recovery": "PASS",
+    "trivy_image_critical": 0,
+    "trivy_image_high": 2,
+    "trivy_config_misconfigurations": 0
+  },
+  "governance_status_model": {
+    "RESTRICTED_PILOT_ENGINEERING_READINESS": "READY",
+    "PHASE_8_PRODUCTION_READINESS": "NOT_READY",
+    "PILOT_GATEWAY_RATE_LIMITING": "PASS",
+    "RATE_LIMITING": "BLOCKED_ON_PRODUCTION_GATEWAY_CONFIGURATION"
+  },
+  "remaining_external_blockers": [
+    {
+      "id": "BLK-EXT-001",
+      "key": "MYSQL_LIVE_READ_VERIFICATION",
+      "status": "BLOCKED_ON_MYSQL_READ_ONLY_ACCOUNT_PRIVILEGES",
+      "owner": "Institutional DBA"
+    },
+    {
+      "id": "BLK-EXT-002",
+      "key": "E8_NOTIFICATION_INTEGRATION",
+      "status": "BLOCKED_ON_E8_ENDPOINT",
+      "owner": "E-8 Platform Team"
+    },
+    {
+      "id": "BLK-EXT-003",
+      "key": "RATE_LIMITING",
+      "status": "BLOCKED_ON_PRODUCTION_GATEWAY_CONFIGURATION",
+      "owner": "Cloud Infrastructure Team"
+    }
+  ],
+  "governance_declarations": {
+    "frozen_rc_modified": false,
+    "git_commit_performed": false,
+    "git_tag_performed": false,
+    "git_push_performed": false,
+    "phase_9_started": false
+  }
+}
