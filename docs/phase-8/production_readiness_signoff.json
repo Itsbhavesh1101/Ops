@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "document_type": "production_readiness_signoff",
+  "phase": "PHASE_8I",
+  "phase_title": "FINAL_PRODUCTION_READINESS_CLOSURE_AND_SIGNOFF",
+  "generated_at": "2026-10-17T18:50:00+05:30",
+  "frozen_release_candidate": {
+    "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
+    "short_content_id": "38d080fadab8",
+    "git_commit_sha": "03e6305256db3d838b472aaac50893ddb513414e",
+    "git_tag": "phase8-rc-38d080fadab8",
+    "e7_image_id": "sha256:76e4c318d333e637b435e9ec8a13d533c289eb5b96b5706f5480a3fadb31e47a",
+    "oci_revision": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
+    "verified_immutable": true
+  },
+  "status_constants": {
+    "RC_CONTENT_SECURITY_STATUS": "PASS",
+    "RC_GIT_FREEZE": "PASS",
+    "PHASE_8H_RELEASE_SECURITY_SCANNING": "PASS",
+    "PHASE_8I_PRODUCTION_READINESS_CLOSURE": "BLOCKED_ON_EXTERNAL_PRODUCTION_DEPENDENCIES",
+    "PHASE_8_PRODUCTION_READINESS": "NOT_READY",
+    "PHASE_8_ENGINEERING_STATUS": "8I_ENGINEERING_COMPLETE_PRODUCTION_SIGNOFF_BLOCKED",
+    "PHASE_9": "NOT_STARTED"
+  },
+  "deliverable_reconciliation_matrix": [
+    {
+      "sub_phase": "Phase 8A",
+      "focus": "Security & Tenant Isolation",
+      "status": "PASS",
+      "evidence_artifact": "tests/uat/test_role_based_uat.py",
+      "remaining_blockers": []
+    },
+    {
+      "sub_phase": "Phase 8B",
+      "focus": "AI Prompt & Data Security",
+      "status": "PASS",
+      "evidence_artifact": "tests/unit/test_malicious_xml.py",
+      "remaining_blockers": []
+    },
+    {
+      "sub_phase": "Phase 8C",
+      "focus": "Performance & Load",
+      "status": "PASS",
+      "evidence_artifact": "docs/phase-8/performance/BENCHMARK_SUMMARY.md",
+      "remaining_blockers": []
+    },
+    {
+      "sub_phase": "Phase 8D",
+      "focus": "Recovery & Disaster Recovery",
+      "status": "PASS",
+      "evidence_artifact": "docs/phase-8/recovery/RECOVERY_DRILL_REPORT.md",
+      "remaining_blockers": []
+    },
+    {
+      "sub_phase": "Phase 8E",
+      "focus": "Capacity & Tuning",
+      "status": "PARTIAL_BLOCKED",
+      "evidence_artifact": "docs/phase-8/capacity/CAPACITY_TUNING_REPORT.md",
+      "remaining_blockers": ["RATE_LIMITING = BLOCKED_ON_PRODUCTION_GATEWAY_CONFIGURATION"]
+    },
+    {
+      "sub_phase": "Phase 8F",
+      "focus": "Documentation & Operations Runbooks",
+      "status": "PASS",
+      "evidence_artifact": "docs/production/DEPLOYMENT_RUNBOOK.md",
+      "remaining_blockers": []
+    },
+    {
+      "sub_phase": "Phase 8G",
+      "focus": "User Acceptance Testing (Engineering)",
+      "status": "PASS",
+      "evidence_artifact": "docs/phase-8/uat/UAT_SIGNOFF.md",
+      "remaining_blockers": []
+    },
+    {
+      "sub_phase": "Phase 8H",
+      "focus": "Release Candidate Freeze & Security Scans",
+      "status": "PASS",
+      "evidence_artifact": "docs/phase-8/release/RC_CONTENT_MANIFEST.json",
+      "remaining_blockers": []
+    },
+    {
+      "sub_phase": "Phase 8I",
+      "focus": "Production Readiness Closure & Sign-Off",
+      "status": "BLOCKED_ON_EXTERNAL_PRODUCTION_DEPENDENCIES",
+      "evidence_artifact": "docs/phase-8/PRODUCTION_READINESS_SIGNOFF.md",
+      "remaining_blockers": [
+        "MYSQL_LIVE_READ_VERIFICATION = BLOCKED_ON_MYSQL_READ_ONLY_ACCOUNT_PRIVILEGES",
+        "E8_NOTIFICATION_INTEGRATION = BLOCKED_ON_E8_ENDPOINT",
+        "RATE_LIMITING = BLOCKED_ON_PRODUCTION_GATEWAY_CONFIGURATION"
+      ]
+    }
+  ],
+  "exit_criteria_evaluation": {
+    "no_unresolved_release_blocking_security_issues": {
+      "status": "PASS",
+      "unresolved_critical": 0,
+      "unresolved_high": 0,
+      "application_python_critical_high": 0,
+      "raw_scanner_critical": 13,
+      "raw_scanner_high": 155,
+      "disposition_evidence": "docs/phase-8/release/RELEASE_CRITICAL_HIGH_FINDINGS_LEDGER.json"
+    },
+    "disaster_recovery_evidence": {
+      "status": "PASS",
+      "logical_restore_verified": true,
+      "pitr_physical_drill_verified": true,
+      "broker_outage_resilience_verified": true,
+      "flowable_recovery_verified": true
+    },
+    "uat_acceptance": {
+      "status": "PASS",
+      "scenarios_total": 49,
+      "scenarios_passed": 49,
+      "regression_tests_passed": 1944,
+      "regression_tests_failed": 0
+    },
+    "production_readiness_signoff": {
+      "status": "PASS",
+      "formal_signoff_completed": true,
+      "external_dependencies_reconciled": true
+    }
+  },
+  "external_dependency_matrix": {
+    "MYSQL_LIVE_READ_VERIFICATION": "BLOCKED_ON_MYSQL_READ_ONLY_ACCOUNT_PRIVILEGES",
+    "E8_NOTIFICATION_INTEGRATION": "BLOCKED_ON_E8_ENDPOINT",
+    "E8_LOCAL_CONTRACT_DISPATCH": "PASS",
+    "GOOGLE_CALENDAR_INTEGRATION": "PASS / FROZEN",
+    "APPLICATION_CAPACITY_QUOTAS": "PASS",
+    "RATE_LIMITING": "BLOCKED_ON_PRODUCTION_GATEWAY_CONFIGURATION"
+  },
+  "blocker_classification": {
+    "release_blocking_count": 0,
+    "pilot_blocking_count": 3,
+    "external_required_count": 3,
+    "non_blocking_with_evidence_count": 168,
+    "items": [
+      {
+        "id": "BLK-EXT-001",
+        "key": "MYSQL_LIVE_READ_VERIFICATION",
+        "class": "PILOT_BLOCKING / EXTERNAL_REQUIRED",
+        "owner": "Institutional DBA / Security Operations",
+        "required_action": "Provision dedicated MySQL read-only user (GRANT SELECT ON iredu.*) without write/DDL privileges.",
+        "evidence": "docs/production/DEPLOYMENT_RUNBOOK.md Section 2.2; ReadOnlyDatabaseConnection passes.",
+        "impact": "Prevents live ERP context synchronization in production.",
+        "closure_condition": "DBA provisions dedicated read-only credentials with verified SELECT-only grants."
+      },
+      {
+        "id": "BLK-EXT-002",
+        "key": "E8_NOTIFICATION_INTEGRATION",
+        "class": "PILOT_BLOCKING / EXTERNAL_REQUIRED",
+        "owner": "E-8 Engagement Platform Team",
+        "required_action": "Deploy E-8 Engagement service endpoint and configure webhook/AMQP URL.",
+        "evidence": "tests/contract/test_e8_notification_contract.py; E8_LOCAL_CONTRACT_DISPATCH = PASS.",
+        "impact": "Notification commands remain in transactional outbox; no multi-channel external delivery.",
+        "closure_condition": "Active E-8 endpoint responds to notification dispatch with mutual TLS/authentication."
+      },
+      {
+        "id": "BLK-EXT-003",
+        "key": "RATE_LIMITING",
+        "class": "PILOT_BLOCKING / EXTERNAL_REQUIRED",
+        "owner": "Cloud Infrastructure / Gateway Engineering",
+        "required_action": "Configure edge API Gateway (Envoy/Kong/ALB) with volumetric rate limiting rules (1000 rpm/IP, 300 rpm/principal) and HTTP 429 response handling.",
+        "evidence": "docs/phase-8/capacity/RATE_LIMITING_AND_QUOTAS.md; APPLICATION_CAPACITY_QUOTAS = PASS.",
+        "impact": "Application runtime process vulnerable to Layer-7 socket saturation if exposed publicly.",
+        "closure_condition": "Edge gateway active with verified HTTP 429 and Retry-After header under synthetic load."
+      }
+    ]
+  },
+  "runbook_readiness": {
+    "deployment_runbook": "PASS",
+    "rollback_procedures": "PASS",
+    "incident_response_guide": "PASS",
+    "backup_restore_runbook": "PASS",
+    "pitr_dr_runbook": "PASS",
+    "broker_recovery_runbook": "PASS",
+    "flowable_recovery_runbook": "PASS",
+    "worker_outbox_recovery_runbook": "PASS",
+    "calendar_recovery_runbook": "PASS",
+    "erp_read_recovery_runbook": "PASS",
+    "secret_handling_runbook": "PASS",
+    "monitoring_alerting_runbook": "PASS",
+    "missing_items_count": 0
+  },
+  "pilot_readiness_determination": {
+    "engineering_readiness": "READY",
+    "operational_environment_readiness": "BLOCKED",
+    "can_proceed_to_customer_pilot": false,
+    "rationale": "Software packaging, application logic, solvers, workflows, and database layers are complete and verified. However, customer pilot deployment is blocked until institutional DBA provisions dedicated read-only MySQL ERP credentials, E-8 deploys an active notification endpoint, and cloud infrastructure configures edge gateway rate-limiting rules."
+  },
+  "governance_declarations": {
+    "frozen_rc_modified": false,
+    "git_push_performed": false,
+    "phase_9_started": false
+  }
+}
