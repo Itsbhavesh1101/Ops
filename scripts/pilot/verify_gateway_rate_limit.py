@@ -73,7 +73,10 @@ def run_verification(base_url: str = "http://127.0.0.1:8088") -> dict:
     # A burst of 60 parallel requests will exceed capacity and trigger 429
     burst_count = 60
     concurrency = 30
-    print(f"\n[2/4] Executing burst test ({burst_count} parallel requests, concurrency={concurrency})...")
+    print(
+        f"\n[2/4] Executing burst test "
+        f"({burst_count} parallel requests, concurrency={concurrency})..."
+    )
 
     status_counts: dict[int, int] = {}
     retry_after_seen = False
@@ -96,7 +99,10 @@ def run_verification(base_url: str = "http://127.0.0.1:8088") -> dict:
 
     print(f"  Counts: HTTP 200={count_200}, HTTP 429={count_429}, Unexpected={count_unexpected}")
     print(f"  All status codes seen: {status_counts}")
-    print(f"  Retry-After header verified on 429: {retry_after_seen} (Value: '{retry_after_value}')")
+    print(
+        f"  Retry-After header verified on 429: {retry_after_seen} "
+        f"(Value: '{retry_after_value}')"
+    )
 
     results["burst_test"] = {
         "requests_sent": burst_count,
@@ -138,7 +144,7 @@ def run_verification(base_url: str = "http://127.0.0.1:8088") -> dict:
     }
 
     if rec_code == 200:
-        print(f"  OK: Gateway recovered successfully (HTTP 200).")
+        print("  OK: Gateway recovered successfully (HTTP 200).")
         results["all_passed"] = True
     else:
         print(f"FAILED: Post-burst recovery failed. Expected HTTP 200, got {rec_code}: {rec_body}")

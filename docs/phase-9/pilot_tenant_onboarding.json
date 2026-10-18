@@ -1,0 +1,205 @@
+{
+  "phase": "9A",
+  "task": "PILOT_INFRASTRUCTURE_AND_TENANT_STAGING_REHEARSAL",
+  "evaluated_at": "2026-10-19T03:10:00Z",
+  "git_baseline": {
+    "branch": "master",
+    "head_commit": "5ec3af69a76bb4185970a1c1a75ea34b9b722c6d",
+    "uncommitted_changes": true
+  },
+  "frozen_release_candidate": {
+    "rc_content_id": "38d080fadab8f0f98e60f125d0ade060d13a3e36686252670e482c6c4a784897",
+    "rc_git_commit_sha": "03e6305256db3d838b472aaac50893ddb513414e",
+    "rc_tag": "phase8-rc-38d080fadab8",
+    "e7_image_id": "e7-operations-engine:rc-38d080fadab8",
+    "immutable_verified": true
+  },
+  "restricted_pilot_scope": {
+    "mysql_live_read_verification": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+    "e8_notification_integration": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+    "e8_local_contract_dispatch": "PASS",
+    "pilot_gateway_rate_limiting": "PASS",
+    "restricted_pilot_engineering_readiness": "READY",
+    "phase_8_production_readiness": "NOT_READY"
+  },
+  "pilot_tenant": {
+    "tenant_id": "tenant-pilot-001",
+    "display_name": "Restricted Pilot / Semester Examination Rehearsal",
+    "domain_scope": "exam",
+    "domain_description": "Bounded Semester Examination (Invigilators, Exam Rooms/Labs, and Mobile Science Lab Kit)",
+    "timezone": "Asia/Kolkata",
+    "credential_id": "cred-pilot-exam-admin",
+    "roles": ["tenant_admin", "planner", "scheduler"]
+  },
+  "source_fixtures": [
+    {
+      "path": "tests/fixtures/scheduling/education/phase5/PHASE5-RS-EDU-001.json",
+      "dataset_id": "PHASE5-RS-EDU-001",
+      "dataset_version": "1.0.0",
+      "fixture_type": "resource_catalog",
+      "total_resources": 15,
+      "total_availabilities": 75
+    }
+  ],
+  "resource_reconciliation": {
+    "source_fixture_resource_count": 15,
+    "source_fixture_availability_count": 75,
+    "in_scope_resource_count": 8,
+    "in_scope_availability_count": 40,
+    "excluded_maintenance_resource_count": 7,
+    "excluded_maintenance_availability_count": 35,
+    "accepted_resource_count": 8,
+    "accepted_availability_count": 40,
+    "rejected_record_count": 0,
+    "duplicate_count": 0,
+    "resources_by_type": {
+      "PERSON": 4,
+      "ROOM": 3,
+      "EQUIPMENT": 1
+    },
+    "unresolved_mapping_count": 0,
+    "tenant_ownership_violations": 0,
+    "timezone_validation_failures": 0,
+    "staged_resources": [
+      {
+        "fixture_id": "res-inv-001",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:person:SYN-ERP-INV-001",
+        "type": "PERSON",
+        "display_label": "Invigilator Alpha",
+        "capacity": 1,
+        "skills": ["INVIGILATION_GENERAL", "SCIENCE"],
+        "external_id": "SYN-ERP-INV-001"
+      },
+      {
+        "fixture_id": "res-inv-002",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:person:SYN-ERP-INV-002",
+        "type": "PERSON",
+        "display_label": "Invigilator Beta",
+        "capacity": 1,
+        "skills": ["INVIGILATION_GENERAL", "MATHEMATICS"],
+        "external_id": "SYN-ERP-INV-002"
+      },
+      {
+        "fixture_id": "res-inv-003",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:person:SYN-ERP-INV-003",
+        "type": "PERSON",
+        "display_label": "Invigilator Gamma",
+        "capacity": 1,
+        "skills": ["INVIGILATION_GENERAL", "LANGUAGE"],
+        "external_id": "SYN-ERP-INV-003"
+      },
+      {
+        "fixture_id": "res-inv-004",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:person:SYN-ERP-INV-004",
+        "type": "PERSON",
+        "display_label": "Invigilator Delta",
+        "capacity": 1,
+        "skills": ["INVIGILATION_GENERAL", "ACCESSIBILITY_SUPPORT"],
+        "external_id": "SYN-ERP-INV-004"
+      },
+      {
+        "fixture_id": "res-room-001",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:room:SYN-ERP-ROOM-001",
+        "type": "ROOM",
+        "display_label": "Exam Room Alpha",
+        "capacity": 40,
+        "skills": [],
+        "external_id": "SYN-ERP-ROOM-001"
+      },
+      {
+        "fixture_id": "res-room-002",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:room:SYN-ERP-ROOM-002",
+        "type": "ROOM",
+        "display_label": "Exam Room Beta",
+        "capacity": 32,
+        "skills": [],
+        "external_id": "SYN-ERP-ROOM-002"
+      },
+      {
+        "fixture_id": "res-room-003",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:room:SYN-ERP-ROOM-003",
+        "type": "ROOM",
+        "display_label": "Science Lab Alpha",
+        "capacity": 24,
+        "skills": [],
+        "external_id": "SYN-ERP-ROOM-003"
+      },
+      {
+        "fixture_id": "res-eq-004",
+        "canonical_key": "urn:e7:tenant-pilot-001:synthetic-erp:equipment:SYN-ERP-EQ-004",
+        "type": "EQUIPMENT",
+        "display_label": "Mobile Science Lab Kit",
+        "capacity": 1,
+        "skills": ["LAB_KIT"],
+        "external_id": "SYN-ERP-EQ-004"
+      }
+    ]
+  },
+  "idempotency_verification": {
+    "run_1_created": {
+      "resources": 8,
+      "availabilities": 40,
+      "service_credentials": 1
+    },
+    "run_2_created": {
+      "resources": 0,
+      "resources_updated": 8,
+      "availabilities": 0,
+      "service_credentials": 0
+    },
+    "zero_unintended_duplicates_verified": true
+  },
+  "infrastructure_preflight": {
+    "gateway_url": "http://127.0.0.1:8088",
+    "gateway_health_status": 200,
+    "gateway_ready_status": 200,
+    "containers": {
+      "e7-pilot-gateway": "healthy",
+      "e7-api": "healthy",
+      "e7-postgres": "healthy",
+      "e7-flowable": "running",
+      "e7-rabbitmq": "healthy"
+    },
+    "port_exposure_verification": {
+      "gateway_port_8088": "bound_127.0.0.1",
+      "api_port_8000": "no_public_host_exposure",
+      "postgres_port_5432": "no_public_host_exposure",
+      "flowable_port_8080": "no_public_host_exposure_in_pilot",
+      "rabbitmq_transport": "internal"
+    }
+  },
+  "rate_limiting_regression": {
+    "script": "scripts/pilot/verify_gateway_rate_limit.py",
+    "normal_request_status": 200,
+    "burst_200_count": 20,
+    "burst_429_count": 40,
+    "unexpected_5xx_count": 0,
+    "retry_after_verified": true,
+    "recovery_request_status": 200,
+    "status": "PASS"
+  },
+  "tenant_isolation": {
+    "test_suite": "tests/pilot/test_pilot_tenant_isolation.py",
+    "cross_tenant_read_rejected": true,
+    "cross_tenant_mutation_rejected": true,
+    "state_unchanged_after_rejection": true,
+    "identity_mapper_isolated": true,
+    "service_key_strictly_scoped": true,
+    "test_results": "4 passed, 0 failed"
+  },
+  "database_baseline": {
+    "alembic_current": "0014 (head)",
+    "alembic_heads": "0014 (head)",
+    "application_tables": 26,
+    "public_tables": 27,
+    "schema_drift": false,
+    "migration_0015_created": false
+  },
+  "completion_gate": {
+    "PHASE_9A_PILOT_INFRASTRUCTURE_AND_STAGING": "PASS",
+    "PHASE_9_ENGINEERING_STATUS": "9A_COMPLETE_READY_FOR_9B",
+    "RESTRICTED_PILOT_ENGINEERING_READINESS": "READY",
+    "PHASE_8_PRODUCTION_READINESS": "NOT_READY",
+    "phase_9b_started": false
+  }
+}
