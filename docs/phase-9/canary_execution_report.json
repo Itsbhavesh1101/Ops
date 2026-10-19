@@ -1,0 +1,473 @@
+{
+  "canary_run_id": "canary-9b-20261018225744",
+  "tenant_id": "tenant-pilot-001",
+  "domain": "Semester Examination",
+  "correlation_id": "corr-canary-9b-20261018225744",
+  "gateway_url": "http://gateway:80",
+  "stages": {
+    "gateway_and_auth": {
+      "status": "PASS",
+      "health_status_code": 200,
+      "ready_status_code": 200,
+      "service_credential_id": "cred-pilot-exam-admin",
+      "credential_rotation_status": "ROTATED",
+      "missing_credential_rejected": true,
+      "invalid_key_rejected": true,
+      "stale_credential_rejected": true,
+      "replacement_credential_active": true
+    },
+    "goal_intake": {
+      "status": "PASS",
+      "status_code": 201,
+      "goal_id": "dddba599-ea5c-4bbe-a294-041c9150d49a",
+      "objective": "Conduct Grade 10 Semester Examinations [canary-9b-20261018225744]",
+      "tenant_id": "tenant-pilot-001"
+    },
+    "plan_generation_and_validation": {
+      "status": "PASS",
+      "plan_id": "73d8ceaa-61b1-49ad-b255-bf79c5509415",
+      "status_before_approval": "VALIDATED",
+      "task_count": 10,
+      "milestone_count": 3,
+      "dependency_count": 9,
+      "dag_valid": true,
+      "issues": []
+    },
+    "plan_approval": {
+      "status": "PASS",
+      "plan_id": "73d8ceaa-61b1-49ad-b255-bf79c5509415",
+      "status_after_approval": "APPROVED",
+      "is_baseline": true,
+      "baseline_hash": "0d60f69686cf157827d67e0a1eebdcf2af7e11142fcae0b18521019c67dc86d8",
+      "configured_workflow_key": "exam-operations-v1"
+    },
+    "workflow_deployment": {
+      "status": "PASS",
+      "dmn_deployment_id": "5508ea43-cb47-11f1-855f-02c2e74932fb",
+      "workflow_definition_id": "661c186b-d9a1-4bc3-8097-105571661068",
+      "bpmn_deployment_id": "55237726-cb47-11f1-855f-02c2e74932fb",
+      "engine_definition_id": "exam-operations-v1:7:552a2de8-cb47-11f1-855f-02c2e74932fb",
+      "workflow_version": 7
+    },
+    "workflow_execution": {
+      "status": "PASS",
+      "engine_instance_id": "5543a959-cb47-11f1-855f-02c2e74932fb",
+      "completed_cleanly": true,
+      "sla_timers_verified": [
+        "timer_warning_readiness_moderation",
+        "timer_breach_readiness_moderation"
+      ],
+      "transitions": [
+        {
+          "step": "start_instance",
+          "engine_instance_id": "5543a959-cb47-11f1-855f-02c2e74932fb",
+          "business_reference": "73d8ceaa-61b1-49ad-b255-bf79c5509415",
+          "state_before": "NONE",
+          "action": "START_PROCESS",
+          "state_after": "ACTIVE_PARALLEL_REVIEWS"
+        },
+        {
+          "step": "complete_science_dept_review",
+          "task_id": "55457e2f-cb47-11f1-855f-02c2e74932fb",
+          "actor_role": "chairs",
+          "state_before": "PENDING",
+          "action": "APPROVE (science_approved=true)",
+          "state_after": "COMPLETED"
+        },
+        {
+          "step": "complete_humanities_dept_review",
+          "task_id": "5545cc52-cb47-11f1-855f-02c2e74932fb",
+          "actor_role": "chairs",
+          "state_before": "PENDING",
+          "action": "APPROVE (humanities_approved=true)",
+          "state_after": "COMPLETED"
+        },
+        {
+          "step": "evaluate_exam_readiness_rules_dmn",
+          "decision_table": "exam_readiness_rules_v1",
+          "evaluated_rules": {
+            "science_approved": true,
+            "humanities_approved": true,
+            "curriculum_coverage": 100
+          },
+          "dmn_outcome": "PROCEED",
+          "state_after": "ACADEMIC_DEAN_MODERATION"
+        },
+        {
+          "step": "complete_readiness_moderation",
+          "task_id": "55b15f80-cb47-11f1-855f-02c2e74932fb",
+          "actor_role": "deans",
+          "state_before": "PENDING_MODERATION",
+          "action": "APPROVE (moderation_approved=true)",
+          "state_after": "READINESS_CERTIFIED_END"
+        }
+      ]
+    },
+    "feasible_scheduling": {
+      "status": "PASS",
+      "schedule_job_id": "07c34e32-1d2c-434a-957b-48e034324134",
+      "candidate_schedule_id": "a4f9fa8f-500d-4e64-8205-b4d3a2db777c",
+      "source_fixture": "PHASE5-SC-EXAM-FEASIBLE-001.json",
+      "solver_status": "FEASIBLE",
+      "hard_constraint_violations": 0,
+      "total_assignments": 22,
+      "distinct_exam_sessions_scheduled": 10,
+      "assigned_resources_sample": [
+        "res-eq-004",
+        "res-inv-001",
+        "res-inv-002",
+        "res-inv-003",
+        "res-inv-004",
+        "res-room-001",
+        "res-room-002",
+        "res-room-003"
+      ],
+      "foreign_resources_detected": []
+    },
+    "resource_reconciliation": {
+      "status": "PASS",
+      "target_tenant": "tenant-pilot-001",
+      "persisted_catalog_resources_count": 8,
+      "persisted_catalog_availabilities_count": 40,
+      "total_assignments_reconciled": 22,
+      "missing_assigned_resources": 0,
+      "foreign_tenant_resources": 0,
+      "type_mismatches": 0,
+      "eligibility_failures": 0,
+      "availability_failures": 0,
+      "all_assigned_resources_persisted": true,
+      "reconciliation_sample": [
+        {
+          "resource_id": "res-inv-004",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-003",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-003",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-002",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-003",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-003",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        }
+      ],
+      "reconciliation_table": [
+        {
+          "resource_id": "res-inv-004",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-003",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-003",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-002",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-003",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-003",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-004",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-001",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-001",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-002",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-004",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-003",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-002",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-002",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-eq-004",
+          "assignment_role": "EQUIPMENT",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-001",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-003",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-002",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-003",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-eq-004",
+          "assignment_role": "EQUIPMENT",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-inv-001",
+          "assignment_role": "INVIGILATOR",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        },
+        {
+          "resource_id": "res-room-002",
+          "assignment_role": "ROOM",
+          "persisted_in_pilot_catalog": true,
+          "tenant_match": true,
+          "type_match": true,
+          "eligibility_match": true,
+          "availability_match": true
+        }
+      ]
+    },
+    "schedule_publication": {
+      "status": "PASS",
+      "schedule_id": "a4f9fa8f-500d-4e64-8205-b4d3a2db777c",
+      "schedule_status": "PUBLISHED",
+      "published_version": 1,
+      "outbox_event_id": "9f68a19f-01be-487c-9898-afc97083c9ee"
+    },
+    "infeasible_negative_control": {
+      "status": "PASS",
+      "source_fixture": "SC-EXAM-INFEASIBLE-001.json",
+      "solver_status": "INFEASIBLE",
+      "assignments_count": 0,
+      "zero_silent_partial_success": true,
+      "diagnostics_count": 1,
+      "root_cause_type": "RESOURCE_OVERLAP_CONFLICT",
+      "human_readable_explanation": "One or more activities cannot fit within their allowed time windows. Activities compete for exclusive access to shared resources without sufficient separation.",
+      "relaxation_candidates": [
+        "expand activity time windows",
+        "assign alternate eligible resources",
+        "shift non-critical activities to alternative windows"
+      ]
+    },
+    "audit_and_outbox_evidence": {
+      "status": "PASS",
+      "correlation_id": "corr-canary-9b-20261018225744",
+      "audit_events_count": 12,
+      "audit_event_types": [
+        "goal.created",
+        "plan.approval_submitted",
+        "plan.approved",
+        "plan.generated",
+        "plan.validated",
+        "schedule.demand_created",
+        "schedule.published",
+        "workflow.instance.started",
+        "workflow.instance_started",
+        "workflow.task_completed"
+      ],
+      "outbox_events_count": 4,
+      "outbox_event_types": [
+        "goal.created",
+        "plan.approved",
+        "plan.generated",
+        "schedule.published"
+      ]
+    },
+    "tenant_isolation": {
+      "status": "PASS",
+      "target_tenant": "tenant-pilot-001",
+      "cross_tenant_goal_leaks": 0,
+      "cross_tenant_plan_leaks": 0,
+      "cross_tenant_workflow_leaks": 0,
+      "cross_tenant_schedule_leaks": 0
+    }
+  },
+  "git_baseline": {
+    "original_phase_9a_commit_sha": "0341c02e933f263e37f686ddfedd200870bb8195",
+    "new_phase_9a_commit_sha": "8a803739fffdfe2c6136518c1ec510a964665052",
+    "frozen_phase_8_rc_sha": "03e6305256db3d838b472aaac50893ddb513414e",
+    "frozen_rc_tag": "phase8-rc-38d080fadab8",
+    "reachable_master_history_secret_matches": 0,
+    "active_secret_matches": 0
+  },
+  "resource_evidence": {
+    "staged_resources": 8,
+    "staged_availabilities": 40,
+    "all_assigned_resources_persisted": true,
+    "missing_assigned_resources": 0,
+    "foreign_tenant_resources": 0
+  },
+  "canonical_fixture_hash_suite": "PASS_WITH_UNMODIFIED_TEST_AND_MANIFEST",
+  "failures": [],
+  "canary_status": "PASS",
+  "PHASE_9B_CANARY_EXECUTION": "PASS",
+  "PHASE_9_ENGINEERING_STATUS": "9B_COMPLETE_READY_FOR_9C",
+  "RESTRICTED_PILOT_ENGINEERING_READINESS": "READY",
+  "PHASE_8_PRODUCTION_READINESS": "NOT_READY"
+}
