@@ -618,6 +618,14 @@ class SchedulingService:
                 f"No candidate schedule found for job {job_id} for tenant {tenant_id}."
             )
 
+        if sched.status == ScheduleLifecycleStatus.FEASIBLE.value:
+            await self.transition_to_review(
+                session=session,
+                tenant_id=tenant_id,
+                schedule_id=sched.id,
+                correlation_id=correlation_id,
+            )
+
         return await self.publish_schedule(
             session=session,
             tenant_id=tenant_id,

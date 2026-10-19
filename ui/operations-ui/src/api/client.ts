@@ -22,6 +22,37 @@ import type {
   RepairMovementSummary,
   RecentEventItem,
   RiskSummary,
+  GoalCreate,
+  GoalResponse,
+  PlanResponse,
+  PlanDetailResponse,
+  TaskDetailResponse,
+  DependencyDetailResponse,
+  MilestoneDetailResponse,
+  RiskDetailResponse,
+  ValidationResult,
+  ValidationIssue,
+  CPMScheduleResult,
+  CPMScheduleNode,
+  TaskProgressStatus,
+  TaskProgressUpdate,
+  TaskResponse,
+  ResourceType,
+  ResourceCatalogItem,
+  ResourceAvailabilityItem,
+  ScheduleJobSubmitRequest,
+  ScheduleJobResponse,
+  SchedulePublishRequest,
+  SchedulePublishResponse,
+  ScheduleListItem,
+  ScheduleDetailResponse,
+  ScheduleAssignmentItem,
+  ScheduleRepairRequest,
+  ScheduleRepairResponse,
+  SchedulingProblemDefinition,
+  SchedulingActivity,
+  SchedulingResourceSnapshot,
+  SolverProfile,
 } from "./types";
 
 export type {
@@ -36,6 +67,37 @@ export type {
   RepairMovementSummary,
   RecentEventItem,
   RiskSummary,
+  GoalCreate,
+  GoalResponse,
+  PlanResponse,
+  PlanDetailResponse,
+  TaskDetailResponse,
+  DependencyDetailResponse,
+  MilestoneDetailResponse,
+  RiskDetailResponse,
+  ValidationResult,
+  ValidationIssue,
+  CPMScheduleResult,
+  CPMScheduleNode,
+  TaskProgressStatus,
+  TaskProgressUpdate,
+  TaskResponse,
+  ResourceType,
+  ResourceCatalogItem,
+  ResourceAvailabilityItem,
+  ScheduleJobSubmitRequest,
+  ScheduleJobResponse,
+  SchedulePublishRequest,
+  SchedulePublishResponse,
+  ScheduleListItem,
+  ScheduleDetailResponse,
+  ScheduleAssignmentItem,
+  ScheduleRepairRequest,
+  ScheduleRepairResponse,
+  SchedulingProblemDefinition,
+  SchedulingActivity,
+  SchedulingResourceSnapshot,
+  SolverProfile,
 };
 
 export interface WorkflowDefinition {
@@ -331,6 +393,264 @@ export class WorkflowApiClient {
         decision_key: decisionKey,
         variables,
       }),
+    });
+  }
+
+  // ==========================================
+  // --- GOALS DOMAIN (Phase F2) ---
+  // ==========================================
+  async createGoal(payload: GoalCreate, tenantId?: string): Promise<GoalResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<GoalResponse>("/goals", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async listGoals(
+    params?: { limit?: number; offset?: number },
+    tenantId?: string
+  ): Promise<GoalResponse[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<GoalResponse[]>(`/goals${query}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async getGoal(goalId: string, tenantId?: string): Promise<GoalResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<GoalResponse>(`/goals/${encodeURIComponent(goalId)}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  // ==========================================
+  // --- PLANS & WBS DOMAIN (Phase F2) ---
+  // ==========================================
+  async generatePlan(
+    goalId: string,
+    proposal?: Record<string, unknown> | null,
+    tenantId?: string
+  ): Promise<PlanResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<PlanResponse>(`/goals/${encodeURIComponent(goalId)}/generate-plan`, {
+      method: "POST",
+      headers,
+      body: proposal ? JSON.stringify(proposal) : JSON.stringify({}),
+    });
+  }
+
+  async listPlans(
+    params?: { goal_id?: string; limit?: number; offset?: number },
+    tenantId?: string
+  ): Promise<PlanResponse[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.goal_id) q.set("goal_id", params.goal_id);
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<PlanResponse[]>(`/plans${query}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async getPlan(planId: string, tenantId?: string): Promise<PlanDetailResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<PlanDetailResponse>(`/plans/${encodeURIComponent(planId)}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async getPlanTasks(planId: string, tenantId?: string): Promise<TaskDetailResponse[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<TaskDetailResponse[]>(`/plans/${encodeURIComponent(planId)}/tasks`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async validatePlan(planId: string, tenantId?: string): Promise<ValidationResult> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<ValidationResult>(`/plans/${encodeURIComponent(planId)}/validate`, {
+      method: "POST",
+      headers,
+    });
+  }
+
+  async submitPlanForApproval(planId: string, tenantId?: string): Promise<PlanResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<PlanResponse>(`/plans/${encodeURIComponent(planId)}/submit-for-approval`, {
+      method: "POST",
+      headers,
+    });
+  }
+
+  async approvePlan(planId: string, tenantId?: string): Promise<PlanResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<PlanResponse>(`/plans/${encodeURIComponent(planId)}/approve`, {
+      method: "POST",
+      headers,
+    });
+  }
+
+  async getCriticalPath(planId: string, tenantId?: string): Promise<CPMScheduleResult> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<CPMScheduleResult>(`/plans/${encodeURIComponent(planId)}/critical-path`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  // ==========================================
+  // --- TASKS PROGRESS DOMAIN (Phase F2) ---
+  // ==========================================
+  async updateTaskProgress(
+    taskId: string,
+    payload: TaskProgressUpdate,
+    tenantId?: string
+  ): Promise<TaskResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<TaskResponse>(`/tasks/${encodeURIComponent(taskId)}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // ==========================================
+  // --- RESOURCES DOMAIN (Phase F2) ---
+  // ==========================================
+  async listResources(
+    params?: { type?: string; active_only?: boolean; limit?: number; offset?: number },
+    tenantId?: string
+  ): Promise<ResourceCatalogItem[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.type) q.set("type", params.type);
+    if (params?.active_only !== undefined) q.set("active_only", String(params.active_only));
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<ResourceCatalogItem[]>(`/resources${query}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async listAvailability(
+    params?: { resource_id?: string },
+    tenantId?: string
+  ): Promise<ResourceAvailabilityItem[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.resource_id) q.set("resource_id", params.resource_id);
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<ResourceAvailabilityItem[]>(`/resources/availability${query}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  // ==========================================
+  // --- SCHEDULING JOBS & TIMETABLE (Phase F2) ---
+  // ==========================================
+  async createScheduleJob(
+    payload: ScheduleJobSubmitRequest,
+    tenantId?: string
+  ): Promise<ScheduleJobResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<ScheduleJobResponse>("/schedule-jobs", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getScheduleJob(jobId: string, tenantId?: string): Promise<ScheduleJobResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<ScheduleJobResponse>(`/schedule-jobs/${encodeURIComponent(jobId)}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async listSchedules(
+    params?: { status?: string; limit?: number; offset?: number },
+    tenantId?: string
+  ): Promise<ScheduleListItem[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<ScheduleListItem[]>(`/schedules${query}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async getSchedule(scheduleId: string, tenantId?: string): Promise<ScheduleDetailResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<ScheduleDetailResponse>(`/schedules/${encodeURIComponent(scheduleId)}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  async publishScheduleJob(
+    jobId: string,
+    payload?: SchedulePublishRequest,
+    tenantId?: string
+  ): Promise<SchedulePublishResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<SchedulePublishResponse>(`/schedule-jobs/${encodeURIComponent(jobId)}/publish`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload || {}),
+    });
+  }
+
+  async repairSchedule(
+    scheduleId: string,
+    payload: ScheduleRepairRequest,
+    tenantId?: string
+  ): Promise<ScheduleRepairResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<ScheduleRepairResponse>(`/schedules/${encodeURIComponent(scheduleId)}/repair`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
     });
   }
 }

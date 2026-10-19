@@ -584,6 +584,84 @@ def create_planning_router(
             ) from exc
 
     @router.post(
+        "/plans/{plan_id}/submit-for-approval",
+        response_model=PlanResponse,
+        summary="Submit Validated Plan for Approval",
+        responses={
+            200: {"model": PlanResponse, "description": "Plan submitted for approval."},
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+            422: {
+                "model": ApiErrorResponse,
+                "description": "Illegal state transition or unvalidated plan.",
+            },
+        },
+    )
+    async def submit_plan_for_approval(
+        plan_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
+        service: PlanService = Depends(plan_service_dependency),
+        x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
+    ) -> PlanResponse:
+        actor_id = "authorized-planner"
+        if isinstance(principal, AuthenticatedPrincipal):
+            actor_id = principal.principal_id
+            if principal.has_role("auditor") and not principal.has_any_role(
+                "planner", "operator", "tenant_admin", "admin"
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Auditor role cannot submit plans for approval.",
+                )
+            if not (
+                principal.has_any_role("planner", "operator", "tenant_admin", "admin")
+                or principal.has_permission("plan:submit")
+                or principal.has_permission("plan:edit")
+                or principal.has_permission("*")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message=(
+                        "Submitting plan for approval requires planner, operator, "
+                        "or tenant_admin role."
+                    ),
+                )
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            submitted = await service.submit_for_approval(
+                tenant_id=tenant_id,
+                plan_id=plan_id,
+                actor_id=actor_id,
+                correlation_id=x_correlation_id,
+            )
+            return PlanResponse(
+                id=submitted.id,
+                goal_id=submitted.goal_id,
+                version_number=submitted.version_number,
+                plan_name=submitted.plan_name,
+                status=submitted.status,
+                is_baseline=submitted.is_baseline,
+                baseline_hash=submitted.baseline_hash,
+                created_at=submitted.created_at,
+                updated_at=submitted.updated_at,
+            )
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+        except InvalidPlanStateTransitionError as exc:
+            raise ApiError(
+                status_code=422,
+                code="plan.approval_rejected",
+                message=str(exc),
+            ) from exc
+
+    @router.post(
         "/plans/{plan_id}/approve",
         response_model=PlanResponse,
         summary="Approve Plan Baseline",
@@ -618,6 +696,7 @@ def create_planning_router(
             if not (
                 principal.has_any_role("approver", "tenant_admin", "admin")
                 or principal.has_permission("plan:approve")
+                or principal.has_permission("*")
             ):
                 raise ApiError(
                     status_code=403,

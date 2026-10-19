@@ -597,6 +597,9 @@ class PlanService:
                 )
             )
 
+            await uow.session.flush()
+            await uow.session.refresh(updated_plan)
+            uow.session.expunge(updated_plan)
             await uow.commit()
 
             return updated_plan
@@ -720,6 +723,9 @@ class PlanService:
                 )
             )
 
+            await uow.session.flush()
+            await uow.session.refresh(approved_plan)
+            uow.session.expunge(approved_plan)
             await uow.commit()
 
             return approved_plan
@@ -773,6 +779,9 @@ class PlanService:
                 )
             )
 
+            await uow.session.flush()
+            await uow.session.refresh(updated_plan)
+            uow.session.expunge(updated_plan)
             await uow.commit()
             return updated_plan
 

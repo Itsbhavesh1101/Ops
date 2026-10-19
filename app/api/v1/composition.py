@@ -18,7 +18,7 @@ Security Invariants:
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.service import OperationsAnalyticsService
@@ -34,9 +34,15 @@ from app.core.auth.dependency import (
     authenticate_request,
     require_trusted_tenant_context,
 )
+from app.core.auth.models import AuthenticatedPrincipal
 from app.db.engine import DatabaseManager
 from app.db.uow import create_unit_of_work_factory
 from app.resources.service import ResourceService
+from app.scheduling.policy import (
+    AuthenticatedSchedulePublishPolicy,
+    DefaultSchedulePublishPolicy,
+    SchedulePublishPolicy,
+)
 from app.scheduling.service import SchedulingService
 from app.task_intelligence.service import PlanService
 from app.workflow.adapters.flowable.adapter import FlowableAdapter
@@ -150,6 +156,13 @@ def register_domain_routes(
     )
     parent_router.include_router(workflow_router)
 
+    def get_publish_policy(
+        principal: Any = Depends(principal_dependency),
+    ) -> SchedulePublishPolicy:
+        if isinstance(principal, AuthenticatedPrincipal):
+            return AuthenticatedSchedulePublishPolicy(principal)
+        return DefaultSchedulePublishPolicy()
+
     # 3. Scheduling routes: /schedule-jobs, /resources
     scheduling_router = create_scheduling_router(
         tenant_dependency=tenant_dependency,
@@ -157,6 +170,7 @@ def register_domain_routes(
         scheduling_service_dependency=scheduling_service_dependency,
         resource_service_dependency=resource_service_dependency,
         principal_dependency=principal_dependency,
+        publish_policy_dependency=get_publish_policy,
     )
     parent_router.include_router(scheduling_router)
 

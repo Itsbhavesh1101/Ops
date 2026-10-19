@@ -14,6 +14,18 @@ import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { ForbiddenPage } from "./pages/ForbiddenPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
+// Phase F2 Feature Screen Pages
+import { GoalsPage } from "./pages/GoalsPage";
+import { GoalDetailPage } from "./pages/GoalDetailPage";
+import { PlansPage } from "./pages/PlansPage";
+import { PlanDetailPage } from "./pages/PlanDetailPage";
+import { TasksPage } from "./pages/TasksPage";
+import { ResourcesPage } from "./pages/ResourcesPage";
+import { AvailabilityPage } from "./pages/AvailabilityPage";
+import { SchedulingJobsPage } from "./pages/SchedulingJobsPage";
+import { SchedulesPage } from "./pages/SchedulesPage";
+import { ScheduleDetailPage } from "./pages/ScheduleDetailPage";
+
 // Workflow Subsystem Existing Components
 import { TaskInbox } from "./components/TaskInbox";
 import { BpmnDesigner } from "./components/BpmnDesigner";
@@ -58,67 +70,12 @@ export const AppRoutes: React.FC = () => {
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
 
-                {/* Planning & Intelligence Module */}
-                <Route
-                  path="/goals"
-                  element={
-                    <PlaceholderPage
-                      title="Operational Goals"
-                      moduleName="Planning & Intelligence"
-                      targetPhase="Phase F2"
-                      description="Operational goal definition, hierarchy decomposition, and target KPIs."
-                      backendEndpoint="POST /api/v1/planning/goals, GET /api/v1/planning/goals"
-                    />
-                  }
-                />
-                <Route
-                  path="/goals/:goalId"
-                  element={
-                    <PlaceholderPage
-                      title="Goal Breakdown & Hierarchy"
-                      moduleName="Planning & Intelligence"
-                      targetPhase="Phase F2"
-                      description="Detailed sub-goal hierarchy, constraints, and target metric allocations."
-                      backendEndpoint="GET /api/v1/planning/goals/:goalId"
-                    />
-                  }
-                />
-                <Route
-                  path="/plans"
-                  element={
-                    <PlaceholderPage
-                      title="Operational Plans"
-                      moduleName="Planning & Intelligence"
-                      targetPhase="Phase F2"
-                      description="Automated plan synthesis, step sequences, and WBS breakdown."
-                      backendEndpoint="POST /api/v1/planning/plans/generate, GET /api/v1/planning/plans"
-                    />
-                  }
-                />
-                <Route
-                  path="/plans/:planId"
-                  element={
-                    <PlaceholderPage
-                      title="Plan Inspection & Gantt View"
-                      moduleName="Planning & Intelligence"
-                      targetPhase="Phase F2"
-                      description="Step sequencing, milestone tracking, and dependency graphs."
-                      backendEndpoint="GET /api/v1/planning/plans/:planId"
-                    />
-                  }
-                />
-                <Route
-                  path="/tasks"
-                  element={
-                    <PlaceholderPage
-                      title="Work Breakdown Structure (WBS)"
-                      moduleName="Planning & Intelligence"
-                      targetPhase="Phase F2"
-                      description="Hierarchical task breakdown, predecessor constraints, and milestone tracking."
-                      backendEndpoint="GET /api/v1/planning/plans/:planId/tasks"
-                    />
-                  }
-                />
+                {/* Planning & Intelligence Module (Phase F2) */}
+                <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/goals/:goalId" element={<GoalDetailPage />} />
+                <Route path="/plans" element={<PlansPage />} />
+                <Route path="/plans/:planId" element={<PlanDetailPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
 
                 {/* Workflows & Automation Subsystem */}
                 <Route path="/workflows" element={<Navigate to="/workflows/inbox" replace />} />
@@ -139,69 +96,14 @@ export const AppRoutes: React.FC = () => {
                   }
                 />
 
-                {/* Resources Subsystem */}
-                <Route
-                  path="/resources"
-                  element={
-                    <PlaceholderPage
-                      title="Resource Catalog"
-                      moduleName="Resources"
-                      targetPhase="Phase F2"
-                      description="Enterprise workforce, equipment, facilities, and capacity inventory."
-                      backendEndpoint="GET /api/v1/resources/catalog"
-                    />
-                  }
-                />
-                <Route
-                  path="/resources/availability"
-                  element={
-                    <PlaceholderPage
-                      title="Resource Availability Windows"
-                      moduleName="Resources"
-                      targetPhase="Phase F2"
-                      description="Shift calendars, blackout windows, maintenance intervals, and capacity quotas."
-                      backendEndpoint="GET /api/v1/resources/availability"
-                    />
-                  }
-                />
+                {/* Resources Subsystem (Phase F2) */}
+                <Route path="/resources" element={<ResourcesPage />} />
+                <Route path="/resources/availability" element={<AvailabilityPage />} />
 
-                {/* Scheduling Engine */}
-                <Route
-                  path="/scheduling/jobs"
-                  element={
-                    <PlaceholderPage
-                      title="Scheduling Engine Jobs"
-                      moduleName="Scheduling Engine"
-                      targetPhase="Phase F2"
-                      description="Asynchronous solver orchestration, constraint satisfaction jobs, and solver logs."
-                      backendEndpoint="POST /api/v1/scheduling/jobs, GET /api/v1/scheduling/jobs"
-                    />
-                  }
-                />
-                <Route
-                  path="/schedules"
-                  element={
-                    <PlaceholderPage
-                      title="Timetables & Schedules"
-                      moduleName="Scheduling Engine"
-                      targetPhase="Phase F2"
-                      description="Feasible timetable schedules, assignment matrix, and conflict inspection."
-                      backendEndpoint="GET /api/v1/schedules"
-                    />
-                  }
-                />
-                <Route
-                  path="/schedules/:scheduleId"
-                  element={
-                    <PlaceholderPage
-                      title="Schedule Details & Assignment Matrix"
-                      moduleName="Scheduling Engine"
-                      targetPhase="Phase F2"
-                      description="Detailed resource-slot assignment matrix, conflict diagnostics, and feasibility proof."
-                      backendEndpoint="GET /api/v1/schedules/:scheduleId"
-                    />
-                  }
-                />
+                {/* Scheduling Engine (Phase F2) */}
+                <Route path="/scheduling/jobs" element={<SchedulingJobsPage />} />
+                <Route path="/schedules" element={<SchedulesPage />} />
+                <Route path="/schedules/:scheduleId" element={<ScheduleDetailPage />} />
 
                 {/* Operations & Governance */}
                 <Route

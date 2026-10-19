@@ -18,13 +18,24 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const timeoutsRef = React.useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  React.useEffect(() => {
+    const timeouts = timeoutsRef.current;
+    return () => {
+      timeouts.forEach((t) => clearTimeout(t));
+      timeouts.clear();
+    };
+  }, []);
 
   const showToast = useCallback((type: ToastType, message: string, title?: string) => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { id, type, message, title }]);
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
+      timeoutsRef.current.delete(timer);
     }, 4500);
+    timeoutsRef.current.add(timer);
   }, []);
 
   const removeToast = (id: string) => {

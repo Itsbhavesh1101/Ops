@@ -247,6 +247,7 @@ def create_scheduling_router(
     router = APIRouter()
     _principal_dep = principal_dependency or _null_principal_dependency
     _res_dep = resource_service_dependency or _null_resource_service_dependency
+    _pub_policy_dep = publish_policy_dependency or (lambda: None)
 
     @router.post(
         "/schedule-jobs",
@@ -339,7 +340,8 @@ def create_scheduling_router(
             request=full_request,
             schedule_key=payload.schedule_key,
         )
-        await session.commit()
+        if session is not None:
+            await session.commit()
 
         return ScheduleJobResponse(
             job_id=job.id,
@@ -536,13 +538,17 @@ def create_scheduling_router(
         session: AsyncSession = Depends(session_dependency),
         service: SchedulingService = Depends(scheduling_service_dependency),
         idempotency_key: str | None = Header(None, alias=IDEMPOTENCY_KEY_HEADER),
+        injected_policy: Any = Depends(_pub_policy_dep),
     ) -> SchedulePublishResponse:
         tenant_id = _extract_tenant_id(tenant_context)
         effective_principal = payload.principal
         if isinstance(principal_ctx, AuthenticatedPrincipal):
             if not (
                 principal_ctx.has_permission("schedule:publish")
-                or principal_ctx.has_any_role("approver", "scheduler", "operator", "tenant_admin")
+                or principal_ctx.has_permission("*")
+                or principal_ctx.has_any_role(
+                    "approver", "scheduler", "operator", "tenant_admin", "admin"
+                )
             ):
                 raise ApiError(
                     status_code=403,
@@ -595,20 +601,16 @@ def create_scheduling_router(
                     )
 
         try:
-            injected_policy = None
-            if publish_policy_dependency:
-                pol_res = publish_policy_dependency()
-                if inspect.isawaitable(pol_res):
-                    injected_policy = await pol_res
-                else:
-                    injected_policy = pol_res
+            resolved_policy = injected_policy
+            if inspect.isawaitable(resolved_policy):
+                resolved_policy = await resolved_policy
 
             sched = await service.publish_job(
                 session=session,
                 tenant_id=tenant_id,
                 job_id=job_id,
                 principal=effective_principal,
-                publish_policy=injected_policy,
+                publish_policy=resolved_policy,
             )
         except JobNotFoundError as err:
             raise ApiError(

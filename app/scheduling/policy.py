@@ -10,6 +10,7 @@ Enforces:
 
 from typing import Protocol, runtime_checkable
 
+from app.core.auth.models import AuthenticatedPrincipal
 from app.db.models.scheduling import ScheduleRecord
 from app.scheduling.states import ScheduleLifecycleStatus
 
@@ -93,6 +94,71 @@ class DefaultSchedulePublishPolicy:
 
         # Fails closed: ungranted principal/permission is denied
         return False
+
+
+class AuthenticatedSchedulePublishPolicy:
+    """Request-aware schedule publication policy evaluating authenticated principal state.
+
+    Derives authorization from canonical authentication state: tenant, principal, roles,
+    and permissions. Rejects caller impersonation and cross-tenant publication attempts.
+    """
+
+    def __init__(
+        self,
+        principal: AuthenticatedPrincipal | None = None,
+        *,
+        allowed_roles: set[str] | None = None,
+        allowed_permissions: set[str] | None = None,
+    ) -> None:
+        self.principal = principal
+        self.allowed_roles = allowed_roles or {
+            "scheduler",
+            "operator",
+            "tenant_admin",
+            "admin",
+            "approver",
+        }
+        self.allowed_permissions = allowed_permissions or {"schedule:publish", "*"}
+
+    def authorize_publish(
+        self,
+        *,
+        principal: str | None,
+        tenant_id: str,
+        schedule: ScheduleRecord,
+        action: str = "publish",
+        permissions: set[str] | None = None,
+    ) -> bool:
+        if not principal or not principal.strip():
+            return False
+
+        if not tenant_id or not tenant_id.strip():
+            return False
+
+        if schedule.tenant_id != tenant_id:
+            return False
+
+        if action != "publish":
+            return False
+
+        if self.principal is None:
+            return False
+
+        # Tenant boundary enforcement: principal must belong to target tenant
+        if self.principal.tenant_id != tenant_id:
+            return False
+
+        # Actor identity check: principal ID must match the publishing actor (prevent impersonation)
+        if self.principal.principal_id != principal:
+            return False
+
+        # Authority check: must possess required permission or role
+        has_perm = any(self.principal.has_permission(p) for p in self.allowed_permissions)
+        if permissions:
+            has_perm = has_perm or bool(self.allowed_permissions & permissions)
+        has_role = any(self.principal.has_role(r) for r in self.allowed_roles)
+
+        return has_perm or has_role
 
 
 def validate_publish_preconditions(schedule: ScheduleRecord) -> None:
