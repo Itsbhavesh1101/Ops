@@ -1,8 +1,8 @@
 {
-  "canary_run_id": "canary-9b-20261018225744",
+  "canary_run_id": "canary-9b-20261019104030",
   "tenant_id": "tenant-pilot-001",
   "domain": "Semester Examination",
-  "correlation_id": "corr-canary-9b-20261018225744",
+  "correlation_id": "corr-canary-9b-20261019104030",
   "gateway_url": "http://gateway:80",
   "stages": {
     "gateway_and_auth": {
@@ -19,13 +19,13 @@
     "goal_intake": {
       "status": "PASS",
       "status_code": 201,
-      "goal_id": "dddba599-ea5c-4bbe-a294-041c9150d49a",
-      "objective": "Conduct Grade 10 Semester Examinations [canary-9b-20261018225744]",
+      "goal_id": "9fc1cdb8-cd4d-445d-8ad0-609ceab1a796",
+      "objective": "Conduct Grade 10 Semester Examinations [canary-9b-20261019104030]",
       "tenant_id": "tenant-pilot-001"
     },
     "plan_generation_and_validation": {
       "status": "PASS",
-      "plan_id": "73d8ceaa-61b1-49ad-b255-bf79c5509415",
+      "plan_id": "b0dadcae-97d3-4820-9b58-81d7c396862e",
       "status_before_approval": "VALIDATED",
       "task_count": 10,
       "milestone_count": 3,
@@ -35,23 +35,23 @@
     },
     "plan_approval": {
       "status": "PASS",
-      "plan_id": "73d8ceaa-61b1-49ad-b255-bf79c5509415",
+      "plan_id": "b0dadcae-97d3-4820-9b58-81d7c396862e",
       "status_after_approval": "APPROVED",
       "is_baseline": true,
-      "baseline_hash": "0d60f69686cf157827d67e0a1eebdcf2af7e11142fcae0b18521019c67dc86d8",
+      "baseline_hash": "e0163737f47f0302d67ae77642c26b1c0861b9044f049b59b8f79901f8e24463",
       "configured_workflow_key": "exam-operations-v1"
     },
     "workflow_deployment": {
       "status": "PASS",
-      "dmn_deployment_id": "5508ea43-cb47-11f1-855f-02c2e74932fb",
-      "workflow_definition_id": "661c186b-d9a1-4bc3-8097-105571661068",
-      "bpmn_deployment_id": "55237726-cb47-11f1-855f-02c2e74932fb",
-      "engine_definition_id": "exam-operations-v1:7:552a2de8-cb47-11f1-855f-02c2e74932fb",
-      "workflow_version": 7
+      "dmn_deployment_id": "8237c31b-cba9-11f1-9c9c-5e7867d890d2",
+      "workflow_definition_id": "ed5638c4-0ba4-40c6-a9d1-cacba0c63e09",
+      "bpmn_deployment_id": "8305e88e-cba9-11f1-9c9c-5e7867d890d2",
+      "engine_definition_id": "exam-operations-v1:8:832641d0-cba9-11f1-9c9c-5e7867d890d2",
+      "workflow_version": 8
     },
     "workflow_execution": {
       "status": "PASS",
-      "engine_instance_id": "5543a959-cb47-11f1-855f-02c2e74932fb",
+      "engine_instance_id": "837a0721-cba9-11f1-9c9c-5e7867d890d2",
       "completed_cleanly": true,
       "sla_timers_verified": [
         "timer_warning_readiness_moderation",
@@ -60,15 +60,15 @@
       "transitions": [
         {
           "step": "start_instance",
-          "engine_instance_id": "5543a959-cb47-11f1-855f-02c2e74932fb",
-          "business_reference": "73d8ceaa-61b1-49ad-b255-bf79c5509415",
+          "engine_instance_id": "837a0721-cba9-11f1-9c9c-5e7867d890d2",
+          "business_reference": "b0dadcae-97d3-4820-9b58-81d7c396862e",
           "state_before": "NONE",
           "action": "START_PROCESS",
           "state_after": "ACTIVE_PARALLEL_REVIEWS"
         },
         {
           "step": "complete_science_dept_review",
-          "task_id": "55457e2f-cb47-11f1-855f-02c2e74932fb",
+          "task_id": "838ad017-cba9-11f1-9c9c-5e7867d890d2",
           "actor_role": "chairs",
           "state_before": "PENDING",
           "action": "APPROVE (science_approved=true)",
@@ -76,7 +76,7 @@
         },
         {
           "step": "complete_humanities_dept_review",
-          "task_id": "5545cc52-cb47-11f1-855f-02c2e74932fb",
+          "task_id": "838b454a-cba9-11f1-9c9c-5e7867d890d2",
           "actor_role": "chairs",
           "state_before": "PENDING",
           "action": "APPROVE (humanities_approved=true)",
@@ -95,7 +95,7 @@
         },
         {
           "step": "complete_readiness_moderation",
-          "task_id": "55b15f80-cb47-11f1-855f-02c2e74932fb",
+          "task_id": "841f9628-cba9-11f1-9c9c-5e7867d890d2",
           "actor_role": "deans",
           "state_before": "PENDING_MODERATION",
           "action": "APPROVE (moderation_approved=true)",
@@ -105,8 +105,8 @@
     },
     "feasible_scheduling": {
       "status": "PASS",
-      "schedule_job_id": "07c34e32-1d2c-434a-957b-48e034324134",
-      "candidate_schedule_id": "a4f9fa8f-500d-4e64-8205-b4d3a2db777c",
+      "schedule_job_id": "c90a3ecc-9601-4235-90e7-aca43fc57d89",
+      "candidate_schedule_id": "a49a67b0-0fa5-4684-b2ff-a8899176561b",
       "source_fixture": "PHASE5-SC-EXAM-FEASIBLE-001.json",
       "solver_status": "FEASIBLE",
       "hard_constraint_violations": 0,
@@ -395,10 +395,10 @@
     },
     "schedule_publication": {
       "status": "PASS",
-      "schedule_id": "a4f9fa8f-500d-4e64-8205-b4d3a2db777c",
+      "schedule_id": "a49a67b0-0fa5-4684-b2ff-a8899176561b",
       "schedule_status": "PUBLISHED",
       "published_version": 1,
-      "outbox_event_id": "9f68a19f-01be-487c-9898-afc97083c9ee"
+      "outbox_event_id": "eb3beec7-98ff-4e6f-8652-fb81d55f184b"
     },
     "infeasible_negative_control": {
       "status": "PASS",
@@ -417,7 +417,7 @@
     },
     "audit_and_outbox_evidence": {
       "status": "PASS",
-      "correlation_id": "corr-canary-9b-20261018225744",
+      "correlation_id": "corr-canary-9b-20261019104030",
       "audit_events_count": 12,
       "audit_event_types": [
         "goal.created",
@@ -448,6 +448,12 @@
       "cross_tenant_schedule_leaks": 0
     }
   },
+  "failures": [],
+  "canary_status": "PASS",
+  "PHASE_9B_CANARY_EXECUTION": "PASS",
+  "PHASE_9_ENGINEERING_STATUS": "9B_COMPLETE_READY_FOR_9C",
+  "RESTRICTED_PILOT_ENGINEERING_READINESS": "READY",
+  "PHASE_8_PRODUCTION_READINESS": "NOT_READY",
   "git_baseline": {
     "original_phase_9a_commit_sha": "0341c02e933f263e37f686ddfedd200870bb8195",
     "new_phase_9a_commit_sha": "8a803739fffdfe2c6136518c1ec510a964665052",
@@ -456,18 +462,7 @@
     "reachable_master_history_secret_matches": 0,
     "active_secret_matches": 0
   },
-  "resource_evidence": {
-    "staged_resources": 8,
-    "staged_availabilities": 40,
-    "all_assigned_resources_persisted": true,
-    "missing_assigned_resources": 0,
-    "foreign_tenant_resources": 0
-  },
-  "canonical_fixture_hash_suite": "PASS_WITH_UNMODIFIED_TEST_AND_MANIFEST",
-  "failures": [],
-  "canary_status": "PASS",
-  "PHASE_9B_CANARY_EXECUTION": "PASS",
-  "PHASE_9_ENGINEERING_STATUS": "9B_COMPLETE_READY_FOR_9C",
-  "RESTRICTED_PILOT_ENGINEERING_READINESS": "READY",
-  "PHASE_8_PRODUCTION_READINESS": "NOT_READY"
+  "clean_clone_canonical_suite": "PASS",
+  "local_info_attributes_required": false,
+  "canonical_fixture_hash_suite": "PASS_WITH_UNMODIFIED_TEST_AND_MANIFEST"
 }

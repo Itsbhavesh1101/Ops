@@ -3,3 +3,6 @@
 *.jpg binary
 *.ico binary
 
+# Phase-5 Canonical Education Benchmark Fixtures (byte-exact CRLF cryptographic digests)
+tests/fixtures/scheduling/education/phase5/*.json text eol=crlf
+
