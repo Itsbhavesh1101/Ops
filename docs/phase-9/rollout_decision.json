@@ -1,0 +1,41 @@
+{
+  "phase": "9D",
+  "date": "2026-10-19",
+  "pilot_tenant_id": "tenant-pilot-001",
+  "pilot_domain": "Semester Examination",
+  "frozen_phase8_rc": "03e6305256db3d838b472aaac50893ddb513414e",
+  "evaluated_head": "fc3769f872ca5356f443e94a2efd7cbe8a1b4c48",
+  "decisions": {
+    "ENGINEERING_PILOT_DECISION": "ACCEPT",
+    "PRODUCTION_ROLLOUT_DECISION": "BLOCKED_EXTERNAL",
+    "PHASE_9D_ENGINEERING_REVIEW": "PASS",
+    "PHASE_9_ENGINEERING_IMPLEMENTATION": "COMPLETE",
+    "PILOT_BUSINESS_OWNER_SIGNOFF": "PENDING_EXTERNAL_BUSINESS_OWNER_APPROVAL",
+    "PHASE_9_FINAL_EXIT_GATE": "BLOCKED_ON_BUSINESS_OWNER_SIGNOFF",
+    "PHASE_8_PRODUCTION_READINESS": "NOT_READY"
+  },
+  "engineering_findings_summary": {
+    "total_criteria_evaluated": 15,
+    "total_criteria_passed": 15,
+    "total_pilot_tests_passed": 18,
+    "focused_acceptance_tests_passed": 136,
+    "hard_constraint_violations": 0,
+    "active_secrets_detected": 0,
+    "alembic_head": "0014",
+    "application_tables_count": 26,
+    "public_tables_count": 27
+  },
+  "external_dependencies": {
+    "business_owner_signoff": "PENDING_EXTERNAL_BUSINESS_OWNER_APPROVAL",
+    "production_gateway_configuration": "BLOCKED_ON_EXTERNAL_PRODUCTION_CONFIGURATION",
+    "mysql_live_read_verification": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+    "e8_notification_integration": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+    "e8_local_contract_dispatch": "PASS"
+  },
+  "actionable_prerequisites_for_production": [
+    "Submit PILOT_ACCEPTANCE.md and ROLLOUT_DECISION.md to institutional business owner for formal written approval",
+    "Deploy and configure enterprise edge gateway with TLS termination and production rate-limiting policies",
+    "Provision secure read-only connectivity to institutional MySQL ERP database for live staff/room validation",
+    "Configure and verify enterprise E8 notification webhook integration for campus-wide schedule distribution"
+  ]
+}

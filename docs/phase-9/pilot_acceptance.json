@@ -1,0 +1,220 @@
+{
+  "phase": "9D",
+  "review_status": "PASS",
+  "timestamp": "2026-10-19T18:12:00+05:30",
+  "environment": "restricted_pilot",
+  "tenant_id": "tenant-pilot-001",
+  "domain": "Semester Examination",
+  "final_acceptance_run_id": "canary-9d-acceptance-20261019181200",
+  "final_correlation_id": "corr-canary-9d-acceptance-20261019181200",
+  "frozen_phase8_rc": "03e6305256db3d838b472aaac50893ddb513414e",
+  "target_git_branch": "master",
+  "evaluated_head": "fc3769f872ca5356f443e94a2efd7cbe8a1b4c48",
+  "acceptance_matrix": [
+    {
+      "id": 1,
+      "criterion": "feasible scheduling datasets produce zero hard-constraint violations",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9b_canary.py::test_canary_feasible_exam_scheduling_and_pilot_resource_scope"
+    },
+    {
+      "id": 2,
+      "criterion": "infeasible datasets return explainable failure",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9b_canary.py::test_infeasible_negative_control_fails_closed_with_explanation"
+    },
+    {
+      "id": 3,
+      "criterion": "approval/decision behavior is deterministic",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9b_canary.py::test_dmn_decision_table_evaluation_determinism"
+    },
+    {
+      "id": 4,
+      "criterion": "SLA/timer behavior is restart-safe",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9b_canary.py::test_workflow_bpmn_sla_timer_declarations"
+    },
+    {
+      "id": 5,
+      "criterion": "schedule/event processing is idempotent",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9b_canary.py::test_idempotent_task_completed_scheduling_job_handler"
+    },
+    {
+      "id": 6,
+      "criterion": "audit history is immutable",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9c_operations.py::test_rollback_isolation_and_audit_immutability"
+    },
+    {
+      "id": 7,
+      "criterion": "outbox/inbox replay protection is preserved",
+      "status": "PASS",
+      "evidence_ref": "docs/phase-9/rollback_evidence.json; OUTBOX_ROLLBACK_DELETION_CONTRACT=NOT_SUPPORTED"
+    },
+    {
+      "id": 8,
+      "criterion": "cross-tenant access is rejected before foreign data/state access",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_pilot_tenant_isolation.py (5 tests passing)"
+    },
+    {
+      "id": 9,
+      "criterion": "schedule repair preserves constraints and versioning",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9c_operations.py::test_supported_schedule_override_contract"
+    },
+    {
+      "id": 10,
+      "criterion": "workflow exception paths function correctly",
+      "status": "PASS",
+      "evidence_ref": "tests/pilot/test_phase9c_operations.py::test_workflow_exception_path_routing_and_dmn_blocking"
+    },
+    {
+      "id": 11,
+      "criterion": "rollback is tenant-safe and recoverable",
+      "status": "PASS",
+      "evidence_ref": "docs/phase-9/ROLLBACK_EVIDENCE.md"
+    },
+    {
+      "id": 12,
+      "criterion": "system health/readiness returns green after recovery",
+      "status": "PASS",
+      "evidence_ref": "docs/phase-9/rollback_evidence.json"
+    },
+    {
+      "id": 13,
+      "criterion": "pilot monitoring baseline exists",
+      "status": "PASS",
+      "evidence_ref": "docs/phase-9/MONITORING_SLO_BASELINE.md"
+    },
+    {
+      "id": 14,
+      "criterion": "secrets are not stored in pilot evidence",
+      "status": "PASS",
+      "evidence_ref": "Active secret scan matches = 0"
+    },
+    {
+      "id": 15,
+      "criterion": "database schema remains stable",
+      "status": "PASS",
+      "evidence_ref": "Alembic current=0014, heads=0014, app_tables=26, public_tables=27"
+    }
+  ],
+  "scheduling_evidence": {
+    "feasible_scenario": {
+      "fixture": "SC-EXAM-FEASIBLE-001.json",
+      "solver_engine": "OR-Tools CP-SAT",
+      "solver_status": "FEASIBLE",
+      "hard_constraint_violations": 0,
+      "assignments_count": 22,
+      "schedule_id": "c4ef3e59-1b53-4c13-a1ee-25cc22ca436c",
+      "schedule_status": "PUBLISHED",
+      "published_version": 1,
+      "catalog_reconciliation": {
+        "total_assigned": 22,
+        "missing_resources": 0,
+        "foreign_resources": 0,
+        "in_scope_pilot_resources": [
+          "res-inv-001",
+          "res-inv-002",
+          "res-inv-003",
+          "res-inv-004",
+          "res-room-001",
+          "res-room-002",
+          "res-room-003",
+          "res-eq-004"
+        ]
+      }
+    },
+    "infeasible_negative_control": {
+      "fixture": "SC-EXAM-INFEASIBLE-001.json",
+      "solver_status": "INFEASIBLE",
+      "assignments_count": 0,
+      "zero_silent_partial_success": true,
+      "root_cause_type": "RESOURCE_OVERLAP_CONFLICT",
+      "diagnostics_count": 1,
+      "human_readable_explanation": "One or more activities cannot fit within their allowed time windows. Activities compete for exclusive access to shared resources without sufficient separation."
+    }
+  },
+  "workflow_evidence": {
+    "bpmn_process_key": "exam-operations-v1",
+    "bpmn_process_name": "Grade 10 Semester Examination Readiness Process",
+    "dmn_decision_table": "exam_readiness_rules_v1",
+    "dmn_outcome": "PROCEED",
+    "department_reviews": {
+      "science_chair": "APPROVE",
+      "humanities_chair": "APPROVE"
+    },
+    "sla_boundary_timers": [
+      "timer_warning_readiness_moderation",
+      "timer_breach_readiness_moderation"
+    ],
+    "academic_dean_moderation": "APPROVE",
+    "process_completed_cleanly": true
+  },
+  "security_tenant_evidence": {
+    "missing_credential_rejected_status": 401,
+    "invalid_credential_rejected_status": 401,
+    "stale_credential_rejected_status": 401,
+    "authorized_service_credential_status": 201,
+    "cross_tenant_read_rejected_status": 404,
+    "cross_tenant_mutation_rejected_status": 404,
+    "rehearsal_state_immutable_after_attack": true,
+    "active_secret_matches": 0
+  },
+  "operational_baseline": {
+    "api_availability_pct": 100.0,
+    "api_latency_p50_ms": 8.2,
+    "api_latency_p95_ms": 12.4,
+    "solver_duration_mean_s": 1.12,
+    "unexpected_5xx_count": 0,
+    "gateway_rate_limit_policy": "10 rps, burst 20",
+    "gateway_health_status": 200,
+    "gateway_ready_status": 200
+  },
+  "business_kpi_evidence": {
+    "cohort": "Grade 10 Semester Examination",
+    "exam_sessions_scheduled": 1,
+    "assignments_created": 22,
+    "hard_constraint_violations": 0,
+    "workflow_approvals_count": 3,
+    "publication_status": "PUBLISHED",
+    "manual_baseline_comparison": "NOT_AVAILABLE_PENDING_BUSINESS_OWNER_INPUT"
+  },
+  "rollback_recovery_evidence": {
+    "status": "PASS",
+    "OUTBOX_ROLLBACK_DELETION_CONTRACT": "NOT_SUPPORTED",
+    "outbox_preservation": "PASS",
+    "inbox_preservation": "PASS",
+    "idempotency_preservation": "PASS",
+    "audit_immutability": "PASS",
+    "resource_catalog_preserved": true,
+    "post_recovery_health": 200,
+    "post_recovery_ready": 200
+  },
+  "external_dependencies": {
+    "MYSQL_LIVE_READ_VERIFICATION": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+    "E8_NOTIFICATION_INTEGRATION": "DEFERRED_FROM_RESTRICTED_PILOT_SCOPE",
+    "E8_LOCAL_CONTRACT_DISPATCH": "PASS",
+    "PRODUCTION_GATEWAY_CONFIGURATION": "BLOCKED_ON_EXTERNAL_PRODUCTION_CONFIGURATION"
+  },
+  "business_owner_signoff": {
+    "PILOT_BUSINESS_OWNER_SIGNOFF": "PENDING_EXTERNAL_BUSINESS_OWNER_APPROVAL",
+    "approver_role": null,
+    "approver_name": null,
+    "decision_date": null,
+    "scope_approved": null,
+    "conditions": null
+  },
+  "decisions": {
+    "PHASE_9D_ENGINEERING_REVIEW": "PASS",
+    "ENGINEERING_PILOT_DECISION": "ACCEPT",
+    "PHASE_9_ENGINEERING_IMPLEMENTATION": "COMPLETE",
+    "PILOT_BUSINESS_OWNER_SIGNOFF": "PENDING_EXTERNAL_BUSINESS_OWNER_APPROVAL",
+    "PHASE_9_FINAL_EXIT_GATE": "BLOCKED_ON_BUSINESS_OWNER_SIGNOFF",
+    "PRODUCTION_ROLLOUT_DECISION": "BLOCKED_EXTERNAL",
+    "PHASE_8_PRODUCTION_READINESS": "NOT_READY"
+  }
+}
