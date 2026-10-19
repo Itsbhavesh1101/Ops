@@ -1,0 +1,55 @@
+{
+  "phase": "9C",
+  "drill_id": "drill-9c-20261019113808",
+  "tenant_id": "tenant-pilot-001",
+  "domain": "Semester Examination",
+  "correlation_id": "corr-drill-9c-20261019113808",
+  "timestamp": "2026-10-19T11:38:08.436263+00:00",
+  "structured_feedback": {
+    "status": "PASS",
+    "mechanism": "AUDIT_LOG_NATIVE_JSON",
+    "schema_change_required": false,
+    "migration_0015_needed": false,
+    "recorded_feedback": {
+      "feedback_id": "fb-drill-9c-20261019113808",
+      "category": "USABILITY_ASSESSMENT",
+      "author": "cred-pilot-exam-admin",
+      "reporter_role": "pilot_exam_coordinator",
+      "severity": "LOW",
+      "comment": "Automated Grade 10 exam schedule verified against room capacities and invigilator qualifications.",
+      "operational_status": "ACKNOWLEDGED",
+      "timestamp": "2026-10-19T11:38:08.816286+00:00"
+    }
+  },
+  "schedule_override_drill": {
+    "direct_slot_mutation_contract": "NOT_SUPPORTED_BY_EXISTING_CONTRACT",
+    "supported_repair_contract": "POST /api/v1/schedules/{id}/repair",
+    "status": "PASS",
+    "baseline_schedule_id": "a619dda2-b612-4917-87f8-9b13ed879df6",
+    "candidate_schedule_id": "087b86aa-2b5e-40b8-b6b4-851ed6e35379",
+    "candidate_version": 2,
+    "supersedes_id": "a619dda2-b612-4917-87f8-9b13ed879df6",
+    "candidate_status": "REVIEW",
+    "hard_constraint_violations": 0,
+    "disruption_scenario": {
+      "disrupted_resource_id": "res-inv-001",
+      "reason": "SIMULATED_INVIGILATOR_ABSENCE",
+      "movement_weight": 10.0
+    }
+  },
+  "workflow_exception_drill": {
+    "status": "PASS",
+    "engine_instance_id": "8efc10e2-cbb1-11f1-9c9c-5e7867d890d2",
+    "input_curriculum_coverage": 85,
+    "dmn_rule_triggered": "Rule 2 (curriculum_coverage < 100)",
+    "dmn_expected_status": "BLOCKED",
+    "dmn_expected_recommendation": "CURRICULUM_REMEDIATION_REQUIRED",
+    "routed_to_task": "curriculum_remediation",
+    "moderation_prevented": true,
+    "active_tasks_captured": [
+      "curriculum_remediation"
+    ],
+    "remediation_completion_action": "COMPLETE",
+    "end_state": "end_remediation"
+  }
+}

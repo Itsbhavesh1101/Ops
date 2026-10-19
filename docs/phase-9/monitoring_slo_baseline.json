@@ -1,0 +1,85 @@
+{
+  "phase": "9C",
+  "environment": "restricted_pilot",
+  "tenant_id": "tenant-pilot-001",
+  "domain": "Semester Examination",
+  "canary_run_id": "canary-9b-20261019104030",
+  "drill_id": "drill-9c-20261019113808",
+  "correlation_id": "corr-drill-9c-20261019113808",
+  "timestamp": "2026-10-19T11:38:08.436263+00:00",
+  "observed_metrics": {
+    "api_request_success_rate": 1.0,
+    "api_latency_sample_size": 10,
+    "latency_min_ms": 7.01,
+    "latency_max_ms": 13.89,
+    "latency_mean_ms": 10.1,
+    "latency_p50_ms": 10.47,
+    "latency_p95_ms": 13.89,
+    "unexpected_5xx_count": 0,
+    "gateway_rate_limit_burst_tested": true,
+    "gateway_rate_limit_429_observed": true,
+    "gateway_burst_sample_codes": [
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      200,
+      429,
+      429
+    ],
+    "solver_execution_time_seconds": 0.15,
+    "solver_result_status": "FEASIBLE",
+    "hard_constraint_violations": 0,
+    "exam_sessions_scheduled": 10,
+    "total_assignments_reconciled": 22,
+    "workflow_approvals_completed": 3,
+    "schedule_publication_status": "PUBLISHED",
+    "manual_override_count": 0,
+    "workflow_exception_count": 0,
+    "retry_count": 0,
+    "audit_events_count": 171,
+    "outbox_events_count": 5,
+    "health_probes": {
+      "gateway_health": 200,
+      "gateway_ready": 200,
+      "api_status": "healthy",
+      "database_status": "healthy",
+      "flowable_status": "healthy",
+      "rabbitmq_status": "healthy"
+    }
+  },
+  "available_instrumentation": [
+    "CorrelationAndLoggingMiddleware (app/core/middleware.py) recording duration_ms, status_code, correlation_id",
+    "OpenTelemetry HTTP instrumentation on FastAPI",
+    "Flowable telemetry module (app/core/telemetry/flowable.py)",
+    "Scheduling telemetry module (app/core/telemetry/scheduling.py)",
+    "Outbox telemetry module (app/core/telemetry/outbox.py)",
+    "Nginx pilot-gateway rate limiting logs (docker/pilot-gateway/nginx.conf)"
+  ],
+  "unavailable_measurements": [
+    "Prometheus / OTel collector centralized daemon scrape aggregation in restricted pilot compose",
+    "Live distributed tracing across cross-network microservices (deferred in restricted pilot)"
+  ],
+  "business_baseline_availability": {
+    "MANUAL_BASELINE_COMPARISON": "NOT_AVAILABLE_PENDING_BUSINESS_OWNER_INPUT"
+  },
+  "thresholds": {
+    "approved_thresholds": {
+      "rate_limit_rps": 10,
+      "rate_limit_burst": 20,
+      "hard_constraint_violations": 0,
+      "database_schema_version": "0014"
+    },
+    "merely_observed_baseline": {
+      "api_latency_p50_ms": 10.47,
+      "api_latency_p95_ms": 13.89,
+      "solver_runtime_seconds": 0.15
+    }
+  },
+  "failures": [],
+  "recovery_state": "HEALTHY",
+  "status": "PASS"
+}

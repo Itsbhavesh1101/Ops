@@ -1,0 +1,84 @@
+{
+  "phase": "9C",
+  "drill_id": "drill-9c-20261019121035",
+  "tenant_id": "tenant-pilot-001",
+  "domain": "Semester Examination",
+  "correlation_id": "corr-drill-9c-20261019121035",
+  "timestamp": "2026-10-19T12:10:35.435364+00:00",
+  "status": "PASS",
+  "OUTBOX_ROLLBACK_DELETION_CONTRACT": "NOT_SUPPORTED",
+  "OUTBOX_PRESERVATION": "PASS",
+  "INBOX_PRESERVATION": "PASS",
+  "IDEMPOTENCY_PRESERVATION": "PASS",
+  "pre_rollback_state": {
+    "goals": 1,
+    "plans": 1,
+    "schedules": 2,
+    "assignments": 44,
+    "audit_events": 209,
+    "outbox_events": 10,
+    "inbox_messages": 112,
+    "idempotency_records": 0,
+    "resources": 8,
+    "availabilities": 40
+  },
+  "rollback_trigger": "TRIGGER_SIMULATED_REVISION_ROLLBACK",
+  "rollback_action": "TENANT_SCOPED_EPHEMERAL_STATE_RESET",
+  "affected_entities": {
+    "deleted_assignments": 44,
+    "deleted_schedules": 2,
+    "deleted_schedule_jobs": 2,
+    "deleted_workflow_tasks": 0,
+    "deleted_workflow_instances": 0,
+    "deleted_task_dependencies": 9,
+    "deleted_tasks": 10,
+    "deleted_plans": 1,
+    "deleted_goals": 1,
+    "deleted_outbox_events": 0,
+    "deleted_inbox_messages": 0,
+    "deleted_idempotency_records": 0
+  },
+  "post_rollback_state": {
+    "goals": 0,
+    "plans": 0,
+    "schedules": 0,
+    "assignments": 0,
+    "audit_events": 210,
+    "outbox_events": 10,
+    "inbox_messages": 112,
+    "idempotency_records": 0,
+    "resources": 8,
+    "availabilities": 40
+  },
+  "audit_immutability_preserved": true,
+  "outbox_preservation": "PASS",
+  "inbox_preservation": "PASS",
+  "idempotency_preservation": "PASS",
+  "resource_catalog_preserved": true,
+  "database_schema": {
+    "alembic_current": "0014",
+    "alembic_heads": "0014",
+    "application_tables": 26,
+    "public_tables": 27
+  },
+  "tenant_isolation_proof": {
+    "other_tenants_modified": 0,
+    "tenant_filter_applied": "tenant_id = 'tenant-pilot-001'"
+  },
+  "health_readiness_after_rollback": {
+    "gateway_health_status": 200,
+    "gateway_ready_status": 200,
+    "database_healthy": true,
+    "workflow_engine_healthy": true,
+    "message_broker_healthy": true
+  },
+  "recovery_verification": {
+    "status": "PASS",
+    "recovered_goal_id": "001f9d6d-cac3-42f2-8b82-caddcd09bd7f",
+    "recovered_plan_id": "18410c8e-0674-4f11-8a49-acf1e1ba9091",
+    "recovered_schedule_id": "15db02ac-b040-4548-b72d-9992747bd4bb",
+    "solver_status": "FEASIBLE",
+    "hard_constraint_violations": 0,
+    "schedule_status": "PUBLISHED"
+  }
+}
