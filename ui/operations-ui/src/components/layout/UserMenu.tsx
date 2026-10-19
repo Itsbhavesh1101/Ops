@@ -1,0 +1,108 @@
+import React, { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { LogOut, Shield, Building2, Key } from "lucide-react";
+
+export const UserMenu: React.FC = () => {
+  const { user, logout } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!user) return null;
+
+  const initials = user.display_name
+    ? user.display_name
+        .split(" ")
+        .map((p) => p[0])
+        .join("")
+        .substring(0, 2)
+        .toUpperCase()
+    : user.principal_id.substring(0, 2).toUpperCase();
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label="User account menu"
+        aria-expanded={isOpen}
+        className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full bg-slate-900 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer text-left"
+      >
+        <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shadow">
+          {initials}
+        </div>
+        <div className="hidden sm:block text-xs">
+          <div className="font-semibold text-white leading-none truncate max-w-[120px]">
+            {user.display_name || user.principal_id}
+          </div>
+          <div className="text-[10px] text-slate-400 leading-none mt-0.5 truncate max-w-[120px]">
+            {user.roles[0] || "User"}
+          </div>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div
+          className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-4 z-50 text-left text-xs space-y-3 animate-in fade-in"
+          role="menu"
+        >
+          {/* Identity Header */}
+          <div className="border-b border-slate-800 pb-3">
+            <div className="font-bold text-sm text-white truncate">
+              {user.display_name || "Enterprise User"}
+            </div>
+            {user.email && (
+              <div className="text-slate-400 text-xs truncate mt-0.5">{user.email}</div>
+            )}
+            <div className="font-mono text-[10px] text-slate-500 mt-1 truncate">
+              ID: {user.principal_id}
+            </div>
+          </div>
+
+          {/* Tenant & Role Details */}
+          <div className="space-y-2 text-slate-300">
+            <div className="flex items-center gap-2 text-slate-400">
+              <Building2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span>Tenant:</span>
+              <strong className="text-white font-mono">{user.tenant_id}</strong>
+            </div>
+
+            <div className="flex items-start gap-2 text-slate-400">
+              <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <span>Roles:</span>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {user.roles.map((role) => (
+                    <span
+                      key={role}
+                      className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-indigo-300 font-semibold"
+                    >
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-slate-400">
+              <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>Auth:</span>
+              <span className="text-slate-200">{user.authentication_method}</span>
+            </div>
+          </div>
+
+          {/* Logout Action */}
+          <div className="pt-2 border-t border-slate-800">
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                logout();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer border-none bg-transparent font-medium"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

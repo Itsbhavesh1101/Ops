@@ -129,4 +129,115 @@ describe("WorkflowApiClient Contract & Route Alignment", () => {
       client.performTaskAction("tenant-1", "task-1", "approve", {}, "key-1")
     ).rejects.toThrow(ApiError);
   });
+
+  it("getCurrentUser maps to /auth/me with Bearer token", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        principal_id: "user-123",
+        tenant_id: "tenant-engineering",
+        roles: ["admin"],
+        permissions: ["read", "write"],
+      }),
+    });
+
+    client.setAuthToken("test-jwt-token");
+    const user = await client.getCurrentUser();
+    expect(user.principal_id).toBe("user-123");
+    expect(mockFetch).toHaveBeenCalledWith(
+      "/api/v1/auth/me",
+      expect.objectContaining({
+        headers: expect.any(Headers),
+      })
+    );
+    const callHeaders = mockFetch.mock.calls[0][1].headers as Headers;
+    expect(callHeaders.get("Authorization")).toBe("Bearer test-jwt-token");
+    expect(callHeaders.has("X-E7-Service-Key")).toBe(false);
+  });
+
+  it("strictly rejects service API keys (e7sk_...) from browser setAuthToken", () => {
+    expect(() => {
+      client.setAuthToken("e7sk_cred-123.secret456");
+    }).toThrow(/Security Violation: Service API keys.*machine-to-machine credentials/);
+  });
+
+  it("getHealth and getReady map to /health and /ready", async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: "ok", service: "operations-engine", environment: "demo" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ status: "ready", checks: { postgres: "ok", rabbitmq: "ok" } }),
+      });
+
+    const health = await client.getHealth();
+    const ready = await client.getReady();
+    expect(health.status).toBe("ok");
+    expect(ready.status).toBe("ready");
+  });
+
+  it("getOperationsDashboard queries /analytics/operations with tenant header", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        timestamp: "2026-10-19T21:00:00Z",
+        tenant_id: "tenant-engineering",
+        kpis: { active_goals: 4, generated_plans: 3, operational_throughput_pct: 94.5 },
+      }),
+    });
+
+    const data = await client.getOperationsDashboard("tenant-engineering");
+    expect(data.tenant_id).toBe("tenant-engineering");
+    const callHeaders = mockFetch.mock.calls[0][1].headers as Headers;
+    expect(callHeaders.get("X-Tenant-ID")).toBe("tenant-engineering");
+  });
+
+  it("normalizes 401 unauthenticated errors", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      json: async () => ({ detail: "Invalid session or expired credentials" }),
+    });
+
+    try {
+      await client.getCurrentUser();
+      expect.fail("Should have thrown ApiError");
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).status).toBe(401);
+      expect((err as ApiError).message).toContain("Invalid session or expired credentials");
+    }
+  });
+
+  it("normalizes 404 tenant-safe not found errors", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({ detail: "Goal not found for current tenant" }),
+    });
+
+    try {
+      await client.listTasks("tenant-engineering");
+      expect.fail("Should have thrown ApiError");
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).status).toBe(404);
+      expect((err as ApiError).message).toContain("Goal not found for current tenant");
+    }
+  });
+
+  it("normalizes network and offline fetch exceptions", async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    try {
+      await client.getHealth();
+      expect.fail("Should have thrown ApiError");
+    } catch (err: unknown) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).status).toBe(0);
+      expect((err as ApiError).message).toContain("Failed to fetch");
+    }
+  });
 });

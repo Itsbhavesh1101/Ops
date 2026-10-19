@@ -1,12 +1,42 @@
 /**
- * E-7 Operations Engine - Typed Workflow API Client (Phase 3B)
+ * E-7 Operations Engine - Production Frontend API Client Layer
  *
- * Implements decoupled communication between Operations UI and backend APIs.
- * Invariants:
- * - Never manufactures tenant authority; tenantId is provided by caller context.
- * - Enforces client-generated Idempotency-Key on all task mutation actions.
- * - Handles server-side validation error presentation deterministically.
+ * Implements typed, decoupled communication between Operations UI and backend APIs.
+ * Supports:
+ * - Environment-driven base URL configuration (VITE_API_BASE_URL)
+ * - Session token management (Bearer token or Service API Key)
+ * - Canonical endpoints: /auth/me, /health, /ready, /analytics/operations, and workflows
+ * - Deterministic error normalization (ApiError)
  */
+
+import { API_BASE_URL } from "./config";
+import type {
+  AuthenticatedUser,
+  HealthResponse,
+  ReadyResponse,
+  OperationsDashboardSummary,
+  PlanProgressSummary,
+  BlockerItem,
+  SlaStateSummary,
+  ScheduleHealthSummary,
+  RepairMovementSummary,
+  RecentEventItem,
+  RiskSummary,
+} from "./types";
+
+export type {
+  AuthenticatedUser,
+  HealthResponse,
+  ReadyResponse,
+  OperationsDashboardSummary,
+  PlanProgressSummary,
+  BlockerItem,
+  SlaStateSummary,
+  ScheduleHealthSummary,
+  RepairMovementSummary,
+  RecentEventItem,
+  RiskSummary,
+};
 
 export interface WorkflowDefinition {
   id: string;
@@ -66,16 +96,47 @@ export interface DmnEvaluationResponse {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public details?: unknown) {
+  public code?: string;
+  constructor(
+    public status: number,
+    message: string,
+    public details?: unknown,
+    code?: string
+  ) {
     super(message);
     this.name = "ApiError";
+    this.code = code;
   }
 }
 
 export class WorkflowApiClient {
+  private authToken: string | null = null;
+  private activeTenantId: string | null = null;
+
   constructor(private baseUrl: string = "/api/v1") {}
 
-  private async request<T>(
+  public setAuthToken(token: string | null): void {
+    if (token && token.trim().startsWith("e7sk_")) {
+      throw new Error(
+        "Security Violation: Service API keys (e7sk_...) are machine-to-machine credentials and must not be used for browser authentication."
+      );
+    }
+    this.authToken = token ? token.trim() : null;
+  }
+
+  public getAuthToken(): string | null {
+    return this.authToken;
+  }
+
+  public setActiveTenantId(tenantId: string | null): void {
+    this.activeTenantId = tenantId;
+  }
+
+  public getActiveTenantId(): string | null {
+    return this.activeTenantId;
+  }
+
+  public async request<T>(
     path: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -84,33 +145,96 @@ export class WorkflowApiClient {
       headers.set("Content-Type", "application/json");
     }
 
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...options,
-      headers,
-    });
+    // Attach human Bearer token if present (never service key from browser state)
+    if (this.authToken && !headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${this.authToken}`);
+    }
+
+    // Attach active tenant ID if present and not already specified
+    if (this.activeTenantId && !headers.has("X-Tenant-ID")) {
+      headers.set("X-Tenant-ID", this.activeTenantId);
+    }
+
+    // Determine target URL
+    const targetUrl = path.startsWith("http")
+      ? path
+      : `${this.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+
+    let response: Response;
+    try {
+      response = await fetch(targetUrl, {
+        ...options,
+        headers,
+      });
+    } catch (networkErr: unknown) {
+      const msg = networkErr instanceof Error ? networkErr.message : "Network request failed";
+      throw new ApiError(0, `Network error: ${msg}`, networkErr);
+    }
 
     if (!response.ok) {
       let errDetails: unknown = null;
       let errMsg = `Request failed with status ${response.status}`;
+      let errCode: string | undefined = undefined;
+
       try {
         const data = await response.json();
         errDetails = data;
-        if (data.detail) {
+        if (data.code) {
+          errCode = String(data.code);
+        }
+        if (data.message) {
+          errMsg = String(data.message);
+        } else if (data.detail) {
           errMsg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
-        } else if (data.message) {
-          errMsg = data.message;
         }
       } catch {
-        // Fall back to status text
+        // Fall back to HTTP status text
+        if (response.statusText) {
+          errMsg = `${response.status} ${response.statusText}`;
+        }
       }
-      throw new ApiError(response.status, errMsg, errDetails);
+
+      throw new ApiError(response.status, errMsg, errDetails, errCode);
+    }
+
+    // Handle 204 No Content
+    if (response.status === 204) {
+      return {} as T;
     }
 
     return response.json();
   }
 
+  // --- Auth & Identity Domain ---
+  async getCurrentUser(): Promise<AuthenticatedUser> {
+    return this.request<AuthenticatedUser>("/auth/me", { method: "GET" });
+  }
+
+  // --- System Health Domain ---
+  async getHealth(): Promise<HealthResponse> {
+    return this.request<HealthResponse>("/health", { method: "GET" });
+  }
+
+  async getReady(): Promise<ReadyResponse> {
+    return this.request<ReadyResponse>("/ready", { method: "GET" });
+  }
+
+  // --- Operations Analytics Domain ---
+  async getOperationsDashboard(
+    tenantId: string,
+    goalId?: string
+  ): Promise<OperationsDashboardSummary> {
+    const query = goalId ? `?goal_id=${encodeURIComponent(goalId)}` : "";
+    return this.request<OperationsDashboardSummary>(`/analytics/operations${query}`, {
+      method: "GET",
+      headers: {
+        "X-Tenant-ID": tenantId,
+      },
+    });
+  }
+
+  // --- Workflow Subsystem Methods ---
   async validateBpmn(bpmnXml: string): Promise<{ valid: boolean; process_id?: string; error?: string }> {
-    // Client invokes server-side BpmnValidator
     return this.request<{ valid: boolean; process_id?: string; error?: string }>(
       "/workflow/validate-bpmn",
       {
@@ -209,91 +333,9 @@ export class WorkflowApiClient {
       }),
     });
   }
-
-  async getOperationsDashboard(
-    tenantId: string,
-    goalId?: string
-  ): Promise<OperationsDashboardSummary> {
-    const query = goalId ? `?goal_id=${encodeURIComponent(goalId)}` : "";
-    return this.request<OperationsDashboardSummary>(`/analytics/operations${query}`, {
-      method: "GET",
-      headers: {
-        "X-Tenant-ID": tenantId,
-      },
-    });
-  }
 }
 
-export interface PlanProgressSummary {
-  plan_id?: string | null;
-  plan_name?: string | null;
-  total_tasks: number;
-  completed_tasks: number;
-  progress_percentage: number;
-  current_milestone?: string | null;
-  status?: string | null;
-}
-
-export interface BlockerItem {
-  task_id: string;
-  temporary_id: string;
-  title: string;
-  blocked_reason?: string | null;
-}
-
-export interface SlaStateSummary {
-  status: string;
-  active_workflows_count: number;
-  warning_count: number;
-  breached_count: number;
-}
-
-export interface ScheduleHealthSummary {
-  schedule_id?: string | null;
-  version: number;
-  status?: string | null;
-  hard_violations: number;
-  solver_status?: string | null;
-  calendar_sync_status: string;
-}
-
-export interface RepairMovementSummary {
-  latest_repair_id?: string | null;
-  moved_assignments_count: number;
-  locked_assignments_moved: number;
-  repair_reason?: string | null;
-}
-
-export interface RecentEventItem {
-  event_type: string;
-  resource_type: string;
-  resource_id: string;
-  outcome?: string | null;
-  recorded_at: string;
-  correlation_id?: string | null;
-}
-
-export interface RepairStabilitySummary {
-  total_repairs_count: number;
-  average_percentage_moved: number;
-  locked_moved_count: number;
-}
-
-export interface RiskSummary {
-  open_risks_count: number;
-  risks_by_severity: Record<string, number>;
-  stale_resources_count: number;
-  repair_queue_depth: number;
-  repair_stability: RepairStabilitySummary;
-}
-
-export interface OperationsDashboardSummary {
-  tenant_id: string;
-  plan_progress: PlanProgressSummary;
-  blockers: BlockerItem[];
-  sla_state: SlaStateSummary;
-  schedule_health: ScheduleHealthSummary;
-  repair_movement: RepairMovementSummary;
-  recent_events: RecentEventItem[];
-  risk_summary?: RiskSummary;
-}
+// Canonical default singleton configured to point to gateway/api
+export const apiClient = new WorkflowApiClient(
+  API_BASE_URL.endsWith("/api/v1") ? API_BASE_URL : `${API_BASE_URL}/api/v1`
+);
