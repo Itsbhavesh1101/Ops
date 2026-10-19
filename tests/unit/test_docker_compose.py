@@ -54,6 +54,7 @@ def test_compose_canonical_services(compose_data: dict[str, Any]) -> None:
     expected_services = {
         "api",
         "worker",
+        "scheduler-worker",
         "postgres",
         "rabbitmq",
         "flowable",
@@ -82,17 +83,19 @@ def test_compose_canonical_services(compose_data: dict[str, Any]) -> None:
 
 
 def test_application_image_consistency(compose_data: dict[str, Any]) -> None:
-    """Verify api and worker services use the same build context and Dockerfile."""
+    """Verify api, worker, and scheduler-worker services share build context and Dockerfile."""
     services = compose_data["services"]
     api_build = services["api"].get("build")
     worker_build = services["worker"].get("build")
+    scheduler_build = services["scheduler-worker"].get("build")
 
     assert api_build is not None, "api service must define a build configuration"
     assert worker_build is not None, "worker service must define a build configuration"
+    assert scheduler_build is not None, "scheduler-worker must define a build configuration"
 
-    assert api_build == worker_build, (
-        f"api and worker must share identical build configuration. "
-        f"Got {api_build} vs {worker_build}"
+    assert api_build == worker_build == scheduler_build, (
+        f"api, worker, and scheduler-worker must share identical build configuration. "
+        f"Got {api_build} vs {worker_build} vs {scheduler_build}"
     )
     assert api_build.get("context") == ".", "build context must be repository root ('.')"
     assert api_build.get("dockerfile") == "docker/Dockerfile", (
@@ -104,7 +107,7 @@ def test_database_settings_internal_host(compose_data: dict[str, Any]) -> None:
     """Verify application database connection strings point to internal 'postgres' host."""
     services = compose_data["services"]
 
-    for role in ("api", "worker"):
+    for role in ("api", "worker", "scheduler-worker"):
         service_env = services[role].get("environment", {})
         db_url = service_env.get("E7_DATABASE_URL", "")
         assert db_url, f"{role} must define E7_DATABASE_URL in environment"
@@ -197,16 +200,14 @@ def test_healthchecks_configuration(compose_data: dict[str, Any]) -> None:
     )
 
 
-def test_worker_profile_and_restart(compose_data: dict[str, Any]) -> None:
-    """Verify worker is behind an explicit profile and has no restart loop."""
-    worker = compose_data["services"]["worker"]
-    assert worker.get("profiles") == ["worker-runtime"], (
-        "worker must be assigned to ['worker-runtime'] profile"
-    )
-    restart = worker.get("restart")
-    assert restart not in ("always", "unless-stopped"), (
-        f"worker must not have an endless restart policy, got {restart}"
-    )
+def test_worker_restart_policy(compose_data: dict[str, Any]) -> None:
+    """Verify workers have robust restart policies (unless-stopped or on-failure)."""
+    for role in ("worker", "scheduler-worker"):
+        w = compose_data["services"][role]
+        restart = w.get("restart")
+        assert restart in ("unless-stopped", "on-failure"), (
+            f"{role} must have a restart-safe policy, got {restart}"
+        )
 
 
 def test_worker_dependencies_and_environment(compose_data: dict[str, Any]) -> None:
@@ -252,8 +253,8 @@ def test_worker_command_targets_real_module(compose_data: dict[str, Any]) -> Non
     assert "unavailable" not in cmd_str.lower(), "Placeholder error string must be removed"
 
 
-def test_default_compose_excludes_worker() -> None:
-    """Verify default Compose execution excludes the unavailable worker container."""
+def test_default_compose_includes_all_required_services() -> None:
+    """Verify default Compose execution includes all required backend services."""
     import subprocess
 
     try:
@@ -267,10 +268,17 @@ def test_default_compose_excludes_worker() -> None:
         pytest.skip("Docker CLI is not installed in the environment")
     if result.returncode == 0:
         default_services = set(result.stdout.strip().split())
-        assert "worker" not in default_services, (
-            f"Default compose services must NOT include worker without profile: {default_services}"
+        required_services = {
+            "api",
+            "worker",
+            "scheduler-worker",
+            "postgres",
+            "rabbitmq",
+            "flowable",
+        }
+        assert required_services.issubset(default_services), (
+            f"Default compose missing required services: {default_services}"
         )
-        assert {"api", "postgres", "rabbitmq", "flowable"}.issubset(default_services)
 
 
 def test_named_volumes(compose_data: dict[str, Any]) -> None:

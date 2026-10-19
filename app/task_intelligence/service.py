@@ -16,6 +16,7 @@ from app.audit.repository import AuditRepository
 from app.audit.schemas import AuditEventCreate
 from app.core.capacity.quotas import TenantQuotaManager
 from app.db.models.planning import (
+    GoalRecord,
     PlanRecord,
     TaskDependencyRecord,
     TaskRecord,
@@ -200,6 +201,77 @@ class PlanService:
                 created_at=goal_record.created_at,
                 updated_at=goal_record.updated_at,
             )
+
+    @staticmethod
+    def _to_goal_response(record: GoalRecord) -> GoalResponse:
+        from app.task_intelligence.schemas import TargetWindow
+
+        tw = TargetWindow.model_validate(record.target_window) if record.target_window else None
+        return GoalResponse(
+            id=record.id,
+            tenant_id=record.tenant_id,
+            objective=record.objective,
+            scope=record.scope,
+            deadline=record.deadline,
+            target_window=tw,
+            constraints=record.constraints,
+            resource_scope=record.resource_scope,
+            context_references=record.context_references,
+            priority_target=record.priority_target,
+            metadata=record.metadata_json,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+    async def get_goal(self, tenant_id: str, goal_id: UUID) -> GoalResponse:
+        """Retrieve a canonical goal ensuring tenant isolation."""
+        uow = self._uow_factory()
+        async with uow:
+            goal_repo = GoalRepository(uow.session)
+            record = await goal_repo.get_by_id(goal_id, tenant_id)
+            if not record:
+                raise GoalNotFoundError(goal_id)
+            return self._to_goal_response(record)
+
+    async def list_goals(
+        self, tenant_id: str, limit: int = 50, offset: int = 0
+    ) -> list[GoalResponse]:
+        """List canonical goals for a tenant."""
+        uow = self._uow_factory()
+        async with uow:
+            goal_repo = GoalRepository(uow.session)
+            records = await goal_repo.list_goals(tenant_id, limit=limit, offset=offset)
+            return [self._to_goal_response(r) for r in records]
+
+    async def list_plans(
+        self,
+        tenant_id: str,
+        goal_id: UUID | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[PlanRecord]:
+        """List plans for a tenant, optionally filtered by goal_id."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            plans = await plan_repo.list_plans(
+                tenant_id, goal_id=goal_id, limit=limit, offset=offset
+            )
+            uow.session.expunge_all()
+            return plans
+
+    async def get_plan_tasks(self, tenant_id: str, plan_id: UUID) -> list[TaskRecord]:
+        """Retrieve tasks belonging to a plan ensuring tenant isolation."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+            task_repo = TaskRepository(uow.session)
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            uow.session.expunge_all()
+            return tasks
 
     async def generate_plan(
         self,
@@ -766,7 +838,8 @@ class PlanService:
         async with uow:
             plan_repo = PlanRepository(uow.session)
             record = await plan_repo.get_by_id(plan_id, tenant_id, load_relations=load_relations)
-            await uow.commit()
+            if record:
+                uow.session.expunge_all()
             return record
 
     async def get_critical_path(

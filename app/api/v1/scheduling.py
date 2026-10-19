@@ -39,7 +39,10 @@ from app.core.idempotency.repository import (
     IdempotencyDecisionType,
     IdempotencyRepository,
 )
-from app.db.models.scheduling import ScheduleRecord
+from app.db.models.scheduling import (
+    ResourceRecord,
+    ScheduleRecord,
+)
 from app.resources.service import ResourceNotFoundError, ResourceService
 from app.scheduling.hashing import compute_input_snapshot_hash
 from app.scheduling.policy import (
@@ -146,8 +149,88 @@ class ResourceAvailabilityItem(BaseModel):
     reason: str | None = None
 
 
+class ResourceCatalogItem(BaseModel):
+    """Public representation of a resource in the tenant catalog."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    resource_key: str
+    type: str
+    display_label: str
+    capacity: int
+    skills: list[str] = Field(default_factory=list)
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScheduleListItem(BaseModel):
+    """Public summary representation of a schedule."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    schedule_key: str
+    version: int
+    status: str
+    source_job_id: UUID
+    input_snapshot_hash: str
+    solver_profile_version: int | None = None
+    supersedes_id: UUID | None = None
+    published_at: datetime | None = None
+    published_by: str | None = None
+    repair_reason: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ScheduleAssignmentItem(BaseModel):
+    """Public representation of an activity assignment in a schedule."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    schedule_id: UUID
+    activity_id: str
+    resource_id: str
+    start_at: datetime
+    end_at: datetime
+    is_locked: bool
+    metadata_json: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+
+
+class ScheduleDetailResponse(BaseModel):
+    """Full detail of a schedule with timetable assignments."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    schedule_key: str
+    version: int
+    status: str
+    source_job_id: UUID
+    input_snapshot_hash: str
+    solver_profile_version: int | None = None
+    solver_metadata: dict[str, Any] = Field(default_factory=dict)
+    score_components: dict[str, Any] = Field(default_factory=dict)
+    supersedes_id: UUID | None = None
+    published_at: datetime | None = None
+    published_by: str | None = None
+    repair_reason: str | None = None
+    repair_scope: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+    assignments: list[ScheduleAssignmentItem] = Field(default_factory=list)
+
 
 def _null_principal_dependency() -> Any:
+    return None
+
+
+def _null_resource_service_dependency() -> Any:
     return None
 
 
@@ -163,6 +246,7 @@ def create_scheduling_router(
     parent_router = APIRouter(tags=["Scheduling"])
     router = APIRouter()
     _principal_dep = principal_dependency or _null_principal_dependency
+    _res_dep = resource_service_dependency or _null_resource_service_dependency
 
     @router.post(
         "/schedule-jobs",
@@ -255,6 +339,7 @@ def create_scheduling_router(
             request=full_request,
             schedule_key=payload.schedule_key,
         )
+        await session.commit()
 
         return ScheduleJobResponse(
             job_id=job.id,
@@ -303,6 +388,79 @@ def create_scheduling_router(
             created_at=job.created_at,
             completed_at=job.completed_at,
         )
+
+    @router.get(
+        "/resources",
+        response_model=list[ResourceCatalogItem],
+        status_code=status.HTTP_200_OK,
+        summary="List Resource Catalog for Tenant",
+        responses={
+            200: {
+                "model": list[ResourceCatalogItem],
+                "description": "Tenant resource catalog entries.",
+            },
+        },
+    )
+    async def list_resources(
+        tenant_context: Any = Depends(tenant_dependency),
+        session: AsyncSession = Depends(session_dependency),
+        resource_service: Any = Depends(_res_dep),
+        type: str | None = Query(default=None),
+        active_only: bool = Query(default=True),
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+    ) -> list[ResourceCatalogItem]:
+        tenant_id = _extract_tenant_id(tenant_context)
+        stmt = select(ResourceRecord).where(ResourceRecord.tenant_id == tenant_id)
+        if type:
+            stmt = stmt.where(ResourceRecord.type == type)
+        if active_only:
+            stmt = stmt.where(ResourceRecord.active.is_(True))
+        stmt = stmt.order_by(ResourceRecord.resource_key.asc()).limit(limit).offset(offset)
+        result = await session.execute(stmt)
+        records = list(result.scalars().all())
+
+        if not records and resource_service is not None:
+            try:
+                mem_resources = resource_service.list_resources(
+                    tenant_id=tenant_id, active_only=active_only
+                )
+                if type:
+                    mem_resources = [r for r in mem_resources if r.type == type]
+                records_paginated = mem_resources[offset : offset + limit]
+                return [
+                    ResourceCatalogItem(
+                        id=r.id,
+                        resource_key=r.resource_key,
+                        type=r.type,
+                        display_label=r.display_label,
+                        capacity=r.capacity,
+                        skills=r.skills,
+                        attributes=r.attributes,
+                        active=r.active,
+                        created_at=r.created_at,
+                        updated_at=r.updated_at,
+                    )
+                    for r in records_paginated
+                ]
+            except Exception:
+                pass
+
+        return [
+            ResourceCatalogItem(
+                id=r.id,
+                resource_key=r.resource_key,
+                type=r.type,
+                display_label=r.display_label,
+                capacity=r.capacity,
+                skills=r.skills,
+                attributes=r.attributes,
+                active=r.active,
+                created_at=r.created_at,
+                updated_at=r.updated_at,
+            )
+            for r in records
+        ]
 
     def _default_resource_service() -> ResourceService | None:
         return None
@@ -602,6 +760,125 @@ def create_scheduling_router(
             candidate_version=candidate.version if candidate else None,
             status=job.status,
             diagnostics=job.diagnostics,
+        )
+
+    @router.get(
+        "/schedules",
+        response_model=list[ScheduleListItem],
+        status_code=status.HTTP_200_OK,
+        summary="List Schedules for Tenant",
+        responses={
+            200: {
+                "model": list[ScheduleListItem],
+                "description": "Tenant schedules.",
+            },
+        },
+    )
+    async def list_schedules(
+        tenant_context: Any = Depends(tenant_dependency),
+        session: AsyncSession = Depends(session_dependency),
+        status_filter: str | None = Query(default=None, alias="status"),
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+    ) -> list[ScheduleListItem]:
+        tenant_id = _extract_tenant_id(tenant_context)
+        stmt = select(ScheduleRecord).where(ScheduleRecord.tenant_id == tenant_id)
+        if status_filter:
+            stmt = stmt.where(ScheduleRecord.status == status_filter)
+        stmt = stmt.order_by(ScheduleRecord.created_at.desc()).limit(limit).offset(offset)
+        result = await session.execute(stmt)
+        records = list(result.scalars().all())
+        return [
+            ScheduleListItem(
+                id=s.id,
+                schedule_key=s.schedule_key,
+                version=s.version,
+                status=s.status,
+                source_job_id=s.source_job_id,
+                input_snapshot_hash=s.input_snapshot_hash,
+                solver_profile_version=s.solver_profile_version,
+                supersedes_id=s.supersedes_id,
+                published_at=s.published_at,
+                published_by=s.published_by,
+                repair_reason=s.repair_reason,
+                created_at=s.created_at,
+                updated_at=s.updated_at,
+            )
+            for s in records
+        ]
+
+    @router.get(
+        "/schedules/{schedule_id}",
+        response_model=ScheduleDetailResponse,
+        status_code=status.HTTP_200_OK,
+        summary="Get Schedule Detail with Timetable Assignments",
+        responses={
+            200: {
+                "model": ScheduleDetailResponse,
+                "description": "Schedule detail and assignments.",
+            },
+            404: {
+                "model": ApiErrorResponse,
+                "description": "Schedule not found.",
+            },
+        },
+    )
+    async def get_schedule_detail(
+        schedule_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        session: AsyncSession = Depends(session_dependency),
+    ) -> ScheduleDetailResponse:
+        tenant_id = _extract_tenant_id(tenant_context)
+        stmt = (
+            select(ScheduleRecord)
+            .options(selectinload(ScheduleRecord.assignments))
+            .where(
+                ScheduleRecord.id == schedule_id,
+                ScheduleRecord.tenant_id == tenant_id,
+            )
+        )
+        result = await session.execute(stmt)
+        sched = result.scalar_one_or_none()
+        if not sched:
+            raise ApiError(
+                status_code=404,
+                code="schedule.not_found",
+                message=f"Schedule '{schedule_id}' not found.",
+            )
+
+        assignments = [
+            ScheduleAssignmentItem(
+                id=a.id,
+                schedule_id=a.schedule_id,
+                activity_id=a.activity_id,
+                resource_id=a.resource_id,
+                start_at=a.start_at,
+                end_at=a.end_at,
+                is_locked=a.is_locked,
+                metadata_json=a.metadata_json or {},
+                created_at=a.created_at,
+            )
+            for a in sorted(sched.assignments, key=lambda x: x.start_at)
+        ]
+
+        return ScheduleDetailResponse(
+            id=sched.id,
+            schedule_key=sched.schedule_key,
+            version=sched.version,
+            status=sched.status,
+            source_job_id=sched.source_job_id,
+            input_snapshot_hash=sched.input_snapshot_hash,
+            solver_profile_version=sched.solver_profile_version,
+            solver_metadata=sched.solver_metadata or {},
+            score_components=sched.score_components or {},
+            supersedes_id=sched.supersedes_id,
+            published_at=sched.published_at,
+            published_by=sched.published_by,
+            repair_reason=sched.repair_reason,
+            repair_scope=sched.repair_scope or {},
+            created_at=sched.created_at,
+            updated_at=sched.updated_at,
+            assignments=assignments,
         )
 
     parent_router.include_router(router)

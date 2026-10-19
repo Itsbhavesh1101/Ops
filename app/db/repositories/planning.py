@@ -152,6 +152,24 @@ class PlanRepository(SqlAlchemyRepository):
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
+    async def list_plans(
+        self,
+        tenant_id: str,
+        goal_id: UUID | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[PlanRecord]:
+        """List plans for a tenant, optionally filtered by goal_id."""
+        stmt = (
+            select(PlanRecord)
+            .where(PlanRecord.tenant_id == tenant_id)
+        )
+        if goal_id is not None:
+            stmt = stmt.where(PlanRecord.goal_id == goal_id)
+        stmt = stmt.order_by(PlanRecord.created_at.desc()).limit(limit).offset(offset)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def update_status(
         self,
         plan_id: UUID,

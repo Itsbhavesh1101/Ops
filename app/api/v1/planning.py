@@ -21,8 +21,8 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, Path, Response, status
-from pydantic import BaseModel, ConfigDict
+from fastapi import APIRouter, Body, Depends, Header, Path, Query, Response, status
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.errors import ApiError, ApiErrorResponse
 from app.core.auth.models import AuthenticatedPrincipal, TenantContext
@@ -77,6 +77,187 @@ class TaskResponse(BaseModel):
     actual_duration_minutes: int | None = None
     blocked_reason: str | None = None
     updated_at: datetime
+
+
+class TaskDetailResponse(BaseModel):
+    """Detailed public representation of an operational task."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    plan_id: UUID
+    temporary_id: str
+    title: str
+    description: str | None = None
+    wbs_code: str | None = None
+    owner_role: str | None = None
+    owner_reference: str | None = None
+    estimated_duration_minutes: int
+    actual_duration_minutes: int | None = None
+    status: str
+    progress_percentage: int
+    blocked_reason: str | None = None
+    priority: str
+    work_category: str | None = None
+    acceptance_criteria: list[str] = Field(default_factory=list)
+    parent_task_id: UUID | None = None
+    milestone_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class DependencyDetailResponse(BaseModel):
+    """Detailed representation of a task dependency."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    predecessor_id: UUID
+    successor_id: UUID
+    dependency_type: str
+    lag_minutes: int
+
+
+class MilestoneDetailResponse(BaseModel):
+    """Detailed representation of a plan milestone."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    temporary_id: str
+    name: str
+    description: str | None = None
+    target_date: datetime | None = None
+
+
+class RiskDetailResponse(BaseModel):
+    """Detailed representation of an identified task risk."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    task_id: UUID
+    category: str
+    severity: str
+    description: str
+    is_evaluable: bool
+    detected_at: datetime
+
+
+class PlanApprovalState(BaseModel):
+    """Structured representation of plan approval state."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    status: str
+    is_baseline: bool
+    baseline_hash: str | None = None
+
+
+class PlanDetailResponse(BaseModel):
+    """Full detail of a plan version with tasks, milestones, dependencies, and risks."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    id: UUID
+    goal_id: UUID
+    version_number: int
+    plan_name: str
+    status: str
+    is_baseline: bool
+    superseded_by_plan_id: UUID | None = None
+    baseline_hash: str | None = None
+    approval_state: PlanApprovalState
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+    tasks: list[TaskDetailResponse] = Field(default_factory=list)
+    dependencies: list[DependencyDetailResponse] = Field(default_factory=list)
+    milestones: list[MilestoneDetailResponse] = Field(default_factory=list)
+    risks: list[RiskDetailResponse] = Field(default_factory=list)
+
+
+def _map_task(task: Any) -> TaskDetailResponse:
+    return TaskDetailResponse(
+        id=task.id,
+        plan_id=task.plan_id,
+        temporary_id=task.temporary_id,
+        title=task.title,
+        description=task.description,
+        wbs_code=task.wbs_code,
+        owner_role=task.owner_role,
+        owner_reference=task.owner_reference,
+        estimated_duration_minutes=task.estimated_duration_minutes,
+        actual_duration_minutes=task.actual_duration_minutes,
+        status=task.status,
+        progress_percentage=task.progress_percentage,
+        blocked_reason=task.blocked_reason,
+        priority=str(task.priority),
+        work_category=task.work_category,
+        acceptance_criteria=task.acceptance_criteria or [],
+        parent_task_id=task.parent_task_id,
+        milestone_id=task.milestone_id,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+    )
+
+
+def _map_plan_detail(plan: Any) -> PlanDetailResponse:
+    tasks = [_map_task(t) for t in (plan.tasks or [])]
+    dependencies = [
+        DependencyDetailResponse(
+            id=d.id,
+            predecessor_id=d.predecessor_id,
+            successor_id=d.successor_id,
+            dependency_type=str(d.dependency_type),
+            lag_minutes=d.lag_minutes,
+        )
+        for d in (plan.dependencies or [])
+    ]
+    milestones = [
+        MilestoneDetailResponse(
+            id=m.id,
+            temporary_id=m.temporary_id,
+            name=m.name,
+            description=m.description,
+            target_date=m.target_date,
+        )
+        for m in (plan.milestones or [])
+    ]
+    risks = [
+        RiskDetailResponse(
+            id=r.id,
+            task_id=r.task_id,
+            category=str(r.category),
+            severity=str(r.severity),
+            description=r.description,
+            is_evaluable=r.is_evaluable,
+            detected_at=r.detected_at,
+        )
+        for r in (plan.risks or [])
+    ]
+    return PlanDetailResponse(
+        id=plan.id,
+        goal_id=plan.goal_id,
+        version_number=plan.version_number,
+        plan_name=plan.plan_name,
+        status=plan.status,
+        is_baseline=plan.is_baseline,
+        superseded_by_plan_id=plan.superseded_by_plan_id,
+        baseline_hash=plan.baseline_hash,
+        approval_state=PlanApprovalState(
+            status=plan.status,
+            is_baseline=plan.is_baseline,
+            baseline_hash=plan.baseline_hash,
+        ),
+        metadata=plan.metadata_json or {},
+        created_at=plan.created_at,
+        updated_at=plan.updated_at,
+        tasks=tasks,
+        dependencies=dependencies,
+        milestones=milestones,
+        risks=risks,
+    )
 
 
 def _extract_tenant_id(context: Any) -> str:
@@ -153,6 +334,49 @@ def create_planning_router(
             correlation_id=x_correlation_id,
         )
 
+    @router.get(
+        "/goals",
+        response_model=list[GoalResponse],
+        status_code=status.HTTP_200_OK,
+        summary="List Operational Goals",
+        responses={
+            200: {"model": list[GoalResponse], "description": "Goals retrieved."},
+        },
+    )
+    async def list_goals(
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+        tenant_context: Any = Depends(tenant_dependency),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> list[GoalResponse]:
+        tenant_id = _extract_tenant_id(tenant_context)
+        return await service.list_goals(tenant_id, limit=limit, offset=offset)
+
+    @router.get(
+        "/goals/{goal_id}",
+        response_model=GoalResponse,
+        status_code=status.HTTP_200_OK,
+        summary="Get Operational Goal Detail",
+        responses={
+            200: {"model": GoalResponse, "description": "Goal detail."},
+            404: {"model": ApiErrorResponse, "description": "Goal not found."},
+        },
+    )
+    async def get_goal(
+        goal_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> GoalResponse:
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            return await service.get_goal(tenant_id, goal_id)
+        except GoalNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="goal.not_found",
+                message="Goal not found.",
+            ) from exc
+
     @router.post(
         "/goals/{goal_id}/generate-plan",
         response_model=PlanResponse,
@@ -160,46 +384,53 @@ def create_planning_router(
         summary="Generate Plan for Goal",
         responses={
             201: {"model": PlanResponse, "description": "Plan generated."},
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
             404: {"model": ApiErrorResponse, "description": "Goal not found."},
             422: {"model": ApiErrorResponse, "description": "Planner unavailable or invalid."},
         },
     )
     async def generate_plan(
         goal_id: UUID = Path(...),
-        plan_proposal: PlanSchema | None = None,
+        plan_proposal: PlanSchema | dict[str, Any] | None = Body(default=None),
         tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
         service: PlanService = Depends(plan_service_dependency),
         planner: Any = Depends(active_planner),
         x_correlation_id: str | None = Header(default=None, alias="X-Correlation-ID"),
     ) -> PlanResponse:
+        if isinstance(principal, AuthenticatedPrincipal):
+            if principal.has_role("auditor") and not principal.has_any_role(
+                "planner", "tenant_admin", "admin"
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Auditors cannot generate operational plans.",
+                )
         tenant_id = _extract_tenant_id(tenant_context)
 
-        # In Phase 2A: if plan_proposal is provided directly (e.g. from test fixture), use it.
-        # Otherwise, if planner is injected, call it.
-        # If neither is present, raise 422 (do not fake AI generation).
-        schema_to_persist = plan_proposal
+        schema_to_persist: PlanSchema | None = None
+        if isinstance(plan_proposal, PlanSchema):
+            schema_to_persist = plan_proposal
+        elif isinstance(plan_proposal, dict) and plan_proposal:
+            schema_to_persist = PlanSchema.model_validate(plan_proposal)
+
         if schema_to_persist is None:
             if planner is not None:
                 # Retrieve goal to provide to planner
-                uow = service._uow_factory()
-                async with uow:
-                    from app.db.repositories.planning import GoalRepository
-
-                    g_rec = await GoalRepository(uow.session).get_by_id(goal_id, tenant_id)
-                    if not g_rec:
-                        raise ApiError(
-                            status_code=404, code="goal.not_found", message="Goal not found."
-                        )
-                    goal_dto = GoalCreate(objective=g_rec.objective, scope=g_rec.scope)
+                try:
+                    goal_rec = await service.get_goal(tenant_id, goal_id)
+                except GoalNotFoundError as exc:
+                    raise ApiError(
+                        status_code=404, code="goal.not_found", message="Goal not found."
+                    ) from exc
+                goal_dto = GoalCreate(objective=goal_rec.objective, scope=goal_rec.scope)
                 schema_to_persist = await planner.generate_plan(goal_dto)
             else:
                 raise ApiError(
                     status_code=422,
                     code="planner.unavailable",
-                    message=(
-                        "PydanticAI planner arrives in Phase 2B. "
-                        "Direct PlanSchema required in Phase 2A."
-                    ),
+                    message="Planner is unavailable.",
                 )
 
         try:
@@ -225,6 +456,97 @@ def create_planning_router(
                 status_code=404,
                 code="goal.not_found",
                 message="Goal not found.",
+            ) from exc
+
+    @router.get(
+        "/plans",
+        response_model=list[PlanResponse],
+        status_code=status.HTTP_200_OK,
+        summary="List Plans for Tenant",
+        responses={
+            200: {"model": list[PlanResponse], "description": "Plans retrieved."},
+        },
+    )
+    async def list_plans(
+        goal_id: UUID | None = Query(default=None),
+        limit: int = Query(default=50, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+        tenant_context: Any = Depends(tenant_dependency),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> list[PlanResponse]:
+        tenant_id = _extract_tenant_id(tenant_context)
+        records = await service.list_plans(tenant_id, goal_id=goal_id, limit=limit, offset=offset)
+        return [
+            PlanResponse(
+                id=p.id,
+                goal_id=p.goal_id,
+                version_number=p.version_number,
+                plan_name=p.plan_name,
+                status=p.status,
+                is_baseline=p.is_baseline,
+                baseline_hash=p.baseline_hash,
+                created_at=p.created_at,
+                updated_at=p.updated_at,
+            )
+            for p in records
+        ]
+
+    @router.get(
+        "/plans/{plan_id}",
+        response_model=PlanDetailResponse,
+        status_code=status.HTTP_200_OK,
+        summary="Get Plan Detail with Tasks, Milestones, and Dependencies",
+        responses={
+            200: {"model": PlanDetailResponse, "description": "Plan detail."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+        },
+    )
+    async def get_plan_detail(
+        plan_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> PlanDetailResponse:
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            plan = await service.get_plan(tenant_id, plan_id, load_relations=True)
+            if not plan:
+                raise ApiError(
+                    status_code=404,
+                    code="plan.not_found",
+                    message="Plan not found.",
+                )
+            return _map_plan_detail(plan)
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+
+    @router.get(
+        "/plans/{plan_id}/tasks",
+        response_model=list[TaskDetailResponse],
+        status_code=status.HTTP_200_OK,
+        summary="Get Tasks for Plan",
+        responses={
+            200: {"model": list[TaskDetailResponse], "description": "Tasks for plan."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+        },
+    )
+    async def get_plan_tasks(
+        plan_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> list[TaskDetailResponse]:
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            tasks = await service.get_plan_tasks(tenant_id, plan_id)
+            return [_map_task(t) for t in tasks]
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
             ) from exc
 
     @router.post(

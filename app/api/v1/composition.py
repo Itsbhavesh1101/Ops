@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.analytics.service import OperationsAnalyticsService
 from app.api.v1.analytics import create_analytics_router
 from app.api.v1.audit import create_audit_router
+from app.api.v1.auth import create_auth_router
 from app.api.v1.jobs import create_job_read_router
 from app.api.v1.planning import create_planning_router
 from app.api.v1.scheduling import create_scheduling_router
@@ -60,6 +61,10 @@ async def get_request_db_session() -> AsyncGenerator[AsyncSession, None]:
     async with db.session_factory() as session:
         try:
             yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
         finally:
             await session.close()
 
@@ -99,6 +104,13 @@ def get_default_resource_service() -> ResourceService:
     return ResourceService()
 
 
+def get_default_planner() -> Any:
+    """FastAPI dependency constructing default SemesterExamPlanner."""
+    from app.task_intelligence.planner.phase6_planner import SemesterExamPlanner
+
+    return SemesterExamPlanner()
+
+
 def register_domain_routes(
     parent_router: APIRouter,
     *,
@@ -106,6 +118,7 @@ def register_domain_routes(
     principal_dependency: Callable[..., Any] = authenticate_request,
     session_dependency: Callable[..., Any] = get_request_db_session,
     plan_service_dependency: Callable[..., PlanService] = get_default_plan_service,
+    planner_dependency: Callable[..., Any] | None = None,
     workflow_service_dependency: Callable[..., WorkflowService] = get_default_workflow_service,
     scheduling_service_dependency: Callable[
         ..., SchedulingService
@@ -116,10 +129,15 @@ def register_domain_routes(
     audit_service: AuditQueryService | None = None,
 ) -> None:
     """Securely mount all business domain routers onto parent APIRouter."""
+    # 0. Auth routes: /auth/me
+    auth_router = create_auth_router(principal_dependency=principal_dependency)
+    parent_router.include_router(auth_router)
+
     # 1. Planning routes: /goals, /plans, /tasks
     planning_router = create_planning_router(
         tenant_dependency=tenant_dependency,
         plan_service_dependency=plan_service_dependency,
+        planner_dependency=planner_dependency or get_default_planner,
         principal_dependency=principal_dependency,
     )
     parent_router.include_router(planning_router)
@@ -169,6 +187,7 @@ def register_domain_routes(
 
 __all__ = [
     "get_default_plan_service",
+    "get_default_planner",
     "get_default_resource_service",
     "get_default_scheduling_service",
     "get_default_workflow_adapter",

@@ -77,6 +77,8 @@ services:
       E7_RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
       E7_RABBITMQ_EXCHANGE_NAME: ${E7_RABBITMQ_EXCHANGE_NAME:-events}
       FLOWABLE_BASE_URL: http://flowable:8080/flowable-rest/service
+      E7_MOUNT_DOMAIN_ROUTERS: ${E7_MOUNT_DOMAIN_ROUTERS:-true}
+      E7_CORS_ALLOWED_ORIGINS: ${E7_CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
       E7_OTEL_ENABLED: ${E7_OTEL_ENABLED:-false}
       E7_OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       E7_OTEL_SERVICE_NAME: ${E7_OTEL_SERVICE_NAME:-e7-api}
@@ -97,17 +99,14 @@ services:
   # ----------------------------------------------------------------------------
   # Background Runtime Worker (Task 1J.3B Outbox-Only Runtime)
   # Uses same application image as API.
-  # Placed behind 'worker-runtime' profile for Phase-1 explicit activation.
-  # Supervises OutboxDispatcherRunner; inbound consumer runtime remains disabled.
+  # Supervises OutboxDispatcherRunner; dispatches outbox events to RabbitMQ.
   # ----------------------------------------------------------------------------
   worker:
-    profiles:
-      - worker-runtime
     build:
       context: .
       dockerfile: docker/Dockerfile
     container_name: e7-worker
-    restart: on-failure
+    restart: unless-stopped
     environment:
       E7_ENVIRONMENT: ${E7_ENVIRONMENT:-local}
       E7_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-operations_engine}
@@ -139,6 +138,31 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------------------
+  # Dedicated Asynchronous Scheduling Worker (Phase 4A)
+  # Uses same application image as API.
+  # Supervises SchedulerWorker; claims and solves REQUESTED schedule jobs.
+  # ----------------------------------------------------------------------------
+  scheduler-worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: e7-scheduler-worker
+    restart: unless-stopped
+    environment:
+      E7_ENVIRONMENT: ${E7_ENVIRONMENT:-local}
+      E7_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-operations_engine}
+      E7_SCHEDULER_POLL_INTERVAL_SECONDS: ${E7_SCHEDULER_POLL_INTERVAL_SECONDS:-1.0}
+      E7_SCHEDULER_CLAIM_BATCH_SIZE: ${E7_SCHEDULER_CLAIM_BATCH_SIZE:-5}
+      E7_SCHEDULER_SOLVE_TIMEOUT_SECONDS: ${E7_SCHEDULER_SOLVE_TIMEOUT_SECONDS:-30.0}
+      E7_SCHEDULER_LEASE_DURATION_SECONDS: ${E7_SCHEDULER_LEASE_DURATION_SECONDS:-60.0}
+      E7_SCHEDULER_SHUTDOWN_GRACE_SECONDS: ${E7_SCHEDULER_SHUTDOWN_GRACE_SECONDS:-10.0}
+      E7_SCHEDULER_MAX_CONCURRENT_PER_TENANT: ${E7_SCHEDULER_MAX_CONCURRENT_PER_TENANT:-1}
+    command: python -m app.scheduling.worker
+    depends_on:
+      postgres:
         condition: service_healthy
 
   # ----------------------------------------------------------------------------

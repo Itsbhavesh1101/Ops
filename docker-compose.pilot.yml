@@ -28,18 +28,30 @@ services:
   # Inbound traffic enters exclusively via the gateway proxy.
   # ----------------------------------------------------------------------------
   api:
-    image: e7-operations-engine:rc-38d080fadab8
+    image: e7-operations-engine:demo-current
     build: !reset null
     ports: !reset []
     expose:
       - "8000"
     environment:
       E7_MOUNT_DOMAIN_ROUTERS: "true"
+      E7_CORS_ALLOWED_ORIGINS: '["http://localhost:5173", "http://127.0.0.1:5173"]'
       E7_GOOGLE_OIDC_CLIENT_IDS: '["e7-pilot-client-id"]'
       FLOWABLE_TIMEOUT_SECONDS: "10.0"
       FLOWABLE_MAX_RETRIES: "3"
       FLOWABLE_USERNAME: "rest-admin"
       FLOWABLE_PASSWORD: "test"
+
+  # ----------------------------------------------------------------------------
+  # E-7 Workers: Consume demo-current image consistently
+  # ----------------------------------------------------------------------------
+  worker:
+    image: e7-operations-engine:demo-current
+    build: !reset null
+
+  scheduler-worker:
+    image: e7-operations-engine:demo-current
+    build: !reset null
 
   # ----------------------------------------------------------------------------
   # PostgreSQL: Strictly internal only in pilot topology
