@@ -8,6 +8,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { apiClient } from "../api/client";
+import { formatStatus, formatDateTime, formatShortId } from "../utils/formatters";
 import type { ScheduleListItem } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -151,21 +152,21 @@ export const SchedulesPage: React.FC = () => {
                 <TableCell>
                   {item.status === "PUBLISHED" ? (
                     <Badge variant="success" className="flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> PUBLISHED
+                      <CheckCircle2 className="w-3 h-3" /> Published
                     </Badge>
                   ) : (
-                    <Badge variant="neutral">{item.status}</Badge>
+                    <Badge variant="neutral">{formatStatus(item.status)}</Badge>
                   )}
                 </TableCell>
 
                 <TableCell className="font-mono text-xs text-slate-400">
-                  {item.source_job_id ? `${item.source_job_id.substring(0, 8)}...` : "—"}
+                  {item.source_job_id ? `${formatShortId(item.source_job_id)}` : "—"}
                 </TableCell>
 
                 <TableCell className="text-xs text-slate-300">
                   {item.published_at ? (
                     <div>
-                      <div>{new Date(item.published_at).toLocaleString()}</div>
+                      <div>{formatDateTime(item.published_at)}</div>
                       {item.published_by && (
                         <div className="text-[11px] text-slate-400">By: {item.published_by}</div>
                       )}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FileSpreadsheet, ArrowRight, RefreshCw, Hash, CheckCircle2 } from "lucide-react";
 import { apiClient } from "../api/client";
+import { formatStatus, formatDate, formatShortId } from "../utils/formatters";
 import type { PlanResponse } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -125,24 +126,24 @@ export const PlansPage: React.FC = () => {
                           : "warning"
                       }
                     >
-                      {plan.status}
+                      {formatStatus(plan.status)}
                     </Badge>
                     {plan.is_baseline && (
                       <Badge variant="info" className="flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3" /> BASELINE
+                        <CheckCircle2 className="w-3 h-3" /> Baselined
                       </Badge>
                     )}
                   </div>
 
                   <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
-                    <span className="font-mono text-[11px]">Plan ID: {plan.id.substring(0, 8)}...</span>
+                    <span className="font-mono text-[11px]">Plan ID: {formatShortId(plan.id)}</span>
                     <span>
                       Goal:{" "}
                       <Link
                         to={`/goals/${plan.goal_id}`}
                         className="text-indigo-400 hover:underline font-mono text-[11px]"
                       >
-                        {plan.goal_id.substring(0, 8)}...
+                        {formatShortId(plan.goal_id)}
                       </Link>
                     </span>
                     {plan.baseline_hash && (
@@ -152,7 +153,7 @@ export const PlansPage: React.FC = () => {
                       </span>
                     )}
                     <span className="text-[11px]">
-                      Created {new Date(plan.created_at).toLocaleDateString()}
+                      Created {formatDate(plan.created_at)}
                     </span>
                   </div>
                 </div>

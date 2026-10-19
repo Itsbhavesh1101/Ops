@@ -14,6 +14,7 @@ import {
   Hash,
 } from "lucide-react";
 import { apiClient } from "../api/client";
+import { formatStatus, formatDateTime, formatDate, formatShortId } from "../utils/formatters";
 import type { GoalResponse, PlanResponse } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ui/Toast";
@@ -240,18 +241,18 @@ export const GoalDetailPage: React.FC = () => {
                 <span className="text-slate-400 block mb-0.5">Target Window</span>
                 <div className="text-[11px] space-y-0.5 text-slate-300">
                   {goal.target_window.start_at && (
-                    <div>Start: {new Date(goal.target_window.start_at).toLocaleString()}</div>
+                    <div>Start: {formatDateTime(goal.target_window.start_at)}</div>
                   )}
                   {goal.target_window.end_at && (
-                    <div>End: {new Date(goal.target_window.end_at).toLocaleString()}</div>
+                    <div>End: {formatDateTime(goal.target_window.end_at)}</div>
                   )}
                 </div>
               </div>
             )}
 
             <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 space-y-0.5">
-              <div>Created: {new Date(goal.created_at).toLocaleString()}</div>
-              <div>Updated: {new Date(goal.updated_at).toLocaleString()}</div>
+              <div>Created: {formatDateTime(goal.created_at)}</div>
+              <div>Updated: {formatDateTime(goal.updated_at)}</div>
             </div>
           </div>
         </Card>
@@ -303,19 +304,19 @@ export const GoalDetailPage: React.FC = () => {
                           : "warning"
                       }
                     >
-                      {p.status}
+                      {formatStatus(p.status)}
                     </Badge>
-                    {p.is_baseline && <Badge variant="info">BASELINE</Badge>}
+                    {p.is_baseline && <Badge variant="info">Baselined</Badge>}
                   </div>
                   <div className="flex items-center gap-4 text-[11px] text-slate-400 font-mono">
-                    <span>ID: {p.id.substring(0, 8)}...</span>
+                    <span>ID: {formatShortId(p.id)}</span>
                     {p.baseline_hash && (
                       <span className="flex items-center gap-1">
                         <Hash className="w-3 h-3 text-slate-400" />
                         {p.baseline_hash.substring(0, 10)}...
                       </span>
                     )}
-                    <span>Synthesized {new Date(p.created_at).toLocaleString()}</span>
+                    <span>Synthesized {formatDate(p.created_at)}</span>
                   </div>
                 </div>
 

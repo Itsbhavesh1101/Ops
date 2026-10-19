@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { RefreshCw, AlertTriangle, Layers, Edit2 } from "lucide-react";
 import { apiClient } from "../api/client";
+import { formatStatus } from "../utils/formatters";
 import type { PlanResponse, TaskDetailResponse, TaskProgressStatus, TaskProgressUpdate } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ui/Toast";
@@ -197,7 +198,7 @@ export const TasksPage: React.FC = () => {
                 onChange={(e) => setSelectedPlanId(e.target.value)}
                 options={plans.map((p) => ({
                   value: p.id,
-                  label: `${p.plan_name} (v${p.version_number} - ${p.status})`,
+                  label: `${p.plan_name} (v${p.version_number} - ${formatStatus(p.status)})`,
                 }))}
               />
             </div>
@@ -269,7 +270,7 @@ export const TasksPage: React.FC = () => {
                             : "neutral"
                         }
                       >
-                        {task.status}
+                        {formatStatus(task.status)}
                       </Badge>
                     </TableCell>
                     <TableCell>

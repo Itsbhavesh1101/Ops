@@ -8,8 +8,10 @@ import {
   ArrowRight,
   Send,
   Zap,
+  CalendarDays,
 } from "lucide-react";
 import { apiClient } from "../api/client";
+import { formatStatus, formatDateTime, formatShortId } from "../utils/formatters";
 import type {
   ScheduleJobResponse,
   ScheduleJobSubmitRequest,
@@ -32,6 +34,7 @@ export const SchedulingJobsPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [activeJob, setActiveJob] = useState<ScheduleJobResponse | null>(null);
+  const [resultingScheduleId, setResultingScheduleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Submit Job Modal
@@ -75,6 +78,15 @@ export const SchedulingJobsPage: React.FC = () => {
               `Job ${job.job_id.substring(0, 8)} solved successfully (FEASIBLE).`,
               "Optimal Schedule Found"
             );
+            try {
+              const scheds = await apiClient.listSchedules(undefined, tenantId);
+              const found = scheds.find((s) => s.source_job_id === job.job_id);
+              if (found) {
+                setResultingScheduleId(found.id);
+              }
+            } catch {
+              // Non-blocking schedule query
+            }
           } else if (status === "INFEASIBLE") {
             showToast(
               "warning",
@@ -276,21 +288,34 @@ export const SchedulingJobsPage: React.FC = () => {
                 </div>
                 <div className="text-xs text-slate-400 font-mono">
                   Schedule Key: <strong className="text-slate-200">{activeJob.schedule_key}</strong> • Hash:{" "}
-                  {activeJob.input_snapshot_hash.substring(0, 12)}...
+                  {formatShortId(activeJob.input_snapshot_hash, 12)}
                 </div>
               </div>
 
               <div className="flex items-center gap-2">
                 {activeJob.status.toUpperCase() === "FEASIBLE" && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => setIsPublishOpen(true)}
-                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Publish Schedule
-                  </Button>
+                  <>
+                    <Link to={resultingScheduleId ? `/schedules/${resultingScheduleId}` : "/schedules"}>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                      >
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        <span>Open Timetable</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setIsPublishOpen(true)}
+                      className="flex items-center gap-1.5 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      Publish Schedule
+                    </Button>
+                  </>
                 )}
                 <Button
                   variant="secondary"
@@ -308,14 +333,14 @@ export const SchedulingJobsPage: React.FC = () => {
               <div>
                 <span className="text-slate-400 block mb-0.5">Dispatched At</span>
                 <span className="text-slate-200 font-mono">
-                  {new Date(activeJob.created_at).toLocaleTimeString()}
+                  {formatDateTime(activeJob.created_at)}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 block mb-0.5">Completed At</span>
                 <span className="text-slate-200 font-mono">
                   {activeJob.completed_at
-                    ? new Date(activeJob.completed_at).toLocaleTimeString()
+                    ? formatDateTime(activeJob.completed_at)
                     : "In Execution..."}
                 </span>
               </div>
@@ -325,7 +350,7 @@ export const SchedulingJobsPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-slate-400 block mb-0.5">Solver Outcome</span>
-                <span className="font-semibold text-slate-100">{activeJob.status}</span>
+                <span className="font-semibold text-slate-100">{formatStatus(activeJob.status)}</span>
               </div>
             </div>
 
@@ -366,7 +391,7 @@ export const SchedulingJobsPage: React.FC = () => {
                 </p>
                 <div className="pt-2 flex items-center gap-3">
                   <Link
-                    to="/schedules"
+                    to={resultingScheduleId ? `/schedules/${resultingScheduleId}` : "/schedules"}
                     className="inline-flex items-center gap-1.5 font-semibold text-emerald-400 hover:text-emerald-300 underline"
                   >
                     View Timetable Assignment Matrix <ArrowRight className="w-3.5 h-3.5" />

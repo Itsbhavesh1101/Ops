@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   Clock,
   ShieldCheck,
   RefreshCw,
@@ -17,6 +18,7 @@ import {
   Send,
 } from "lucide-react";
 import { apiClient, ApiError } from "../api/client";
+import { formatStatus, formatShortId } from "../utils/formatters";
 import type {
   PlanDetailResponse,
   TaskDetailResponse,
@@ -294,13 +296,13 @@ export const PlanDetailPage: React.FC = () => {
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Plans
         </Link>
         <span>/</span>
-        <span className="font-mono text-slate-300">{plan.id.substring(0, 8)}...</span>
+        <span className="font-mono text-slate-300">{formatShortId(plan.id)}</span>
       </div>
 
       {/* Header & Primary Actions */}
       <PageHeader
         title={plan.plan_name}
-        description={`Plan Version v${plan.version_number} • Goal: ${plan.goal_id.substring(0, 8)}...`}
+        description={`Plan Version v${plan.version_number} • Goal: ${formatShortId(plan.goal_id)}`}
         actions={
           <div className="flex items-center gap-3">
             <Button
@@ -369,10 +371,22 @@ export const PlanDetailPage: React.FC = () => {
             )}
 
             {(plan.status === "APPROVED" || plan.status === "ACTIVE" || plan.is_baseline) && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                Approved Baseline
-              </div>
+              <>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  Approved Baseline
+                </div>
+                <Link to="/scheduling/jobs">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                  >
+                    <span>Proceed to Scheduling</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Button>
+                </Link>
+              </>
             )}
           </div>
         }
@@ -416,7 +430,7 @@ export const PlanDetailPage: React.FC = () => {
                   : "warning"
               }
             >
-              {plan.status}
+              {formatStatus(plan.status)}
             </Badge>
           </div>
         </Card>
@@ -425,9 +439,9 @@ export const PlanDetailPage: React.FC = () => {
           <span className="text-[11px] text-slate-400">Baseline Status</span>
           <div>
             {plan.is_baseline ? (
-              <Badge variant="info">BASELINED</Badge>
+              <Badge variant="info">Baselined</Badge>
             ) : (
-              <Badge variant="neutral">CANDIDATE</Badge>
+              <Badge variant="neutral">Candidate</Badge>
             )}
           </div>
         </Card>
@@ -575,7 +589,7 @@ export const PlanDetailPage: React.FC = () => {
                             : "neutral"
                         }
                       >
-                        {task.status}
+                        {formatStatus(task.status)}
                       </Badge>
                     </TableCell>
 
@@ -816,7 +830,7 @@ export const PlanDetailPage: React.FC = () => {
                       {dep.successor_id}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="neutral">{dep.dependency_type || "FINISH_TO_START"}</Badge>
+                      <Badge variant="neutral">{formatStatus(dep.dependency_type || "FINISH_TO_START")}</Badge>
                     </TableCell>
                     <TableCell className="text-slate-300">{dep.lag_minutes}m</TableCell>
                   </TableRow>

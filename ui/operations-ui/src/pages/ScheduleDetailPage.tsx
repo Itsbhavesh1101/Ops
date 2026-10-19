@@ -15,6 +15,7 @@ import {
   List,
 } from "lucide-react";
 import { apiClient, ApiError } from "../api/client";
+import { formatStatus, formatDateTime, formatShortId } from "../utils/formatters";
 import type {
   ScheduleDetailResponse,
   ScheduleAssignmentItem,
@@ -192,7 +193,7 @@ export const ScheduleDetailPage: React.FC = () => {
 
       <PageHeader
         title={`${schedule.schedule_key} (v${schedule.version})`}
-        description={`Authoritative timetable assignments • Status: ${schedule.status}`}
+        description={`Authoritative timetable assignments • Status: ${formatStatus(schedule.status)}`}
         actions={
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5">
@@ -232,7 +233,7 @@ export const ScheduleDetailPage: React.FC = () => {
 
             {/* Repair Action */}
             <Button
-              variant="secondary"
+              variant={schedule.status === "PUBLISHED" ? "primary" : "secondary"}
               size="sm"
               onClick={() => {
                 setRepairOutcome(null);
@@ -241,7 +242,7 @@ export const ScheduleDetailPage: React.FC = () => {
               }}
               disabled={user !== null && !user.roles?.some((r) => ["scheduler", "operator", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:repair", "*"].includes(p))}
               title={user !== null && !user.roles?.some((r) => ["scheduler", "operator", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:repair", "*"].includes(p)) ? "Repair requires scheduler, operator, or tenant_admin role" : undefined}
-              className="flex items-center gap-1.5 text-amber-300 border-amber-500/30 hover:bg-amber-500/10"
+              className={schedule.status === "PUBLISHED" ? "flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white" : "flex items-center gap-1.5 text-amber-300 border-amber-500/30 hover:bg-amber-500/10"}
             >
               <Wrench className="w-3.5 h-3.5" /> Repair Schedule
             </Button>
@@ -271,10 +272,10 @@ export const ScheduleDetailPage: React.FC = () => {
           <div>
             {schedule.status === "PUBLISHED" ? (
               <Badge variant="success" className="flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> PUBLISHED
+                <CheckCircle2 className="w-3 h-3" /> Published
               </Badge>
             ) : (
-              <Badge variant="neutral">{schedule.status}</Badge>
+              <Badge variant="neutral">{formatStatus(schedule.status)}</Badge>
             )}
           </div>
         </Card>
@@ -293,7 +294,7 @@ export const ScheduleDetailPage: React.FC = () => {
           <span className="text-[11px] text-slate-400">Publication Timestamp</span>
           <div className="text-xs font-semibold text-slate-200">
             {schedule.published_at
-              ? new Date(schedule.published_at).toLocaleString()
+              ? formatDateTime(schedule.published_at)
               : "Unpublished"}
           </div>
         </Card>
@@ -301,14 +302,14 @@ export const ScheduleDetailPage: React.FC = () => {
         <Card className="p-3.5 space-y-1">
           <span className="text-[11px] text-slate-400">Solver Snapshot</span>
           <div className="font-mono text-xs text-slate-300 truncate">
-            {schedule.input_snapshot_hash.substring(0, 10)}...
+            {formatShortId(schedule.input_snapshot_hash, 10)}
           </div>
         </Card>
       </div>
 
       {schedule.supersedes_id && (
         <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-900/60 text-xs text-indigo-300 flex items-center justify-between">
-          <span>This schedule is a repaired revision superseding baseline ID: <strong className="font-mono">{schedule.supersedes_id}</strong></span>
+          <span>This schedule is a repaired revision superseding baseline ID: <strong className="font-mono">{formatShortId(schedule.supersedes_id, 12)}</strong></span>
           <Link to={`/schedules/${schedule.supersedes_id}`} className="underline hover:text-indigo-200">
             View Predecessor Baseline
           </Link>

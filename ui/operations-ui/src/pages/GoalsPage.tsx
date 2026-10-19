@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Target, Plus, Calendar, ShieldAlert, ArrowRight, RefreshCw, Layers } from "lucide-react";
 import { apiClient } from "../api/client";
+import { formatDate } from "../utils/formatters";
 import type { GoalResponse, GoalCreate } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ui/Toast";
@@ -210,7 +211,7 @@ export const GoalsPage: React.FC = () => {
                       <span>
                         Deadline:{" "}
                         <strong className="text-slate-200">
-                          {new Date(goal.deadline).toLocaleDateString()}
+                          {formatDate(goal.deadline)}
                         </strong>
                       </span>
                     </div>
@@ -238,7 +239,7 @@ export const GoalsPage: React.FC = () => {
 
               <div className="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between text-xs">
                 <span className="text-slate-400 text-[11px]">
-                  Created {new Date(goal.created_at).toLocaleDateString()}
+                  Created {formatDate(goal.created_at)}
                 </span>
                 <Link
                   to={`/goals/${goal.id}`}
