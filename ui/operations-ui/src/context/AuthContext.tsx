@@ -2,6 +2,13 @@ import React, { createContext, useContext, useState, useCallback } from "react";
 import { apiClient } from "../api/client";
 import { OIDC_CONFIG } from "../api/config";
 import type { AuthenticatedUser } from "../api/types";
+import {
+  generateCodeChallenge,
+  generateRandomString,
+  storePkceSession,
+  retrieveAndClearPkceSession,
+  exchangeCodeForTokens,
+} from "../utils/pkce";
 
 export type AuthStatus =
   | "AUTH_INITIALIZING"
@@ -17,6 +24,8 @@ export interface AuthContextType {
   isLoading: boolean;
   error: string | null;
   loginWithBearerToken: (bearerToken: string) => Promise<AuthenticatedUser>;
+  loginWithPkceRedirect: () => Promise<void>;
+  handleAuthCallback: (code: string, state: string) => Promise<AuthenticatedUser>;
   logout: () => void;
   clearError: () => void;
   oidcConfig: typeof OIDC_CONFIG;
@@ -30,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     OIDC_CONFIG.isConfigured ? "UNAUTHENTICATED" : "AUTH_CONFIGURATION_REQUIRED"
   );
   const [error, setError] = useState<string | null>(null);
+  const [idTokenHint, setIdTokenHint] = useState<string | null>(null);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -39,7 +49,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     apiClient.setActiveTenantId(null);
     setError(null);
     setStatus(OIDC_CONFIG.isConfigured ? "UNAUTHENTICATED" : "AUTH_CONFIGURATION_REQUIRED");
-  }, []);
+
+    // Optional: terminate Keycloak session via standard OIDC end_session_endpoint
+    if (OIDC_CONFIG.endSessionEndpoint && typeof window !== "undefined") {
+      const params = new URLSearchParams({
+        client_id: OIDC_CONFIG.clientId,
+        post_logout_redirect_uri: OIDC_CONFIG.redirectUri,
+      });
+      if (idTokenHint) {
+        params.set("id_token_hint", idTokenHint);
+      }
+      setIdTokenHint(null);
+      window.location.href = `${OIDC_CONFIG.endSessionEndpoint}?${params.toString()}`;
+    }
+  }, [idTokenHint]);
 
   const loginWithBearerToken = useCallback(
     async (newToken: string): Promise<AuthenticatedUser> => {
@@ -78,6 +101,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     []
   );
 
+  const loginWithPkceRedirect = useCallback(async (): Promise<void> => {
+    setError(null);
+    try {
+      const state = generateRandomString(32);
+      const codeVerifier = generateRandomString(64);
+      const codeChallenge = await generateCodeChallenge(codeVerifier);
+
+      storePkceSession(state, codeVerifier);
+
+      const params = new URLSearchParams({
+        response_type: "code",
+        client_id: OIDC_CONFIG.clientId,
+        redirect_uri: OIDC_CONFIG.redirectUri,
+        scope: "openid profile email",
+        state,
+        code_challenge: codeChallenge,
+        code_challenge_method: "S256",
+      });
+
+      window.location.href = `${OIDC_CONFIG.authorizationEndpoint}?${params.toString()}`;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to initiate OIDC PKCE login";
+      setError(msg);
+      setStatus("AUTH_ERROR");
+    }
+  }, []);
+
+  const handleAuthCallback = useCallback(
+    async (code: string, returnedState: string): Promise<AuthenticatedUser> => {
+      setError(null);
+      setStatus("AUTH_INITIALIZING");
+
+      const { state: storedState, verifier } = retrieveAndClearPkceSession();
+
+      if (!storedState || storedState !== returnedState) {
+        const stateErr = "OIDC Authentication Error: CSRF state parameter mismatch.";
+        setError(stateErr);
+        setStatus("AUTH_ERROR");
+        throw new Error(stateErr);
+      }
+
+      if (!verifier) {
+        const verifierErr = "OIDC Authentication Error: Missing PKCE code verifier in session.";
+        setError(verifierErr);
+        setStatus("AUTH_ERROR");
+        throw new Error(verifierErr);
+      }
+
+      try {
+        const tokenResp = await exchangeCodeForTokens(
+          OIDC_CONFIG.tokenEndpoint,
+          OIDC_CONFIG.clientId,
+          code,
+          verifier,
+          OIDC_CONFIG.redirectUri
+        );
+
+        const bearerToken = tokenResp.id_token || tokenResp.access_token;
+        if (!bearerToken) {
+          throw new Error("Token endpoint returned neither id_token nor access_token");
+        }
+
+        if (tokenResp.id_token) {
+          setIdTokenHint(tokenResp.id_token);
+        }
+
+        return await loginWithBearerToken(bearerToken);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to complete token exchange";
+        setError(msg);
+        setStatus("AUTH_ERROR");
+        throw err;
+      }
+    },
+    [loginWithBearerToken]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -87,6 +187,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading: status === "AUTH_INITIALIZING",
         error,
         loginWithBearerToken,
+        loginWithPkceRedirect,
+        handleAuthCallback,
         logout,
         clearError,
         oidcConfig: OIDC_CONFIG,

@@ -5,6 +5,7 @@ import { DashboardPage } from "../pages/DashboardPage";
 import { AuthContextType } from "../context/AuthContext";
 import { apiClient } from "../api/client";
 import type { OperationsDashboardSummary } from "../api/types";
+import { OIDC_CONFIG } from "../api/config";
 
 const mockAuthValue: AuthContextType = {
   status: "AUTHENTICATED",
@@ -21,13 +22,12 @@ const mockAuthValue: AuthContextType = {
   isLoading: false,
   error: null,
   loginWithBearerToken: vi.fn(),
+  loginWithPkceRedirect: vi.fn(),
+  handleAuthCallback: vi.fn(),
   logout: vi.fn(),
   clearError: vi.fn(),
   oidcConfig: {
-    clientId: "test-client-id",
-    issuer: "https://accounts.google.com",
-    audience: "e7-pilot-client-id",
-    redirectUri: "http://127.0.0.1:5173",
+    ...OIDC_CONFIG,
     isConfigured: true,
   },
 };

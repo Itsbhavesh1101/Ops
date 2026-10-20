@@ -1,0 +1,119 @@
+{
+  "id": "operations-engine-demo",
+  "realm": "operations-engine-demo",
+  "displayName": "Operations Engine Demo Realm",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "roles": {
+    "realm": [
+      {
+        "name": "planner",
+        "description": "Operational Planner Role"
+      },
+      {
+        "name": "approver",
+        "description": "Operational Plan Approver Role"
+      },
+      {
+        "name": "scheduler",
+        "description": "Operational Scheduler Role"
+      },
+      {
+        "name": "operator",
+        "description": "Operational Operator Role"
+      },
+      {
+        "name": "tenant_admin",
+        "description": "Tenant Administrator Role"
+      },
+      {
+        "name": "auditor",
+        "description": "Compliance Auditor Role"
+      }
+    ]
+  },
+  "defaultRoles": [
+    "offline_access",
+    "uma_authorization"
+  ],
+  "clients": [
+    {
+      "clientId": "operations-ui",
+      "name": "Operations Engine Web Client",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://127.0.0.1:5173/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://127.0.0.1:5173",
+        "http://localhost:5173",
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://127.0.0.1:5173/*##http://localhost:5173/*"
+      },
+      "protocol": "openid-connect"
+    }
+  ],
+  "users": [
+    {
+      "username": "planner",
+      "email": "planner@operations.local",
+      "firstName": "Demo",
+      "lastName": "Planner",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "planner"
+      ]
+    },
+    {
+      "username": "approver",
+      "email": "approver@operations.local",
+      "firstName": "Demo",
+      "lastName": "Approver",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "approver"
+      ]
+    },
+    {
+      "username": "scheduler",
+      "email": "scheduler@operations.local",
+      "firstName": "Demo",
+      "lastName": "Scheduler",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "scheduler",
+        "operator"
+      ]
+    },
+    {
+      "username": "admin",
+      "email": "admin@operations.local",
+      "firstName": "Demo",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "realmRoles": [
+        "tenant_admin"
+      ]
+    }
+  ]
+}

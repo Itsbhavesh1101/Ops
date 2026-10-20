@@ -6,11 +6,15 @@ Defines asynchronous contracts for mapping cryptographically verified external i
 
 from typing import Any, Protocol, runtime_checkable
 
+import structlog
+
 from app.core.auth.models import (
     AuthenticatedPrincipal,
     VerifiedOidcIdentity,
     VerifiedServiceCredentialIdentity,
 )
+
+logger = structlog.get_logger(__name__)
 
 
 @runtime_checkable
@@ -43,6 +47,48 @@ class ServiceIdentityResolver(Protocol):
         ...
 
 
+CANONICAL_ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
+    "planner": frozenset({
+        "goal:create",
+        "plan:create",
+        "plan:validate",
+        "plan:submit",
+        "plan:edit",
+        "task:read",
+    }),
+    "approver": frozenset({
+        "plan:approve",
+        "schedule:publish",
+        "workflow:approve",
+        "task:read",
+    }),
+    "scheduler": frozenset({
+        "schedule:solve",
+        "schedule:publish",
+        "schedule:repair",
+        "task:execute",
+        "task:read",
+    }),
+    "operator": frozenset({
+        "task:execute",
+        "task:read",
+        "schedule:repair",
+    }),
+    "tenant_admin": frozenset({"*"}),
+    "admin": frozenset({"*"}),
+    "auditor": frozenset({
+        "audit:read",
+        "analytics:read",
+        "plan:read",
+        "schedule:read",
+    }),
+    "viewer": frozenset({
+        "plan:read",
+        "schedule:read",
+    }),
+}
+
+
 class DefaultIdentityResolver:
     """Canonical in-memory identity resolver bridging credentials to AuthenticatedPrincipals."""
 
@@ -50,9 +96,11 @@ class DefaultIdentityResolver:
         self,
         oidc_mappings: dict[str, AuthenticatedPrincipal] | None = None,
         service_mappings: dict[str, AuthenticatedPrincipal] | None = None,
+        default_tenant_id: str | None = None,
     ) -> None:
         self._oidc_mappings = dict(oidc_mappings or {})
         self._service_mappings = dict(service_mappings or {})
+        self._default_tenant_id = default_tenant_id
 
     def register_oidc_mapping(
         self, subject_or_email: str, principal: AuthenticatedPrincipal
@@ -70,11 +118,70 @@ class DefaultIdentityResolver:
         self, identity: VerifiedOidcIdentity
     ) -> AuthenticatedPrincipal | None:
         """Resolve verified OIDC identity to an internal principal."""
+        from app.core.auth.models import AuthenticationMethod, PrincipalType
+
+        # 1. Explicit registered mapping takes precedence
         if identity.email and identity.email in self._oidc_mappings:
             return self._oidc_mappings[identity.email]
         if identity.subject in self._oidc_mappings:
             return self._oidc_mappings[identity.subject]
-        return None
+
+        # 2. In production without default tenant configured, fail closed!
+        if not self._default_tenant_id:
+            logger.warning(
+                "oidc_tenant_mapping_failed_closed",
+                subject=identity.subject,
+                email=identity.email,
+                reason="no_default_tenant_configured_and_no_explicit_mapping",
+            )
+            return None
+
+        # 3. Derive roles from verified identity email or subject
+        candidate_roles: set[str] = set()
+        username = (
+            (identity.email.split("@")[0] if identity.email else "")
+            or identity.subject
+        ).lower()
+
+        if "planner" in username:
+            candidate_roles.add("planner")
+        elif "approver" in username:
+            candidate_roles.add("approver")
+        elif "scheduler" in username:
+            candidate_roles.update(["scheduler", "operator"])
+        elif "admin" in username or "tenant_admin" in username:
+            candidate_roles.add("tenant_admin")
+        elif "auditor" in username:
+            candidate_roles.add("auditor")
+
+        # Normalize known canonical roles
+        canonical_roles = set()
+        for r in candidate_roles:
+            r_clean = r.lower().strip()
+            if r_clean in CANONICAL_ROLE_PERMISSIONS:
+                canonical_roles.add(r_clean)
+            elif r_clean in ("admin", "tenant-admin"):
+                canonical_roles.add("tenant_admin")
+
+        if not canonical_roles:
+            return None
+
+        # Derive canonical permissions
+        canonical_permissions: set[str] = set()
+        for role in canonical_roles:
+            canonical_permissions.update(CANONICAL_ROLE_PERMISSIONS.get(role, set()))
+
+        principal_id = identity.email or identity.subject
+        return AuthenticatedPrincipal(
+            principal_id=principal_id,
+            principal_type=PrincipalType.HUMAN,
+            authentication_method=AuthenticationMethod.OIDC,
+            tenant_id=self._default_tenant_id,
+            roles=frozenset(canonical_roles),
+            permissions=frozenset(canonical_permissions),
+            issuer=identity.issuer,
+            external_subject=identity.subject,
+        )
 
     async def resolve_service_identity(
         self, identity: VerifiedServiceCredentialIdentity
@@ -128,8 +235,13 @@ class CompositeIdentityResolver(DefaultIdentityResolver):
         postgres_resolver: PostgresServiceIdentityResolver | None = None,
         oidc_mappings: dict[str, AuthenticatedPrincipal] | None = None,
         service_mappings: dict[str, AuthenticatedPrincipal] | None = None,
+        default_tenant_id: str | None = None,
     ) -> None:
-        super().__init__(oidc_mappings=oidc_mappings, service_mappings=service_mappings)
+        super().__init__(
+            oidc_mappings=oidc_mappings,
+            service_mappings=service_mappings,
+            default_tenant_id=default_tenant_id,
+        )
         self._postgres_resolver = postgres_resolver
 
     async def resolve_service_identity(

@@ -31,6 +31,10 @@ from app.core.auth.models import (
     VerifiedOidcIdentity,
     VerifiedServiceCredentialIdentity,
 )
+from app.core.auth.oidc import (
+    OidcVerificationError,
+    OidcVerifier,
+)
 from app.core.auth.rbac import (
     get_current_authenticated_principal,
     require_any_permission,
@@ -79,6 +83,8 @@ __all__ = [
     "MalformedServiceApiKeyError",
     "MalformedTokenError",
     "NonceMismatchError",
+    "OidcVerificationError",
+    "OidcVerifier",
     "PrincipalType",
     "ProviderMetadataUnavailableError",
     "ServiceApiKeyCredentialRecord",

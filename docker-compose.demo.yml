@@ -1,0 +1,45 @@
+services:
+  # ----------------------------------------------------------------------------
+  # Keycloak: Dedicated Local Demo OpenID Connect (OIDC) Identity Provider
+  # Self-hosted standards-compliant OIDC provider for local demo verification.
+  # Binds strictly to loopback (127.0.0.1:8180) to avoid external network exposure.
+  # ----------------------------------------------------------------------------
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.5@sha256:f8ade94c1d0ad2f2fa7734a455fee5392764f402c43ca35e9af6bf63a2541dc9
+    container_name: e7-keycloak
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_RELATIVE_PATH: "/"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
+    volumes:
+      - ./docker/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "/bin/bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 || exit 1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # ----------------------------------------------------------------------------
+  # E-7 API: Overlay environment for local demo OIDC verification
+  # ----------------------------------------------------------------------------
+  api:
+    image: e7-operations-engine:demo-oidc-validation
+    environment:
+      E7_OIDC_PROVIDER_NAME: "keycloak"
+      E7_OIDC_ISSUER_URL: "http://127.0.0.1:8180/realms/operations-engine-demo"
+      E7_OIDC_DISCOVERY_URL: "http://keycloak:8080/realms/operations-engine-demo/.well-known/openid-configuration"
+      E7_OIDC_ALLOWED_ISSUERS: '["http://127.0.0.1:8180/realms/operations-engine-demo", "http://keycloak:8080/realms/operations-engine-demo"]'
+      E7_OIDC_CLIENT_IDS: '["operations-ui", "account"]'
+      E7_OIDC_ALLOWED_JWKS_HOSTS: '["keycloak", "127.0.0.1", "localhost"]'
+      E7_OIDC_DEFAULT_TENANT_ID: "tenant-pilot-001"
+    volumes:
+      - ./app:/app/app:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy

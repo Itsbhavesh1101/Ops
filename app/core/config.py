@@ -10,7 +10,7 @@ from functools import lru_cache
 from typing import Any, Literal
 from urllib.parse import urlparse
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 EnvironmentType = Literal["local", "development", "test", "staging", "production"]
@@ -117,6 +117,112 @@ class Settings(BaseSettings):
     )
     google_oidc_cache_max_seconds: int = Field(
         default=86400,
+        description="Maximum cache TTL in seconds for discovery and JWKS metadata",
+    )
+
+    # Generic OpenID Connect (OIDC) technical configuration (Local Keycloak / Generic)
+    oidc_provider_name: str = Field(
+        default="google",
+        validation_alias=AliasChoices(
+            "E7_OIDC_PROVIDER_NAME", "OIDC_PROVIDER_NAME", "oidc_provider_name"
+        ),
+        description="Active OIDC identity provider name ('google', 'keycloak', 'generic')",
+    )
+    oidc_issuer_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "E7_OIDC_ISSUER_URL", "OIDC_ISSUER_URL", "oidc_issuer_url"
+        ),
+        description="OIDC issuer URL (e.g. http://127.0.0.1:8180/realms/operations-engine-demo)",
+    )
+    oidc_discovery_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "E7_OIDC_DISCOVERY_URL", "OIDC_DISCOVERY_URL", "oidc_discovery_url"
+        ),
+        description="Full OIDC discovery endpoint URL",
+    )
+    oidc_client_ids: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "E7_OIDC_CLIENT_IDS", "OIDC_CLIENT_IDS", "oidc_client_ids"
+        ),
+        description="Approved OIDC client IDs (allowed audiences)",
+    )
+    oidc_allowed_audiences: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "E7_OIDC_ALLOWED_AUDIENCE",
+            "E7_OIDC_ALLOWED_AUDIENCES",
+            "OIDC_ALLOWED_AUDIENCE",
+            "OIDC_ALLOWED_AUDIENCES",
+            "oidc_allowed_audiences",
+        ),
+        description="Approved OIDC audiences (alias for client_ids)",
+    )
+    oidc_allowed_issuers: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "E7_OIDC_ALLOWED_ISSUERS", "OIDC_ALLOWED_ISSUERS", "oidc_allowed_issuers"
+        ),
+        description="Approved token issuer strings",
+    )
+    oidc_allowed_jwks_hosts: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "E7_OIDC_ALLOWED_JWKS_HOSTS", "OIDC_ALLOWED_JWKS_HOSTS", "oidc_allowed_jwks_hosts"
+        ),
+        description="Approved JWKS hostnames/IPs",
+    )
+    oidc_allowed_hosted_domains: list[str] = Field(
+        default_factory=list,
+        validation_alias=AliasChoices(
+            "E7_OIDC_REQUIRED_DOMAIN",
+            "E7_OIDC_ALLOWED_HOSTED_DOMAINS",
+            "OIDC_REQUIRED_DOMAIN",
+            "OIDC_ALLOWED_HOSTED_DOMAINS",
+            "oidc_allowed_hosted_domains",
+        ),
+        description="Allowed hosted domains if applicable ('hd' claim allowlist)",
+    )
+    oidc_default_tenant_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "E7_OIDC_DEFAULT_TENANT_ID", "OIDC_DEFAULT_TENANT_ID", "oidc_default_tenant_id"
+        ),
+        description=(
+            "Canonical internal tenant assigned to authenticated demo OIDC principals "
+            "(fails closed in production if unset)"
+        ),
+    )
+    oidc_http_timeout_seconds: float = Field(
+        default=10.0,
+        validation_alias=AliasChoices(
+            "E7_OIDC_HTTP_TIMEOUT_SECONDS", "OIDC_HTTP_TIMEOUT_SECONDS", "oidc_http_timeout_seconds"
+        ),
+        description="HTTP timeout for discovery and JWKS metadata retrieval",
+    )
+    oidc_clock_skew_seconds: int = Field(
+        default=60,
+        validation_alias=AliasChoices(
+            "E7_OIDC_CLOCK_SKEW_SECONDS", "OIDC_CLOCK_SKEW_SECONDS", "oidc_clock_skew_seconds"
+        ),
+        description="Allowed clock skew in seconds for token verification leeway",
+    )
+    oidc_cache_fallback_seconds: int = Field(
+        default=3600,
+        validation_alias=AliasChoices(
+            "E7_OIDC_CACHE_FALLBACK_SECONDS",
+            "OIDC_CACHE_FALLBACK_SECONDS",
+            "oidc_cache_fallback_seconds",
+        ),
+        description="Fallback cache TTL in seconds for discovery and JWKS metadata",
+    )
+    oidc_cache_max_seconds: int = Field(
+        default=86400,
+        validation_alias=AliasChoices(
+            "E7_OIDC_CACHE_MAX_SECONDS", "OIDC_CACHE_MAX_SECONDS", "oidc_cache_max_seconds"
+        ),
         description="Maximum cache TTL in seconds for discovery and JWKS metadata",
     )
 

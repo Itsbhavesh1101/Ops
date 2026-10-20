@@ -17,6 +17,7 @@ import jwt
 import structlog
 
 from app.core.auth.models import VerifiedOidcIdentity
+from app.core.auth.oidc import OidcVerificationError
 from app.core.config import Settings
 
 logger = structlog.get_logger("app.core.auth.google_oidc")
@@ -35,13 +36,12 @@ PROHIBITED_ALGORITHMS: frozenset[str] = frozenset(
     {"none", "ES256", "PS256", "RS384", "RS512", "HS256", "HS384", "HS512"}
 )
 
-
 # -----------------------------------------------------------------------------
 # Internal Verification Exception Taxonomy
 # -----------------------------------------------------------------------------
 
 
-class GoogleOidcVerificationError(Exception):
+class GoogleOidcVerificationError(OidcVerificationError):
     """Base exception for all Google OIDC verification failures."""
 
     reason_code: str = "OIDC_VERIFICATION_FAILED"

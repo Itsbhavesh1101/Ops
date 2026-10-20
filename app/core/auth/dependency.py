@@ -10,6 +10,8 @@ Provides:
 """
 
 
+from typing import Any
+
 import structlog
 from fastapi import Depends, Request
 
@@ -22,6 +24,10 @@ from app.core.auth.google_oidc import (
 from app.core.auth.models import (
     AuthenticatedPrincipal,
     TenantContext,
+)
+from app.core.auth.oidc import (
+    OidcVerificationError,
+    OidcVerifier,
 )
 from app.core.auth.resolvers import (
     CompositeIdentityResolver,
@@ -48,17 +54,26 @@ class HttpAuthenticator:
     def __init__(
         self,
         settings: Settings | None = None,
-        oidc_verifier: GoogleOidcVerifier | None = None,
+        oidc_verifier: Any | None = None,
         service_key_verifier: ServiceApiKeyVerifier | None = None,
         external_identity_resolver: ExternalIdentityResolver | None = None,
         service_identity_resolver: ServiceIdentityResolver | None = None,
         credential_store: ServiceApiKeyCredentialStore | None = None,
     ) -> None:
         self._settings = settings or get_settings()
-        self._oidc_verifier = oidc_verifier or GoogleOidcVerifier.from_settings(self._settings)
+        if oidc_verifier is not None:
+            self._oidc_verifier = oidc_verifier
+        elif self._settings.oidc_issuer_url or self._settings.oidc_provider_name.lower() in (
+            "keycloak",
+            "generic",
+        ):
+            self._oidc_verifier = OidcVerifier.from_settings(self._settings)
+        else:
+            self._oidc_verifier = GoogleOidcVerifier.from_settings(self._settings)
 
         self._credential_store: ServiceApiKeyCredentialStore
         self._resolver: DefaultIdentityResolver
+        default_tenant = getattr(self._settings, "oidc_default_tenant_id", None)
 
         # 1. Resolve credential store and identity resolvers
         if credential_store is None:
@@ -81,11 +96,12 @@ class HttpAuthenticator:
                 postgres_store=postgres_store
             )
             self._resolver = CompositeIdentityResolver(
-                postgres_resolver=postgres_resolver
+                postgres_resolver=postgres_resolver,
+                default_tenant_id=default_tenant,
             )
         else:
             self._credential_store = credential_store
-            self._resolver = DefaultIdentityResolver()
+            self._resolver = DefaultIdentityResolver(default_tenant_id=default_tenant)
 
         self._service_key_verifier = service_key_verifier or ServiceApiKeyVerifier(
             credential_store=self._credential_store
@@ -154,7 +170,7 @@ class HttpAuthenticator:
             raw_token = parts[1].strip()
             try:
                 verified_oidc = await self._oidc_verifier.verify_id_token(raw_token)
-            except GoogleOidcVerificationError as exc:
+            except (OidcVerificationError, GoogleOidcVerificationError) as exc:
                 logger.warning("oidc_verification_failed", error=str(exc))
                 raise ApiError(
                     status_code=401,
@@ -214,6 +230,8 @@ class HttpAuthenticator:
         )
 
         return principal
+
+    __call__ = authenticate
 
 
 # Process-level singleton authenticator

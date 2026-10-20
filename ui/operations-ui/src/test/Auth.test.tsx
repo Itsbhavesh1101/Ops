@@ -200,4 +200,225 @@ describe("Authentication & Session Flow (Security Hardened)", () => {
     expect(sessionStorage.length).toBe(0);
     expect(localStorage.length).toBe(0);
   });
+
+  it("exposes canonical OIDC configuration structure", () => {
+    let capturedAuth: ReturnType<typeof useAuth> | undefined;
+    const TestConsumer = () => {
+      capturedAuth = useAuth();
+      return <div>Provider: {capturedAuth.oidcConfig.provider}</div>;
+    };
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <TestConsumer />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    expect(capturedAuth?.oidcConfig).toBeDefined();
+    expect(capturedAuth?.oidcConfig).toHaveProperty("clientId");
+    expect(capturedAuth?.oidcConfig).toHaveProperty("issuer");
+    expect(capturedAuth?.oidcConfig).toHaveProperty("authorizationEndpoint");
+    expect(capturedAuth?.oidcConfig).toHaveProperty("tokenEndpoint");
+    expect(capturedAuth?.oidcConfig).toHaveProperty("redirectUri");
+    expect(capturedAuth?.oidcConfig).toHaveProperty("isConfigured");
+    expect(capturedAuth?.oidcConfig).toHaveProperty("isDemoLocalOidc");
+  });
+
+  it("login redirect initiation: generates PKCE parameters and redirects to authorization endpoint", async () => {
+    const originalLocation = window.location;
+    // Mock window.location
+    const mockLocation = {
+      href: "",
+      origin: "http://127.0.0.1:5173",
+    };
+    Object.defineProperty(window, "location", {
+      value: mockLocation,
+      writable: true,
+      configurable: true,
+    });
+
+    let capturedAuth: ReturnType<typeof useAuth> | undefined;
+    const TestConsumer = () => {
+      capturedAuth = useAuth();
+      return <button onClick={() => capturedAuth?.loginWithPkceRedirect()}>Initiate PKCE</button>;
+    };
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <TestConsumer />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      await capturedAuth?.loginWithPkceRedirect();
+    });
+
+    // Verify redirect URL format
+    expect(mockLocation.href).toContain("response_type=code");
+    expect(mockLocation.href).toContain("code_challenge=");
+    expect(mockLocation.href).toContain("code_challenge_method=S256");
+    expect(mockLocation.href).toContain("state=");
+
+    // Verify PKCE session stored in sessionStorage
+    expect(sessionStorage.getItem("e7_oidc_pkce_state")).toBeTruthy();
+    expect(sessionStorage.getItem("e7_oidc_pkce_verifier")).toBeTruthy();
+
+    Object.defineProperty(window, "location", {
+      value: originalLocation,
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  it("callback/session handling: successfully exchanges code with verifier and calls /auth/me", async () => {
+    // Pre-populate sessionStorage with state and verifier as if returning from Keycloak
+    const testState = "test-csrf-state-12345678";
+    const testVerifier = "test-code-verifier-abcdef0123456789";
+    sessionStorage.setItem("e7_oidc_pkce_state", testState);
+    sessionStorage.setItem("e7_oidc_pkce_verifier", testVerifier);
+
+    const mockTokenResponse = {
+      id_token: "mock.jwt.keycloak.id_token",
+      access_token: "mock.jwt.keycloak.access_token",
+      token_type: "Bearer",
+      expires_in: 300,
+    };
+
+    // Mock global fetch for token exchange
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockTokenResponse,
+    } as Response);
+
+    const mockPlannerUser = {
+      principal_id: "usr:planner-001",
+      tenant_id: "tenant-pilot-001",
+      roles: ["planner"],
+      permissions: ["plan:create", "plan:read", "wbs:create"],
+      principal_type: "HUMAN" as const,
+      authentication_method: "OIDC" as const,
+      display_name: "Operations Planner",
+      email: "planner@operations.local",
+    };
+
+    const getCurrentUserSpy = vi
+      .spyOn(apiClient, "getCurrentUser")
+      .mockResolvedValueOnce(mockPlannerUser);
+
+    let capturedAuth: ReturnType<typeof useAuth> | undefined;
+    const TestConsumer = () => {
+      capturedAuth = useAuth();
+      return (
+        <div>
+          <span>Status: {capturedAuth.status}</span>
+          <span>User: {capturedAuth.user?.display_name}</span>
+        </div>
+      );
+    };
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <TestConsumer />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    let resultUser;
+    await act(async () => {
+      resultUser = await capturedAuth?.handleAuthCallback("auth-code-789", testState);
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(getCurrentUserSpy).toHaveBeenCalledTimes(1);
+    expect(resultUser).toEqual(mockPlannerUser);
+    expect(capturedAuth?.isAuthenticated).toBe(true);
+    expect(capturedAuth?.user?.principal_id).toBe("usr:planner-001");
+    expect(capturedAuth?.user?.roles).toContain("planner");
+
+    // Verify PKCE ephemeral session was cleared
+    expect(sessionStorage.getItem("e7_oidc_pkce_state")).toBeNull();
+    expect(sessionStorage.getItem("e7_oidc_pkce_verifier")).toBeNull();
+  });
+
+  it("callback failure: rejects on CSRF state mismatch without exchanging code", async () => {
+    sessionStorage.setItem("e7_oidc_pkce_state", "expected-state-value");
+    sessionStorage.setItem("e7_oidc_pkce_verifier", "verifier-value");
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    let capturedAuth: ReturnType<typeof useAuth> | undefined;
+    const TestConsumer = () => {
+      capturedAuth = useAuth();
+      return <div>Status: {capturedAuth.status}</div>;
+    };
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <TestConsumer />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      try {
+        await capturedAuth?.handleAuthCallback("auth-code-789", "tampered-state-value");
+      } catch (err: unknown) {
+        expect((err as Error).message).toMatch(/CSRF state parameter mismatch/);
+      }
+    });
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(capturedAuth?.status).toBe("AUTH_ERROR");
+    expect(capturedAuth?.isAuthenticated).toBe(false);
+  });
+
+  it("logout clears in-memory user and resets client state", async () => {
+    const mockUser = {
+      principal_id: "usr:approver-001",
+      tenant_id: "tenant-pilot-001",
+      roles: ["approver"],
+      permissions: ["plan:approve"],
+      principal_type: "HUMAN" as const,
+      authentication_method: "OIDC" as const,
+      display_name: "Plan Approver",
+    };
+
+    vi.spyOn(apiClient, "getCurrentUser").mockResolvedValueOnce(mockUser);
+    const setAuthTokenSpy = vi.spyOn(apiClient, "setAuthToken");
+    const setActiveTenantIdSpy = vi.spyOn(apiClient, "setActiveTenantId");
+
+    let capturedAuth: ReturnType<typeof useAuth> | undefined;
+    const TestConsumer = () => {
+      capturedAuth = useAuth();
+      return <div>Auth: {capturedAuth.isAuthenticated ? "YES" : "NO"}</div>;
+    };
+
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <TestConsumer />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      await capturedAuth?.loginWithBearerToken("valid.id_token");
+    });
+    expect(capturedAuth?.isAuthenticated).toBe(true);
+
+    await act(async () => {
+      capturedAuth?.logout();
+    });
+
+    expect(capturedAuth?.isAuthenticated).toBe(false);
+    expect(capturedAuth?.user).toBeNull();
+    expect(setAuthTokenSpy).toHaveBeenCalledWith(null);
+    expect(setActiveTenantIdSpy).toHaveBeenCalledWith(null);
+  });
 });
