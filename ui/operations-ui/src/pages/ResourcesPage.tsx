@@ -414,10 +414,11 @@ export const ResourcesPage: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="resource-key-input" className="block text-xs font-semibold text-slate-700 mb-1">
               Resource Key <span className="text-rose-500">*</span>
             </label>
             <Input
+              id="resource-key-input"
               value={resourceKey}
               onChange={(e) => setResourceKey(e.target.value)}
               placeholder="e.g., room-hall-a"
@@ -428,10 +429,11 @@ export const ResourcesPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="display-label-input" className="block text-xs font-semibold text-slate-700 mb-1">
               Display Label / Name <span className="text-rose-500">*</span>
             </label>
             <Input
+              id="display-label-input"
               value={displayLabel}
               onChange={(e) => setDisplayLabel(e.target.value)}
               placeholder="e.g., Examination Hall A"
@@ -442,10 +444,11 @@ export const ResourcesPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="resource-type-select" className="block text-xs font-semibold text-slate-700 mb-1">
                 Resource Category <span className="text-rose-500">*</span>
               </label>
               <Select
+                id="resource-type-select"
                 value={resourceType}
                 onChange={(e) => setResourceType(e.target.value as ResourceType)}
                 disabled={isSubmitting}
@@ -458,10 +461,11 @@ export const ResourcesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="resource-capacity-input" className="block text-xs font-semibold text-slate-700 mb-1">
                 Capacity <span className="text-rose-500">*</span>
               </label>
               <Input
+                id="resource-capacity-input"
                 type="number"
                 min="1"
                 value={capacity}
@@ -473,10 +477,11 @@ export const ResourcesPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="resource-skills-input" className="block text-xs font-semibold text-slate-700 mb-1">
               Skills / Capabilities (Comma-separated)
             </label>
             <Input
+              id="resource-skills-input"
               value={skillsInput}
               onChange={(e) => setSkillsInput(e.target.value)}
               placeholder="e.g., cctv_monitored, projector, sound_system"

@@ -320,10 +320,11 @@ export const AvailabilityPage: React.FC = () => {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="target-resource-select" className="block text-xs font-semibold text-slate-700 mb-1">
               Select Target Resource <span className="text-rose-500">*</span>
             </label>
             <Select
+              id="target-resource-select"
               value={formResourceId}
               onChange={(e) => setFormResourceId(e.target.value)}
               disabled={isSubmitting}
@@ -338,10 +339,11 @@ export const AvailabilityPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="interval-type-select" className="block text-xs font-semibold text-slate-700 mb-1">
               Interval Type <span className="text-rose-500">*</span>
             </label>
             <Select
+              id="interval-type-select"
               value={formIntervalType}
               onChange={(e) => setFormIntervalType(e.target.value as "AVAILABLE" | "UNAVAILABLE")}
               disabled={isSubmitting}
@@ -354,10 +356,11 @@ export const AvailabilityPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="availability-start-at" className="block text-xs font-semibold text-slate-700 mb-1">
                 Start Time <span className="text-rose-500">*</span>
               </label>
               <Input
+                id="availability-start-at"
                 type="datetime-local"
                 value={formStartAt}
                 onChange={(e) => setFormStartAt(e.target.value)}
@@ -367,10 +370,11 @@ export const AvailabilityPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label htmlFor="availability-end-at" className="block text-xs font-semibold text-slate-700 mb-1">
                 End Time <span className="text-rose-500">*</span>
               </label>
               <Input
+                id="availability-end-at"
                 type="datetime-local"
                 value={formEndAt}
                 onChange={(e) => setFormEndAt(e.target.value)}
@@ -381,10 +385,11 @@ export const AvailabilityPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label htmlFor="availability-reason-input" className="block text-xs font-semibold text-slate-700 mb-1">
               Reason / Operational Notes
             </label>
             <Input
+              id="availability-reason-input"
               value={formReason}
               onChange={(e) => setFormReason(e.target.value)}
               placeholder="e.g., Examination Shift A or Scheduled Deep Cleaning"
