@@ -40,6 +40,8 @@ import type {
   ResourceType,
   ResourceCatalogItem,
   ResourceAvailabilityItem,
+  ResourceCreateRequest,
+  ResourceAvailabilityCreateRequest,
   ScheduleJobSubmitRequest,
   ScheduleJobResponse,
   SchedulePublishRequest,
@@ -85,6 +87,8 @@ export type {
   ResourceType,
   ResourceCatalogItem,
   ResourceAvailabilityItem,
+  ResourceCreateRequest,
+  ResourceAvailabilityCreateRequest,
   ScheduleJobSubmitRequest,
   ScheduleJobResponse,
   SchedulePublishRequest,
@@ -572,6 +576,32 @@ export class WorkflowApiClient {
     return this.request<ResourceAvailabilityItem[]>(`/resources/availability${query}`, {
       method: "GET",
       headers,
+    });
+  }
+
+  async createResource(
+    payload: ResourceCreateRequest,
+    tenantId?: string
+  ): Promise<ResourceCatalogItem> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<ResourceCatalogItem>("/resources", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async createAvailability(
+    payload: ResourceAvailabilityCreateRequest,
+    tenantId?: string
+  ): Promise<ResourceAvailabilityItem> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<ResourceAvailabilityItem>("/resources/availability", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
     });
   }
 

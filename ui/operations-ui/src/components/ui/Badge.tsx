@@ -8,6 +8,16 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   dot?: boolean;
 }
 
+export const formatStatusText = (text: string): string => {
+  if (text.includes("_")) {
+    return text
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  }
+  return text;
+};
+
 export const Badge: React.FC<BadgeProps> = ({
   children,
   variant = "neutral",
@@ -17,46 +27,47 @@ export const Badge: React.FC<BadgeProps> = ({
   ...props
 }) => {
   const sizeStyles = {
-    sm: "px-2 py-0.5 text-[10px]",
-    md: "px-2.5 py-1 text-xs",
+    sm: "px-2 py-0.5 text-[11px]",
+    md: "px-2.5 py-0.5 text-xs",
   }[size];
 
   const variantStyles: Record<BadgeVariant, { container: string; dot: string }> = {
     success: {
-      container: "bg-emerald-950/60 text-emerald-300 border-emerald-800/80",
-      dot: "bg-emerald-400",
+      container: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
+      dot: "bg-emerald-500",
     },
     warning: {
-      container: "bg-amber-950/60 text-amber-300 border-amber-800/80",
-      dot: "bg-amber-400",
+      container: "bg-amber-50 text-amber-800 border-amber-200/80",
+      dot: "bg-amber-500",
     },
     error: {
-      container: "bg-rose-950/60 text-rose-300 border-rose-800/80",
-      dot: "bg-rose-400",
+      container: "bg-rose-50 text-rose-700 border-rose-200/80",
+      dot: "bg-rose-500",
     },
     info: {
-      container: "bg-blue-950/60 text-blue-300 border-blue-800/80",
-      dot: "bg-blue-400",
+      container: "bg-blue-50 text-blue-700 border-blue-200/80",
+      dot: "bg-blue-500",
     },
     primary: {
-      container: "bg-indigo-950/60 text-indigo-300 border-indigo-800/80",
-      dot: "bg-indigo-400",
+      container: "bg-indigo-50 text-indigo-700 border-indigo-200/80",
+      dot: "bg-indigo-500",
     },
     neutral: {
-      container: "bg-slate-800/80 text-slate-300 border-slate-700",
+      container: "bg-slate-100 text-slate-700 border-slate-200/80",
       dot: "bg-slate-400",
     },
   };
 
   const currentVariant = variantStyles[variant];
+  const renderedContent = typeof children === "string" ? formatStatusText(children) : children;
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-semibold rounded-md border tracking-wider uppercase ${sizeStyles} ${currentVariant.container} ${className}`}
+      className={`inline-flex items-center gap-1.5 font-medium rounded-full border whitespace-nowrap shrink-0 ${sizeStyles} ${currentVariant.container} ${className}`}
       {...props}
     >
-      {dot && <span className={`w-1.5 h-1.5 rounded-full ${currentVariant.dot}`} />}
-      {children}
+      {dot && <span className={`w-1.5 h-1.5 rounded-full ${currentVariant.dot} shrink-0`} />}
+      <span>{renderedContent}</span>
     </span>
   );
 };

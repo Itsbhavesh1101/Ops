@@ -74,14 +74,14 @@ export const SystemPage: React.FC = () => {
       {health && ready && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Liveness Card */}
-          <Card>
+          <Card className="bg-white border border-slate-200 shadow-2xs">
             <CardHeader>
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <Server className="w-4 h-4 text-emerald-400" />
+                  <Server className="w-4 h-4 text-emerald-600" />
                   <span>Liveness Probe (/api/v1/health)</span>
                 </CardTitle>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Verifies process health and gateway routing responsiveness
                 </p>
               </div>
@@ -90,32 +90,32 @@ export const SystemPage: React.FC = () => {
               </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2 text-xs font-mono">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Service:</span>
-                  <span className="text-white">{health.service}</span>
+                  <span className="text-slate-500">Service:</span>
+                  <span className="text-slate-900 font-semibold">{health.service}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Status:</span>
-                  <span className="text-emerald-400 font-bold">{health.status.toUpperCase()}</span>
+                  <span className="text-slate-500">Status:</span>
+                  <span className="text-emerald-700 font-bold">{health.status.toUpperCase()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Environment:</span>
-                  <span className="text-white">{health.environment}</span>
+                  <span className="text-slate-500">Environment:</span>
+                  <span className="text-slate-900">{health.environment}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Readiness Card */}
-          <Card>
+          <Card className="bg-white border border-slate-200 shadow-2xs">
             <CardHeader>
               <div>
                 <CardTitle className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                  <CheckCircle2 className="w-4 h-4 text-indigo-600" />
                   <span>Readiness Probe (/api/v1/ready)</span>
                 </CardTitle>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-slate-500 mt-1">
                   Verifies downstream database and message broker availability
                 </p>
               </div>
@@ -124,22 +124,22 @@ export const SystemPage: React.FC = () => {
               </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-lg space-y-2 text-xs font-mono">
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2 text-xs font-mono">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Readiness:</span>
-                  <span className="text-emerald-400 font-bold">{ready.status.toUpperCase()}</span>
+                  <span className="text-slate-500">Readiness:</span>
+                  <span className="text-emerald-700 font-bold">{ready.status.toUpperCase()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">PostgreSQL (Pool):</span>
-                  <span className="text-emerald-400">CONNECTED</span>
+                  <span className="text-slate-500">PostgreSQL (Pool):</span>
+                  <span className="text-emerald-700 font-semibold">CONNECTED</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">RabbitMQ Broker:</span>
-                  <span className="text-emerald-400">REACHABLE</span>
+                  <span className="text-slate-500">RabbitMQ Broker:</span>
+                  <span className="text-emerald-700 font-semibold">REACHABLE</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Flowable REST Engine:</span>
-                  <span className="text-emerald-400">ACTIVE</span>
+                  <span className="text-slate-500">Flowable REST Engine:</span>
+                  <span className="text-emerald-700 font-semibold">ACTIVE</span>
                 </div>
               </div>
             </CardContent>

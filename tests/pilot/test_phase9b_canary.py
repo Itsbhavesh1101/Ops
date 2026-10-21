@@ -33,12 +33,12 @@ from app.core.auth.service_api_key import (
     compute_secret_digest,
 )
 from app.events.schemas import EventEnvelope
-from app.scheduling.education.dataset import load_education_dataset
 from app.scheduling.education.evaluator import EducationScheduleEvaluator
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.schemas import ScheduleStatus
 from app.scheduling.solvers.cpsat import CpSatScheduler
 from app.workflow.dmn.validator import DmnValidator
+from tests.fixtures.scheduling.education.dataset import load_education_dataset
 
 PILOT_TENANT_ID: str = "tenant-pilot-001"
 PILOT_CREDENTIAL_ID: str = "cred-pilot-exam-admin"

@@ -23,16 +23,16 @@ export const UserMenu: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         aria-label="User account menu"
         aria-expanded={isOpen}
-        className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full bg-slate-900 border border-slate-700 hover:border-slate-600 transition-colors cursor-pointer text-left"
+        className="flex items-center gap-2 p-1 pl-2 pr-2.5 rounded-full bg-white border border-slate-200 hover:border-slate-300 transition-colors cursor-pointer text-left shadow-xs"
       >
-        <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shadow">
+        <div className="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-bold text-white shadow-xs">
           {initials}
         </div>
         <div className="hidden sm:block text-xs">
-          <div className="font-semibold text-white leading-none truncate max-w-[120px]">
+          <div className="font-semibold text-slate-900 leading-none truncate max-w-[120px]">
             {user.display_name || user.principal_id}
           </div>
-          <div className="text-[10px] text-slate-400 leading-none mt-0.5 truncate max-w-[120px]">
+          <div className="text-[10px] text-slate-500 leading-none mt-0.5 truncate max-w-[120px]">
             {user.roles[0] || "User"}
           </div>
         </div>
@@ -40,39 +40,39 @@ export const UserMenu: React.FC = () => {
 
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-4 z-50 text-left text-xs space-y-3 animate-in fade-in"
+          className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-xl shadow-xl p-4 z-50 text-left text-xs space-y-3"
           role="menu"
         >
           {/* Identity Header */}
-          <div className="border-b border-slate-800 pb-3">
-            <div className="font-bold text-sm text-white truncate">
+          <div className="border-b border-slate-100 pb-3">
+            <div className="font-bold text-sm text-slate-900 truncate">
               {user.display_name || "Enterprise User"}
             </div>
             {user.email && (
-              <div className="text-slate-400 text-xs truncate mt-0.5">{user.email}</div>
+              <div className="text-slate-500 text-xs truncate mt-0.5">{user.email}</div>
             )}
-            <div className="font-mono text-[10px] text-slate-500 mt-1 truncate">
+            <div className="font-mono text-[10px] text-slate-400 mt-1 truncate">
               ID: {user.principal_id}
             </div>
           </div>
 
           {/* Tenant & Role Details */}
-          <div className="space-y-2 text-slate-300">
-            <div className="flex items-center gap-2 text-slate-400">
-              <Building2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+          <div className="space-y-2 text-slate-700">
+            <div className="flex items-center gap-2 text-slate-500">
+              <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
               <span>Tenant:</span>
-              <strong className="text-white font-mono">{user.tenant_id}</strong>
+              <strong className="text-slate-900 font-mono">{user.tenant_id}</strong>
             </div>
 
-            <div className="flex items-start gap-2 text-slate-400">
-              <Shield className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 text-slate-500">
+              <Shield className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
               <div>
                 <span>Roles:</span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {user.roles.map((role) => (
                     <span
                       key={role}
-                      className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-[10px] text-indigo-300 font-semibold"
+                      className="px-2 py-0.5 bg-slate-100 border border-slate-200 rounded text-[10px] text-indigo-700 font-semibold"
                     >
                       {role}
                     </span>
@@ -81,21 +81,21 @@ export const UserMenu: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 text-slate-400">
-              <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <div className="flex items-center gap-2 text-slate-500">
+              <Key className="w-3.5 h-3.5 text-amber-600 shrink-0" />
               <span>Auth:</span>
-              <span className="text-slate-200">{user.authentication_method}</span>
+              <span className="text-slate-700">{user.authentication_method}</span>
             </div>
           </div>
 
           {/* Logout Action */}
-          <div className="pt-2 border-t border-slate-800">
+          <div className="pt-2 border-t border-slate-100">
             <button
               onClick={() => {
                 setIsOpen(false);
                 logout();
               }}
-              className="w-full flex items-center gap-2 px-3 py-2 text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer border-none bg-transparent font-medium"
+              className="w-full flex items-center gap-2 px-3 py-2 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer border-none bg-transparent font-medium"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Sign Out</span>

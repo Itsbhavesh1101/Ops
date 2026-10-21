@@ -43,17 +43,17 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const icons: Record<ToastType, React.ReactNode> = {
-    success: <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />,
-    warning: <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />,
-    error: <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />,
-    info: <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />,
+    success: <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />,
+    warning: <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />,
+    error: <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />,
+    info: <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />,
   };
 
   const borders: Record<ToastType, string> = {
-    success: "border-emerald-800 bg-slate-900/95",
-    warning: "border-amber-800 bg-slate-900/95",
-    error: "border-rose-800 bg-slate-900/95",
-    info: "border-blue-800 bg-slate-900/95",
+    success: "border-emerald-200 bg-white",
+    warning: "border-amber-200 bg-white",
+    error: "border-rose-200 bg-white",
+    info: "border-blue-200 bg-white",
   };
 
   return (
@@ -66,16 +66,16 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto p-3.5 border rounded-xl shadow-xl flex items-start gap-3 text-xs text-left text-slate-200 transition-all ${borders[toast.type]}`}
+            className={`pointer-events-auto p-3.5 border rounded-lg shadow-lg flex items-start gap-3 text-xs text-left text-slate-800 transition-all ${borders[toast.type]}`}
           >
             {icons[toast.type]}
             <div className="flex-1 min-w-0">
-              {toast.title && <div className="font-semibold text-white mb-0.5">{toast.title}</div>}
-              <div className="text-slate-300">{toast.message}</div>
+              {toast.title && <div className="font-semibold text-slate-900 mb-0.5">{toast.title}</div>}
+              <div className="text-slate-600">{toast.message}</div>
             </div>
             <button
               onClick={() => removeToast(toast.id)}
-              className="text-slate-500 hover:text-slate-300 cursor-pointer p-0.5 bg-transparent border-none"
+              className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5 bg-transparent border-none"
             >
               <X className="w-3.5 h-3.5" />
             </button>

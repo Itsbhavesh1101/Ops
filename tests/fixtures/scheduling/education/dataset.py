@@ -1,9 +1,8 @@
 """Canonical Education Benchmark Dataset Loader and Manifest.
 
-Part of Phase 5 Education Scheduling PoC.
-Composes the approved Phase-0 education fixtures and resource catalog
-into a single, normalized, deterministic benchmark package.
-Guarantees identical canonical inputs across all evaluated solvers.
+Moved from app/scheduling/education/dataset.py to enforce strict runtime/test boundary.
+This loader is strictly for offline benchmarks and tests; it is NEVER imported by
+production runtime.
 """
 
 from __future__ import annotations
@@ -29,10 +28,7 @@ from app.scheduling.education.dtos import (
 )
 from app.scheduling.schemas import SchedulingResourceSnapshot
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-PHASE5_FIXTURES_DIR = (
-    REPO_ROOT / "tests" / "fixtures" / "scheduling" / "education" / "phase5"
-)
+PHASE5_FIXTURES_DIR = Path(__file__).resolve().parent / "phase5"
 RESOURCES_FILE = PHASE5_FIXTURES_DIR / "PHASE5-RS-EDU-001.json"
 EXAM_FEASIBLE_FILE = PHASE5_FIXTURES_DIR / "PHASE5-SC-EXAM-FEASIBLE-001.json"
 EXAM_INFEASIBLE_FILE = PHASE5_FIXTURES_DIR / "PHASE5-SC-EXAM-INFEASIBLE-001.json"
@@ -87,7 +83,6 @@ def get_canonical_resources() -> list[SchedulingResourceSnapshot]:
     snapshots: list[SchedulingResourceSnapshot] = []
     for r in data["resources"]:
         if r["id"] in education_resource_ids:
-            # Map room attributes (equipment, room_type) into skills for capability matching
             attrs = r.get("attributes", {})
             combined_skills = list(r.get("skills", []))
             if "equipment" in attrs and isinstance(attrs["equipment"], list):

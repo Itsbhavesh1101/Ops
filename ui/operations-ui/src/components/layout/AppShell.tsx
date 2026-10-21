@@ -24,18 +24,18 @@ export class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-slate-100">
-          <div className="max-w-md p-6 bg-slate-900 border border-rose-900/60 rounded-2xl shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-950 flex items-center justify-center text-rose-400 mx-auto">
-              ⚠️
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center text-slate-900">
+          <div className="max-w-md p-6 bg-white border border-rose-200 rounded-xl shadow-lg space-y-4">
+            <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center text-rose-600 mx-auto font-bold text-sm">
+              !
             </div>
-            <h2 className="text-lg font-bold text-white">Application Runtime Exception</h2>
-            <p className="text-xs text-rose-300">
+            <h2 className="text-base font-bold text-slate-900">Application Runtime Exception</h2>
+            <p className="text-xs text-rose-700">
               {this.state.error?.message || "An unexpected error occurred in the user interface."}
             </p>
             <button
               onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold cursor-pointer border-none"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold cursor-pointer border-none shadow-xs"
             >
               Reload Application
             </button>
@@ -53,7 +53,7 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <LoadingState message="Initializing Operations Engine session..." />
       </div>
     );
@@ -61,11 +61,11 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-        {/* Skip to Main Content Link for Screen Readers */}
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+        {/* Skip to Main Content Link for Accessibility */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:text-xs focus:font-semibold"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-md focus:text-xs focus:font-semibold"
         >
           Skip to main content
         </a>
@@ -73,18 +73,18 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) 
         {/* Navigation Sidebar */}
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        {/* Content Area offset by Sidebar width on desktop */}
-        <div className="flex-1 flex flex-col md:pl-64">
+        {/* Content Area offset by Sidebar width on desktop (w-[232px]) */}
+        <div className="flex-1 flex flex-col md:pl-[232px]">
           <Header onOpenSidebar={() => setSidebarOpen(true)} />
 
-          <main id="main-content" className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+          <main id="main-content" className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1440px] w-full mx-auto">
             {children}
           </main>
 
-          {/* Institutional Footer */}
-          <footer className="px-6 py-4 bg-slate-900 border-t border-slate-800 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
-            <span>IR Infotech E-7 Operations Engine — Production Demo Interface</span>
-            <span>Connected to Canonical Real Backend (Port 8088 Gateway)</span>
+          {/* Clean Institutional Footer */}
+          <footer className="px-6 py-3 bg-white/50 border-t border-slate-200/60 text-xs text-slate-400 flex flex-wrap items-center justify-between gap-2">
+            <span className="font-medium text-slate-500">E-7 Operations Engine</span>
+            <span className="text-slate-400 text-[11px]">Enterprise Operations Platform</span>
           </footer>
         </div>
       </div>

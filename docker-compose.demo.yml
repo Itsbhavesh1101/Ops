@@ -24,6 +24,12 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+  # ----------------------------------------------------------------------------
+  # PostgreSQL: Expose port 55432 on loopback for local integration & perf tests
+  # ----------------------------------------------------------------------------
+  postgres:
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-54332}:5432"
 
   # ----------------------------------------------------------------------------
   # E-7 API: Overlay environment for local demo OIDC verification
@@ -37,7 +43,17 @@ services:
       E7_OIDC_ALLOWED_ISSUERS: '["http://127.0.0.1:8180/realms/operations-engine-demo", "http://keycloak:8080/realms/operations-engine-demo"]'
       E7_OIDC_CLIENT_IDS: '["operations-ui", "account"]'
       E7_OIDC_ALLOWED_JWKS_HOSTS: '["keycloak", "127.0.0.1", "localhost"]'
-      E7_OIDC_DEFAULT_TENANT_ID: "tenant-pilot-001"
+      E7_OIDC_DEFAULT_TENANT_ID: "tenant-demo-real-001"
+      E7_MYSQL_ERP_ENABLED: ${E7_MYSQL_ERP_ENABLED:-false}
+      E7_MYSQL_ERP_HOST: ${E7_MYSQL_ERP_HOST:-}
+      E7_MYSQL_ERP_PORT: ${E7_MYSQL_ERP_PORT:-3306}
+      E7_MYSQL_ERP_USER: ${E7_MYSQL_ERP_USER:-}
+      E7_MYSQL_ERP_PASSWORD: ${E7_MYSQL_ERP_PASSWORD:-}
+      E7_MYSQL_ERP_DATABASE: ${E7_MYSQL_ERP_DATABASE:-iredu}
+      E7_MYSQL_ERP_SINGLE_TENANT_ID: "tenant-demo-real-001"
+      E7_MYSQL_ERP_TIMEOUT_SECONDS: ${E7_MYSQL_ERP_TIMEOUT_SECONDS:-10.0}
+    env_file:
+      - .env
     volumes:
       - ./app:/app/app:ro
     depends_on:

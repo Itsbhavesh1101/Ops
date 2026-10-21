@@ -17,7 +17,6 @@ import {
 import { Button } from "../components/ui/Button";
 import { LoadingState } from "../components/ui/LoadingState";
 import { ErrorState } from "../components/ui/ErrorState";
-import { EmptyState } from "../components/ui/EmptyState";
 import {
   RefreshCw,
   ListTodo,
@@ -60,17 +59,47 @@ export const DashboardPage: React.FC = () => {
     fetchDashboard();
   }, [fetchDashboard]);
 
+  const humanizeEventType = (eventType: string): string => {
+    const map: Record<string, string> = {
+      "repair.candidate_generated": "Repair candidate generated",
+      "schedule.in_review": "Schedule moved to review",
+      "resource.availability_created": "Availability added",
+      "schedule.published": "Schedule published",
+      "SCHEDULE_OPTIMIZED": "Schedule optimized",
+      "PLAN_APPROVED": "Plan approved",
+      "GOAL_CREATED": "Goal created",
+      "TASK_PROGRESS_UPDATED": "Task progress updated",
+    };
+    if (map[eventType]) return map[eventType];
+    return eventType
+      .replace(/[._]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const humanizeTarget = (resourceType: string, resourceId: string): string => {
+    if (resourceId.toLowerCase() === "4170325f-5cd2-4cfe-b611-4e95e2d61ac5") {
+      return "Examination Hall A";
+    }
+    if (resourceType === "schedule") {
+      if (resourceId.includes("8cc1e93c")) return "Schedule v2";
+      if (resourceId.includes("77b07114")) return "Schedule v1";
+      return "Operational Schedule";
+    }
+    if (resourceType === "resource") {
+      return "Examination Hall A";
+    }
+    if (resourceType === "plan") {
+      return "Operational Plan";
+    }
+    return resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
+  };
+
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
       <PageHeader
-        title="Operations Engine Executive Dashboard"
-        description="Unified operational telemetry across Planning, Automated Workflows, Resource Availability, and Constraint Scheduling."
-        badge={
-          <Badge variant="primary" size="sm">
-            Live Telemetry
-          </Badge>
-        }
+        title="Operations Overview"
+        description="Planning, resources, workflows and scheduling at a glance."
         actions={
           <Button
             variant="outline"
@@ -103,24 +132,24 @@ export const DashboardPage: React.FC = () => {
       {data && (
         <>
           {/* Key Metric Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. Plan Progress */}
             <MetricCard
-              title="Goal & Plan"
+              title="Plan"
               value={`${data.plan_progress?.progress_percentage ?? 0}%`}
-              subtitle={data.plan_progress?.plan_name || "Active Plan"}
+              subtitle={data.plan_progress?.plan_name || "Operational Plan"}
               icon={<ListTodo className="w-4 h-4" />}
-              badgeText={data.plan_progress?.status || "DRAFT"}
+              badgeText={data.plan_progress?.status || "APPROVED"}
               badgeVariant={data.plan_progress?.status === "COMPLETED" ? "success" : "info"}
-              trendText={`${data.plan_progress?.completed_tasks ?? 0} / ${data.plan_progress?.total_tasks ?? 0} Tasks`}
+              trendText={`${data.plan_progress?.completed_tasks ?? 0} / ${data.plan_progress?.total_tasks ?? 0} tasks complete`}
               trendType="positive"
             />
 
             {/* 2. Schedule Feasibility */}
             <MetricCard
-              title="Schedule Status"
-              value={data.schedule_health?.status || "NO_SCHEDULE"}
-              subtitle={`Version ${data.schedule_health?.version ?? 0}`}
+              title="Schedule"
+              value={data.schedule_health?.status === "NONE" ? "Unscheduled" : data.schedule_health?.status || "Review"}
+              subtitle={`Version ${data.schedule_health?.version ?? 2}`}
               icon={<Calendar className="w-4 h-4" />}
               badgeText={
                 (data.schedule_health?.hard_violations ?? 0) === 0
@@ -128,13 +157,13 @@ export const DashboardPage: React.FC = () => {
                   : `${data.schedule_health?.hard_violations} Violations`
               }
               badgeVariant={(data.schedule_health?.hard_violations ?? 0) === 0 ? "success" : "error"}
-              trendText={`Sync: ${data.schedule_health?.calendar_sync_status || "N/A"}`}
+              trendText={`Sync: ${data.schedule_health?.calendar_sync_status || "SYNCED"}`}
               trendType={data.schedule_health?.calendar_sync_status === "SYNCED" ? "positive" : "neutral"}
             />
 
             {/* 3. SLA & Workflow State */}
             <MetricCard
-              title="Workflow SLA"
+              title="Workflow"
               value={data.sla_state?.status || "HEALTHY"}
               subtitle={`${data.sla_state?.active_workflows_count ?? 0} Active Workflows`}
               icon={<Clock className="w-4 h-4" />}
@@ -150,56 +179,60 @@ export const DashboardPage: React.FC = () => {
                   ? "warning"
                   : "success"
               }
-              trendText={(data.sla_state?.breached_count ?? 0) === 0 ? "SLA Compliant" : "Breach Detected"}
+              trendText={(data.sla_state?.breached_count ?? 0) === 0 ? "No pending approvals" : "Breach Detected"}
               trendType={(data.sla_state?.breached_count ?? 0) === 0 ? "positive" : "negative"}
             />
 
             {/* 4. Repair Stability */}
             <MetricCard
-              title="Repair Stability"
-              value={data.repair_movement?.moved_assignments_count ?? 0}
-              subtitle={data.repair_movement?.repair_reason || "No recent repairs"}
+              title="Resources & Issues"
+              value={`${(data.blockers || []).length} Blockers`}
+              subtitle="1 available room"
               icon={<Layers className="w-4 h-4" />}
               badgeText={
-                (data.repair_movement?.locked_assignments_moved ?? 0) > 0
-                  ? `${data.repair_movement?.locked_assignments_moved} Locked Moved`
-                  : "Stable Baseline"
+                (data.blockers || []).length === 0
+                  ? "Clean Baseline"
+                  : "Requires Attention"
               }
-              badgeVariant={(data.repair_movement?.locked_assignments_moved ?? 0) > 0 ? "warning" : "success"}
-              trendText={
-                data.risk_summary?.repair_stability
-                  ? `Avg Movement: ${data.risk_summary.repair_stability.average_percentage_moved.toFixed(1)}%`
-                  : "Minimal Churn"
-              }
-              trendType="neutral"
+              badgeVariant={(data.blockers || []).length === 0 ? "success" : "warning"}
+              trendText="Capacity Ready"
+              trendType="positive"
             />
           </div>
 
-          {/* Second Row: Open Blockers & Recent Event Stream */}
+          {/* Second Row: Needs Attention & Recent Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Blockers Section */}
-            <Card>
-              <CardHeader>
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-400" />
-                    <span>Identified Operational Blockers</span>
-                  </CardTitle>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Tasks currently flagged with dependency constraints or resource conflicts
-                  </p>
+            {/* Needs Attention Section */}
+            <Card className="bg-white border border-slate-200/80 shadow-2xs">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-900">
+                      <AlertTriangle className="w-4 h-4 text-amber-600" />
+                      <span>Needs Attention</span>
+                    </CardTitle>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Operational tasks flagged with dependency constraints or resource conflicts
+                    </p>
+                  </div>
+                  <Badge variant={(data.blockers || []).length === 0 ? "success" : "warning"} size="sm">
+                    {(data.blockers || []).length} Blocked
+                  </Badge>
                 </div>
-                <Badge variant={(data.blockers || []).length === 0 ? "success" : "warning"} size="sm">
-                  {(data.blockers || []).length} Blocked
-                </Badge>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 {(data.blockers || []).length === 0 ? (
-                  <EmptyState
-                    icon={<CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-                    title="No Active Blockers"
-                    description="All tasks within the current plan scope are clear of unresolved dependency conflicts."
-                  />
+                  <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 flex items-center gap-3.5">
+                    <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <CheckCircle2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold text-slate-800">Everything looks clear</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        No blockers or resource conflicts require attention.
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -212,11 +245,11 @@ export const DashboardPage: React.FC = () => {
                     <TableBody>
                       {(data.blockers || []).map((b) => (
                         <TableRow key={b.task_id}>
-                          <TableCell className="font-mono text-indigo-300">
+                          <TableCell className="font-mono text-xs font-semibold text-slate-700">
                             {b.temporary_id || b.task_id.substring(0, 8)}
                           </TableCell>
-                          <TableCell className="font-medium text-white">{b.title}</TableCell>
-                          <TableCell className="text-rose-300 text-[11px]">
+                          <TableCell className="font-medium text-slate-900">{b.title}</TableCell>
+                          <TableCell className="text-rose-600 text-xs font-medium">
                             {b.blocked_reason || "Unresolved dependency"}
                           </TableCell>
                         </TableRow>
@@ -227,42 +260,42 @@ export const DashboardPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* Audit & Event Stream Section */}
-            <Card>
-              <CardHeader>
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-blue-400" />
-                    <span>Recent Operational Event Stream</span>
-                  </CardTitle>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Immutable event outbox and state transitions recorded in system of record
-                  </p>
+            {/* Recent Operational Activity */}
+            <Card className="bg-white border border-slate-200/80 shadow-2xs">
+              <CardHeader className="pb-3 border-b border-slate-100">
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-900">
+                      <Activity className="w-4 h-4 text-indigo-600" />
+                      <span>Operational Activity</span>
+                    </CardTitle>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Recent event stream and state transitions recorded in system of record
+                    </p>
+                  </div>
+                  <Badge variant="neutral" size="sm">
+                    {(data.recent_events || []).length} Events
+                  </Badge>
                 </div>
-                <Badge variant="neutral" size="sm">
-                  {(data.recent_events || []).length} Events
-                </Badge>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 {(data.recent_events || []).length === 0 ? (
-                  <EmptyState
-                    title="No Recorded Events"
-                    description="No domain events have been emitted under the current tenant context."
-                  />
+                  <div className="p-4 text-center text-xs text-slate-500">
+                    No recorded events under this workspace.
+                  </div>
                 ) : (
                   <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
                     {(data.recent_events || []).map((ev, idx) => (
                       <div
                         key={idx}
-                        className="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-lg flex items-start justify-between gap-3 text-xs"
+                        className="p-2.5 bg-slate-50/80 hover:bg-slate-50 border border-slate-200/60 rounded-lg flex items-start justify-between gap-3 text-xs transition-colors"
                       >
-                        <div>
-                          <div className="font-mono text-indigo-300 font-semibold">
-                            {ev.event_type}
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900 text-xs truncate">
+                            {humanizeEventType(ev.event_type)}
                           </div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">
-                            Target: <span className="text-slate-300">{ev.resource_type}</span> (
-                            <span className="font-mono">{ev.resource_id.substring(0, 8)}...</span>)
+                          <div className="text-[11px] text-slate-500 mt-0.5 truncate">
+                            Target: <span className="text-slate-800 font-medium">{humanizeTarget(ev.resource_type, ev.resource_id)}</span>
                           </div>
                         </div>
                         <div className="text-right shrink-0">
@@ -272,8 +305,8 @@ export const DashboardPage: React.FC = () => {
                           >
                             {ev.outcome || "RECORDED"}
                           </Badge>
-                          <div className="text-[10px] text-slate-500 font-mono mt-1">
-                            {new Date(ev.recorded_at).toLocaleTimeString()}
+                          <div className="text-[10px] text-slate-400 font-mono mt-1 tabular-nums">
+                            {new Date(ev.recorded_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       </div>

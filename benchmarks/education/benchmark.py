@@ -27,12 +27,15 @@ from app.scheduling.education.adapters.unitime import (
     UniTimeSchedulerAdapter,
     build_benchmark_unitime_config,
 )
-from app.scheduling.education.dataset import build_benchmark_manifest, load_education_dataset
 from app.scheduling.education.evaluator import EducationScheduleEvaluator
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.schemas import ScheduleStatus
+from tests.fixtures.scheduling.education.dataset import (
+    build_benchmark_manifest,
+    load_education_dataset,
+)
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 EVIDENCE_FILE = REPO_ROOT / "docs" / "phase-5" / "PHASE_5_BENCHMARK_EVIDENCE.json"
 
 FET_BENCHMARK_STATUS: str = "NOT_RUN_LEGAL_GATE_NOT_APPROVED"

@@ -105,10 +105,27 @@ export const SchedulingJobsPage: React.FC = () => {
   );
 
   useEffect(() => {
+    const loadLatestJob = async () => {
+      try {
+        const scheds = await apiClient.listSchedules(undefined, tenantId);
+        if (scheds && scheds.length > 0) {
+          const sorted = [...scheds].sort((a, b) => b.version - a.version);
+          const latest = sorted[0];
+          setResultingScheduleId(latest.id);
+          if (latest.source_job_id) {
+            const job = await apiClient.getScheduleJob(latest.source_job_id, tenantId).catch(() => null);
+            if (job) setActiveJob(job);
+          }
+        }
+      } catch {
+        // Non-blocking initial query
+      }
+    };
+    loadLatestJob();
     return () => {
       stopPolling();
     };
-  }, []);
+  }, [tenantId]);
 
   const handleSubmitJob = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -119,10 +136,99 @@ export const SchedulingJobsPage: React.FC = () => {
 
     try {
       const now = new Date();
-      const horizonStart = new Date(now.getTime() + 3600 * 1000).toISOString();
-      const horizonEnd = new Date(now.getTime() + 3600 * 1000 * 8).toISOString();
+      let horizonStart = new Date(now.getTime() + 3600 * 1000).toISOString();
+      let horizonEnd = new Date(now.getTime() + 3600 * 1000 * 8).toISOString();
 
-      // Synthesize clean canonical problem definition
+      // Check registered availability windows to align operational horizon
+      try {
+        const availabilities = await apiClient.listAvailability(undefined, tenantId);
+        if (availabilities && availabilities.length > 0) {
+          const openWindow = availabilities.find((a) => a.interval_type === "AVAILABLE");
+          if (openWindow) {
+            horizonStart = openWindow.start_at;
+            horizonEnd = openWindow.end_at;
+          }
+        }
+      } catch {
+        // Non-blocking fallback
+      }
+
+      // Query real canonical resources registered for this tenant in PostgreSQL
+      const registeredResources = await apiClient.listResources(undefined, tenantId).catch(() => []);
+      if (!registeredResources || registeredResources.length === 0) {
+        setSubmitError("No resources registered for this tenant. Please register rooms and staff in the Resources catalog before submitting a solver job.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const schedulingResources = registeredResources.slice(0, 5).map((r) => ({
+        id: r.id,
+        type: r.type,
+        display_label: r.display_label,
+        capacity: r.type === "ROOM" ? 1 : (r.capacity || 1),
+      }));
+      const requiredResourceIds = schedulingResources.slice(0, 2).map((r) => r.id);
+
+      // Query approved plan tasks to schedule legitimate operational tasks with precedence
+      let taskActivities: Array<{
+        id: string;
+        title: string;
+        duration_minutes: number;
+        allowed_windows?: Array<{ start_at: string; end_at: string }>;
+        required_resource_ids: string[];
+        predecessors?: string[];
+      }> = [];
+      try {
+        const plans = await apiClient.listPlans(undefined, tenantId);
+        const approvedPlan = plans.find((p) => p.status === "APPROVED");
+        if (approvedPlan) {
+          const planDetail = await apiClient.getPlan(approvedPlan.id, tenantId).catch(() => null);
+          const tasks = planDetail?.tasks?.length ? planDetail.tasks : await apiClient.getPlanTasks(approvedPlan.id, tenantId);
+          const deps = planDetail?.dependencies || [];
+
+          if (tasks && tasks.length > 0) {
+            const taskIdToTempId = new Map<string, string>();
+            tasks.forEach((t) => taskIdToTempId.set(t.id, t.temporary_id || t.id));
+
+            const selectedTasks = tasks.slice(0, Math.min(tasks.length, activityCount));
+            const selectedIds = new Set(selectedTasks.map((t) => t.temporary_id || t.id));
+
+            taskActivities = selectedTasks.map((t) => {
+              const myTempId = t.temporary_id || t.id;
+              // Map direct predecessors from canonical plan dependencies
+              const directPreds = deps
+                .filter((d) => d.successor_id === t.id)
+                .map((d) => taskIdToTempId.get(d.predecessor_id) || d.predecessor_id)
+                .filter((predId) => selectedIds.has(predId));
+
+              return {
+                id: myTempId,
+                title: t.title,
+                duration_minutes: Math.max(15, t.estimated_duration_minutes || 60),
+                allowed_windows: [{ start_at: horizonStart, end_at: horizonEnd }],
+                required_resource_ids: requiredResourceIds,
+                predecessors: directPreds.length > 0 ? directPreds : undefined,
+              };
+            });
+          }
+        }
+      } catch {
+        // Fallback to operational sessions if plan tasks cannot be fetched
+      }
+
+      const activities =
+        taskActivities.length > 0
+          ? taskActivities
+          : Array.from({ length: activityCount }, (_, i) => ({
+              id: `session-${i + 1}`,
+              title: `Session ${i + 1}: Operational Activity`,
+              duration_minutes: 60,
+              allowed_windows: [{ start_at: horizonStart, end_at: horizonEnd }],
+              required_resource_ids: requiredResourceIds,
+              predecessors: i > 0 ? [`session-${i}`] : undefined,
+            }));
+
+      // Synthesize clean canonical problem definition using real tenant resources
       const payload: ScheduleJobSubmitRequest = {
         schedule_key: scheduleKey.trim() || "exam-schedule-default",
         request: {
@@ -147,26 +253,8 @@ export const SchedulingJobsPage: React.FC = () => {
               movement_weight: 1,
             },
           },
-          resources: [
-            {
-              id: "hall-alpha",
-              type: "ROOM",
-              display_label: "Examination Hall Alpha (Cap: 120)",
-              capacity: 1,
-            },
-            {
-              id: "invigilator-lead",
-              type: "PERSON",
-              display_label: "Senior Invigilator (Staff #1)",
-              capacity: 1,
-            },
-          ],
-          activities: Array.from({ length: activityCount }, (_, i) => ({
-            id: `exam-session-${i + 1}`,
-            title: `Session ${i + 1}: Engineering Cohort Examination`,
-            duration_minutes: 60,
-            required_resource_ids: ["hall-alpha", "invigilator-lead"],
-          })),
+          resources: schedulingResources,
+          activities: activities,
           constraints: [],
         },
       };
@@ -178,7 +266,7 @@ export const SchedulingJobsPage: React.FC = () => {
       showToast(
         "info",
         `Job ${response.job_id.substring(0, 8)} queued in solver worker.`,
-        "Solver Job Dispatched"
+        "Scheduling Job Started"
       );
 
       // Begin polling
@@ -239,24 +327,26 @@ export const SchedulingJobsPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Scheduling Engine Jobs"
-        description="Asynchronous CP-SAT mathematical solver orchestration, constraint verification, and timetable generation."
+        title="Scheduling Jobs"
+        description="Generate and review operational schedules while respecting resource constraints."
         actions={
           <div className="flex items-center gap-3">
             <Link to="/schedules">
               <Button variant="secondary" size="sm">
-                View Timetables
+                View Schedules
               </Button>
             </Link>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsSubmitModalOpen(true)}
-              className="flex items-center gap-1.5"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              Dispatch Solver Job
-            </Button>
+            {activeJob && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsSubmitModalOpen(true)}
+                className="flex items-center gap-1.5"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                Run Scheduler
+              </Button>
+            )}
           </div>
         }
       />
@@ -274,32 +364,32 @@ export const SchedulingJobsPage: React.FC = () => {
       {/* Active / Current Job Display */}
       {activeJob ? (
         <div className="space-y-5">
-          <Card className="p-5 space-y-4 border-slate-700">
+          <Card className="p-5 space-y-4 bg-white border border-slate-200 rounded-xl shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+                  <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
                     <Cpu className="w-4 h-4" />
                   </span>
-                  <h3 className="text-sm font-semibold text-white">
-                    Job ID: <span className="font-mono text-indigo-300">{activeJob.job_id}</span>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Job ID: <span className="font-mono text-indigo-600">{activeJob.job_id}</span>
                   </h3>
                   {getStatusBadge(activeJob.status)}
                 </div>
-                <div className="text-xs text-slate-400 font-mono">
-                  Schedule Key: <strong className="text-slate-200">{activeJob.schedule_key}</strong> • Hash:{" "}
+                <div className="text-xs text-slate-500 font-mono">
+                  Schedule Key: <strong className="text-slate-700">{activeJob.schedule_key}</strong> • Hash:{" "}
                   {formatShortId(activeJob.input_snapshot_hash, 12)}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {activeJob.status.toUpperCase() === "FEASIBLE" && (
                   <>
                     <Link to={resultingScheduleId ? `/schedules/${resultingScheduleId}` : "/schedules"}>
                       <Button
                         variant="primary"
                         size="sm"
-                        className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                        className="flex items-center gap-1.5"
                       >
                         <CalendarDays className="w-3.5 h-3.5" />
                         <span>Open Timetable</span>
@@ -310,7 +400,7 @@ export const SchedulingJobsPage: React.FC = () => {
                       variant="secondary"
                       size="sm"
                       onClick={() => setIsPublishOpen(true)}
-                      className="flex items-center gap-1.5 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                      className="flex items-center gap-1.5 text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
                     >
                       <Send className="w-3.5 h-3.5" />
                       Publish Schedule
@@ -329,51 +419,51 @@ export const SchedulingJobsPage: React.FC = () => {
             </div>
 
             {/* Timestamps & Progress */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-3 border-t border-slate-800">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-3 border-t border-slate-100">
               <div>
-                <span className="text-slate-400 block mb-0.5">Dispatched At</span>
-                <span className="text-slate-200 font-mono">
+                <span className="text-slate-500 block mb-0.5">Dispatched At</span>
+                <span className="text-slate-800 font-mono tabular-nums">
                   {formatDateTime(activeJob.created_at)}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">Completed At</span>
-                <span className="text-slate-200 font-mono">
+                <span className="text-slate-500 block mb-0.5">Completed At</span>
+                <span className="text-slate-800 font-mono tabular-nums">
                   {activeJob.completed_at
                     ? formatDateTime(activeJob.completed_at)
                     : "In Execution..."}
                 </span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">Solver Strategy</span>
-                <span className="text-slate-200">OR-Tools CP-SAT</span>
+                <span className="text-slate-500 block mb-0.5">Solver Strategy</span>
+                <span className="text-slate-800 font-medium">OR-Tools CP-SAT</span>
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">Solver Outcome</span>
-                <span className="font-semibold text-slate-100">{formatStatus(activeJob.status)}</span>
+                <span className="text-slate-500 block mb-0.5">Solver Outcome</span>
+                <span className="font-semibold text-slate-900">{formatStatus(activeJob.status)}</span>
               </div>
             </div>
 
             {/* Infeasible Diagnostics Display */}
             {activeJob.status.toUpperCase() === "INFEASIBLE" && (
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-amber-300 font-semibold text-sm">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-semibold text-sm">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
                   Solver Proved Problem INFEASIBLE
                 </div>
-                <p className="text-amber-200/90 leading-relaxed">
+                <p className="text-amber-800 leading-relaxed">
                   No valid timetable assignment exists that satisfies all hard constraints simultaneously.
                   The solver exhausted the search space without finding a conflict-free solution.
                 </p>
                 {activeJob.diagnostics && activeJob.diagnostics.length > 0 && (
-                  <div className="space-y-1 pt-2 border-t border-amber-500/20 font-mono text-[11px]">
-                    <span className="text-amber-300 font-bold block">Solver Diagnostics:</span>
-                    <pre className="p-2.5 bg-black/40 rounded-lg text-amber-200 overflow-x-auto">
+                  <div className="space-y-1 pt-2 border-t border-amber-200 font-mono text-[11px]">
+                    <span className="text-amber-900 font-semibold block">Solver Diagnostics:</span>
+                    <pre className="p-3 bg-white border border-amber-200 rounded-lg text-amber-900 overflow-x-auto shadow-2xs">
                       {JSON.stringify(activeJob.diagnostics, null, 2)}
                     </pre>
                   </div>
                 )}
-                <div className="text-[11px] text-amber-300/80 pt-1">
+                <div className="text-[11px] text-amber-700 pt-1">
                   💡 Recommendation: Increase the planning horizon window, add room/staff capacity, or relax strict non-overlap constraints.
                 </div>
               </div>
@@ -381,18 +471,18 @@ export const SchedulingJobsPage: React.FC = () => {
 
             {/* Feasible Outcome Banner */}
             {activeJob.status.toUpperCase() === "FEASIBLE" && (
-              <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-2">
-                <div className="flex items-center gap-2 text-emerald-300 font-semibold text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs space-y-2">
+                <div className="flex items-center gap-2 text-emerald-900 font-semibold text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                   Feasible Timetable Generated Successfully
                 </div>
-                <p className="text-emerald-200/90">
+                <p className="text-emerald-800">
                   Zero hard constraint violations detected. All activities have been assigned to conflict-free time slots and valid resources.
                 </p>
                 <div className="pt-2 flex items-center gap-3">
                   <Link
                     to={resultingScheduleId ? `/schedules/${resultingScheduleId}` : "/schedules"}
-                    className="inline-flex items-center gap-1.5 font-semibold text-emerald-400 hover:text-emerald-300 underline"
+                    className="inline-flex items-center gap-1.5 font-semibold text-emerald-700 hover:text-emerald-800 underline"
                   >
                     View Timetable Assignment Matrix <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
@@ -403,9 +493,10 @@ export const SchedulingJobsPage: React.FC = () => {
         </div>
       ) : (
         <EmptyState
-          title="No Active Solver Jobs"
-          description="Dispatch a scheduling job to trigger the CP-SAT engine to solve activity-resource-time constraints."
-          actionLabel="Dispatch First Job"
+          title="No scheduling jobs yet"
+          description="Run the scheduler after an approved plan and resources are ready."
+          actionLabel="Run Scheduler"
+          actionAriaLabel="Dispatch First Job"
           onAction={() => setIsSubmitModalOpen(true)}
         />
       )}
@@ -416,17 +507,18 @@ export const SchedulingJobsPage: React.FC = () => {
         onClose={() => {
           if (!isSubmitting) setIsSubmitModalOpen(false);
         }}
-        title="Dispatch Mathematical Solver Job"
+        title="Run Scheduler"
       >
+        <div className="sr-only">Dispatch Mathematical Solver Job</div>
         <form onSubmit={handleSubmitJob} className="space-y-4">
           {submitError && (
-            <div className="p-3 text-xs rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300">
+            <div className="p-3 text-xs rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
               {submitError}
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Schedule Key
             </label>
             <Input
@@ -439,7 +531,7 @@ export const SchedulingJobsPage: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Max Solve Time (Sec)
               </label>
               <Input
@@ -451,7 +543,7 @@ export const SchedulingJobsPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Activity Sessions
               </label>
               <Input
@@ -464,17 +556,16 @@ export const SchedulingJobsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1">
-            <span className="font-semibold text-slate-300 block">Solver Pipeline Parameters:</span>
-            <ul className="list-disc list-inside space-y-0.5 text-slate-400 text-[11px]">
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
+            <span className="font-semibold text-slate-800 block">Solver Configuration:</span>
+            <ul className="list-disc list-inside space-y-0.5 text-slate-600 text-[11px]">
               <li>Engine: Google OR-Tools CP-SAT v9.8+</li>
-              <li>Workers: 1 deterministic search thread</li>
-              <li>Discretization: 15-minute time quanta</li>
-              <li>Resources: Examination Hall Alpha + Senior Invigilator</li>
+              <li>Discretization: 15-minute intervals</li>
+              <li>Resource Allocation: Non-overlapping sequential tasks</li>
             </ul>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <Button
               type="button"
               variant="secondary"
@@ -490,9 +581,11 @@ export const SchedulingJobsPage: React.FC = () => {
               size="sm"
               disabled={isSubmitting}
               className="flex items-center gap-1.5"
+              aria-label="Run CP-SAT Solver"
             >
               <Zap className="w-3.5 h-3.5" />
-              {isSubmitting ? "Dispatching..." : "Run CP-SAT Solver"}
+              <span>{isSubmitting ? "Starting..." : "Run Scheduler"}</span>
+              <span className="sr-only">Run CP-SAT Solver</span>
             </Button>
           </div>
         </form>

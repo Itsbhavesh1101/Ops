@@ -6,7 +6,7 @@ without mutating existing correlation_id or creating new spans.
 
 from typing import Any
 
-from opentelemetry import trace
+import opentelemetry.trace as trace
 from structlog.types import EventDict
 
 

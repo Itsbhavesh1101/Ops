@@ -50,7 +50,6 @@ from app.integrations.engagement.models import (
     NotificationTrigger,
     TriggerKind,
 )
-from app.scheduling.education.dataset import load_education_dataset
 from app.scheduling.education.evaluator import EducationScheduleEvaluator
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.handlers.resource_unavailable import ResourceUnavailableHandler
@@ -65,6 +64,7 @@ from app.task_intelligence.schemas import (
 from app.task_intelligence.validators import PlanValidator
 from app.workflow.dmn.validator import DmnValidator
 from app.workflow.handlers.plan_approved import PlanApprovedWorkflowHandler
+from tests.fixtures.scheduling.education.dataset import load_education_dataset
 
 
 @pytest.mark.asyncio
@@ -369,6 +369,7 @@ async def test_phase6_unified_semester_exam_vertical_slice() -> None:
     sched_unlock_handler = TaskCompletedSchedulingHandler(
         scheduling_service=scheduling_service_mock,
         compiler=compiler,
+        dataset_loader=load_education_dataset,
     )
 
     task_completed_processor = ConsumerEventProcessor(

@@ -9,7 +9,6 @@ import { useToast } from "../components/ui/Toast";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
-import { Card } from "../components/ui/Card";
 import { Select } from "../components/ui/Select";
 import { Modal } from "../components/ui/Modal";
 import { Input } from "../components/ui/Input";
@@ -138,10 +137,10 @@ export const TasksPage: React.FC = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Work Breakdown Structure (WBS)"
+        title="Tasks (WBS)"
         description="Operational task tracking, status execution, and duration recording across active plans."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Button
               variant="secondary"
               size="sm"
@@ -154,14 +153,6 @@ export const TasksPage: React.FC = () => {
               <RefreshCw className={`w-3.5 h-3.5 ${loadingTasks ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            {selectedPlanId && (
-              <Link to={`/plans/${selectedPlanId}`}>
-                <Button variant="primary" size="sm" className="flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5" />
-                  View Plan Detail
-                </Button>
-              </Link>
-            )}
           </div>
         }
       />
@@ -187,39 +178,49 @@ export const TasksPage: React.FC = () => {
 
       {!loadingPlans && plans.length > 0 && (
         <div className="space-y-4">
-          {/* Plan Selector & Filter Bar */}
-          <Card className="p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="w-full md:w-80">
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Select Operational Plan
-              </label>
-              <Select
-                value={selectedPlanId}
-                onChange={(e) => setSelectedPlanId(e.target.value)}
-                options={plans.map((p) => ({
-                  value: p.id,
-                  label: `${p.plan_name} (v${p.version_number} - ${formatStatus(p.status)})`,
-                }))}
-              />
+          {/* Compact Plan Selector & Filter Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 py-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 whitespace-nowrap">Plan:</span>
+                <select
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
+                  className="text-xs h-8 px-2.5 bg-white border border-slate-200 rounded-md shadow-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700 max-w-xs"
+                >
+                  {plans.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.plan_name} (v{p.version_number})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-slate-500 whitespace-nowrap">Status:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="text-xs h-8 px-2.5 bg-white border border-slate-200 rounded-md shadow-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-slate-700"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="TODO">To Do</option>
+                  <option value="IN_PROGRESS">In Progress</option>
+                  <option value="BLOCKED">Blocked</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+              </div>
             </div>
 
-            <div className="w-full md:w-56">
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Filter by Status
-              </label>
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                options={[
-                  { value: "ALL", label: "All Statuses" },
-                  { value: "TODO", label: "TODO" },
-                  { value: "IN_PROGRESS", label: "IN_PROGRESS" },
-                  { value: "BLOCKED", label: "BLOCKED" },
-                  { value: "COMPLETED", label: "COMPLETED" },
-                ]}
-              />
-            </div>
-          </Card>
+            {selectedPlanId && (
+              <Link to={`/plans/${selectedPlanId}`} className="no-underline">
+                <Button variant="ghost" size="sm" className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 h-8">
+                  <Layers className="w-3.5 h-3.5" />
+                  View Plan
+                </Button>
+              </Link>
+            )}
+          </div>
 
           {loadingTasks && <LoadingState message="Loading WBS tasks for selected plan..." />}
 
@@ -234,29 +235,30 @@ export const TasksPage: React.FC = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20">Code / ID</TableHead>
-                  <TableHead>Task Title</TableHead>
+                  <TableHead>Task</TableHead>
                   <TableHead className="w-28">Status</TableHead>
-                  <TableHead className="w-32">Progress</TableHead>
-                  <TableHead className="w-24">Est. Dur.</TableHead>
-                  <TableHead className="w-28">Role</TableHead>
-                  <TableHead className="w-24 text-right">Action</TableHead>
+                  <TableHead className="w-36">Progress</TableHead>
+                  <TableHead className="w-24">Duration</TableHead>
+                  <TableHead className="w-32">Role</TableHead>
+                  <TableHead className="w-20 text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTasks.map((task) => (
-                  <TableRow key={task.id}>
-                    <TableCell className="font-mono text-[11px] font-semibold text-slate-300">
-                      {task.temporary_id || task.wbs_code || task.id.substring(0, 6)}
-                    </TableCell>
+                  <TableRow key={task.id} className="hover:bg-slate-50/70 transition-colors">
                     <TableCell>
-                      <div className="font-semibold text-slate-100">{task.title}</div>
-                      {task.blocked_reason && task.status === "BLOCKED" && (
-                        <div className="mt-1 flex items-center gap-1 text-[11px] text-rose-400">
-                          <AlertTriangle className="w-3 h-3" />
-                          <span>Blocked: {task.blocked_reason}</span>
-                        </div>
-                      )}
+                      <div className="font-medium text-slate-900">{task.title}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-[11px] text-slate-400">
+                          {task.temporary_id || task.wbs_code || task.id.substring(0, 6)}
+                        </span>
+                        {task.blocked_reason && task.status === "BLOCKED" && (
+                          <div className="flex items-center gap-1 text-[11px] text-rose-600 font-medium">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>Blocked: {task.blocked_reason}</span>
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -275,40 +277,40 @@ export const TasksPage: React.FC = () => {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-slate-400">
+                        <div className="flex justify-between text-[11px] text-slate-500 tabular-nums">
                           <span>{task.progress_percentage}%</span>
                           {task.actual_duration_minutes !== null && task.actual_duration_minutes !== undefined && (
                             <span>{task.actual_duration_minutes}m</span>
                           )}
                         </div>
-                        <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                           <div
-                            className={`h-full rounded-full ${
+                            className={`h-full rounded-full transition-all duration-300 ${
                               task.progress_percentage === 100
                                 ? "bg-emerald-500"
                                 : task.status === "BLOCKED"
                                 ? "bg-rose-500"
-                                : "bg-indigo-500"
+                                : "bg-indigo-600"
                             }`}
                             style={{ width: `${task.progress_percentage}%` }}
                           />
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-300">
+                    <TableCell className="text-slate-700 tabular-nums text-xs">
                       {task.estimated_duration_minutes}m
                     </TableCell>
-                    <TableCell className="text-[11px] text-slate-400">
+                    <TableCell className="text-xs text-slate-500">
                       {task.owner_role || "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
-                        variant="secondary"
+                        variant="ghost"
                         size="sm"
                         onClick={() => openTaskModal(task)}
-                        className="text-[11px] py-1 px-2.5 h-auto flex items-center gap-1"
+                        className="text-xs text-slate-600 hover:text-indigo-600 py-1 px-2 h-7 flex items-center gap-1"
                       >
-                        <Edit2 className="w-3 h-3" /> Update
+                        <Edit2 className="w-3 h-3" /> Edit
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -329,18 +331,18 @@ export const TasksPage: React.FC = () => {
       >
         <form onSubmit={handleTaskSubmit} className="space-y-4">
           {taskUpdateError && (
-            <div className="p-3 text-xs rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300">
+            <div className="p-3 text-xs rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
               {taskUpdateError}
             </div>
           )}
 
-          <div className="p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs space-y-1">
-            <div className="text-slate-400 font-mono">Task ID: {selectedTask?.id}</div>
-            <div className="text-slate-300 font-medium">Estimated: {selectedTask?.estimated_duration_minutes} minutes</div>
+          <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1">
+            <div className="text-slate-500 font-mono">Task ID: {selectedTask?.id}</div>
+            <div className="text-slate-800 font-medium">Estimated: {selectedTask?.estimated_duration_minutes} minutes</div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Progress Status
             </label>
             <Select
@@ -361,22 +363,23 @@ export const TasksPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Progress Percentage: {taskProgress}%
             </label>
             <input
               type="range"
+              role="slider"
               min="0"
               max="100"
               step="5"
               value={taskProgress}
               onChange={(e) => setTaskProgress(Number(e.target.value))}
-              className="w-full accent-indigo-500"
+              className="w-full accent-indigo-600 cursor-pointer"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Actual Duration (Minutes)
             </label>
             <Input
@@ -390,8 +393,8 @@ export const TasksPage: React.FC = () => {
 
           {taskStatus === "BLOCKED" && (
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Blocked Reason <span className="text-rose-400">*</span>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Blocked Reason <span className="text-rose-600">*</span>
               </label>
               <textarea
                 value={taskBlockedReason}
@@ -399,12 +402,12 @@ export const TasksPage: React.FC = () => {
                 rows={2}
                 required
                 placeholder="Explain what is blocking task execution..."
-                className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500"
               />
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <Button
               type="button"
               variant="secondary"

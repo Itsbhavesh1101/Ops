@@ -24,11 +24,6 @@ from app.scheduling.education.adapters.unitime import (
     UniTimeSchedulerAdapter,
     build_benchmark_unitime_config,
 )
-from app.scheduling.education.benchmark import FET_BENCHMARK_STATUS
-from app.scheduling.education.dataset import (
-    build_benchmark_manifest,
-    load_education_dataset,
-)
 from app.scheduling.education.dtos import (
     AcademicSubjectDTO,
     CanonicalEducationAssignment,
@@ -42,6 +37,11 @@ from app.scheduling.education.dtos import (
 from app.scheduling.education.evaluator import EducationScheduleEvaluator
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.schemas import ScheduleStatus
+from benchmarks.education.benchmark import FET_BENCHMARK_STATUS
+from tests.fixtures.scheduling.education.dataset import (
+    build_benchmark_manifest,
+    load_education_dataset,
+)
 
 # ============================================================================
 # 1. DTO Validation and Invariants

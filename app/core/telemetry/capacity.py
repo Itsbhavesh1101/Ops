@@ -17,7 +17,7 @@ Strict cardinality and privacy guarantees:
 - Telemetry recording errors NEVER fail business operations.
 """
 
-from opentelemetry import metrics
+import opentelemetry.metrics as metrics
 
 _METER_NAME = "e7.capacity"
 

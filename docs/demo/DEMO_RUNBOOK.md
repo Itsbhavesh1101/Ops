@@ -93,7 +93,7 @@ The local demonstration uses actual standards-compliant OpenID Connect:
 - **Authorization Flow**: Authorization Code Flow with PKCE (`S256` code challenge).
 - **Client Configuration**: Public browser client `operations-ui` with zero embedded client secrets.
 - **Backend Validation**: Asymmetric RSA `RS256` signature validation using Keycloak's dynamic JWKS endpoint.
-- **Identity Resolution**: Verified JWT identities map deterministically into internal `AuthenticatedPrincipal` objects with canonical roles and permissions on `tenant-pilot-001`.
+- **Identity Resolution**: Verified JWT identities map deterministically into internal `AuthenticatedPrincipal` objects with canonical roles and permissions on `tenant-demo-real-001`.
 - **Security Invariant**: Browser service API key input (`e7sk_...`) and fake-login bypasses are strictly prohibited.
 
 ### Canonical Demo Personas
@@ -118,7 +118,7 @@ graph LR
     Submit --> SwitchUser[6. Logout & Login: approver]
     SwitchUser --> Approve[7. Approve Baseline Plan]
     Approve --> SwitchScheduler[8. Logout & Login: scheduler]
-    SwitchScheduler --> Resources[9. Inspect Resources]
+    SwitchScheduler --> Resources[9. Add Resource & Window]
     Resources --> Solver[10. CP-SAT Solver: FEASIBLE]
     Solver --> Timetable[11. Review Timetable]
     Timetable --> Publish[12. Publish Timetable]
@@ -130,11 +130,11 @@ graph LR
 - **Action**: Click **"Sign in with Keycloak (Demo SSO)"**. The browser redirects to Keycloak's institutional login screen (`http://127.0.0.1:8180`).
 - **Input**: Enter username `planner` and the demo password. Click **Sign In**.
 - **Visible Result**: Keycloak validates credentials, redirects to the callback with an authorization code. The frontend exchanges the code and PKCE verifier for tokens, and calls `/api/v1/auth/me`. The app navigates to `/dashboard`.
-- **Verified State**: User identity displays `planner@operations.local` with role `planner` on tenant `tenant-pilot-001`.
+- **Verified State**: User identity displays `planner@operations.local` with role `planner` on clean demo tenant `tenant-demo-real-001`.
 
 ### Step 2: Operational Goal Specification
 - **Presenter**: *"We define a concrete institutional goal with defined boundaries, target completion windows, and resource constraints."*
-- **Action**: In Goals (`/goals`), click **"Define Operational Goal"**, enter objective: `Conduct Semester 1 Final Examination`. Submit.
+- **Action**: In Goals (`/goals`), click **"Define Operational Goal"**, enter objective: `Conduct Fall 2026 Institutional Examinations`. Submit.
 - **Visible Result**: Goal created with real PostgreSQL persistence. Click through to Goal Detail.
 
 ### Step 3: Automated Plan Synthesis (WBS Generation)
@@ -167,14 +167,14 @@ graph LR
 - **Action**: Sign out, sign in with Keycloak as `scheduler`.
 - **Visible Result**: Active identity displays `scheduler@operations.local` with role `scheduler`.
 
-### Step 9: Resource Inventory & Availability Windows
-- **Presenter**: *"Before running the mathematical solver, we inspect physical examination halls, invigilation staff, and availability windows."*
-- **Action**: Review Resource Catalog (`/resources`) and Availability Windows (`/resources/availability`).
-- **Visible Result**: Differentiated resource categories (`PERSON`, `ROOM`, `EQUIPMENT`) and operating hours.
+### Step 9: Register Operational Room & Availability Windows
+- **Presenter**: *"Source ERP systems track faculty and courses, but physical exam facilities are managed locally by facility operators. We create an operational room and define its availability window via canonical product APIs."*
+- **Action**: In Resource Catalog (`/resources`), click **"Add Resource"**, enter `room-hall-a`, Label: `Examination Hall A`, Type: `ROOM`, Capacity: `80`, Skills: `cctv_monitored, projector`. Submit. Then in Availability Windows (`/resources/availability`), click **"Add Window"**, select `Examination Hall A`, interval: `2026-10-21 08:00 to 18:00`, type: `AVAILABLE`. Submit.
+- **Visible Result**: Resource persisted with `provenance: USER_CREATED`, `source: LOCAL`. Table displays real operational room and active shift. No synthetic fixtures.
 
 ### Step 10: CP-SAT Constraint Satisfaction Solver
 - **Presenter**: *"We now dispatch the Google OR-Tools CP-SAT constraint satisfaction engine to solve the combinatorial scheduling problem."*
-- **Action**: In Scheduling Jobs (`/scheduling/jobs`), click **"Dispatch Solver Job"**.
+- **Action**: In Scheduling Jobs (`/scheduling/jobs`), click **"Run Scheduler"**.
 - **Visible Result**: Job queued, solver polling transitions to `FEASIBLE` in < 2 seconds with zero constraint violations. Primary CTA button updates to **Open Timetable**.
 
 ### Step 11: Authoritative Timetable Inspection

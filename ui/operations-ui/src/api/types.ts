@@ -314,6 +314,24 @@ export interface ResourceAvailabilityItem {
   reason?: string | null;
 }
 
+export interface ResourceCreateRequest {
+  resource_key: string;
+  type: ResourceType | string;
+  display_label: string;
+  capacity?: number;
+  skills?: string[];
+  attributes?: Record<string, unknown>;
+  active?: boolean;
+}
+
+export interface ResourceAvailabilityCreateRequest {
+  resource_id: string;
+  interval_type: "AVAILABLE" | "UNAVAILABLE";
+  start_at: string;
+  end_at: string;
+  reason?: string;
+}
+
 // --- SCHEDULING DOMAIN (F2) ---
 export interface TimeWindow {
   start_at: string;

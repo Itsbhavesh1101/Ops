@@ -27,9 +27,9 @@ from typing import Any
 import pytest
 
 from app.db.engine import DatabaseManager
-from app.scheduling.education.dataset import load_education_dataset
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.service import SchedulingService
+from tests.fixtures.scheduling.education.dataset import load_education_dataset
 from tests.performance.fixtures import cleanup_perf_tenant_data
 from tests.performance.metrics import calculate_latency_stats
 

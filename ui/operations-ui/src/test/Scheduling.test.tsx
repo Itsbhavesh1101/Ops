@@ -45,8 +45,34 @@ vi.mock("../context/AuthContext", () => ({
 }));
 
 describe("Scheduling Engine & Timetable Feature Screens (F2)", () => {
+  const sampleResources = [
+    {
+      id: "res-001",
+      resource_key: "hall-alpha",
+      type: "ROOM",
+      display_label: "Examination Hall Alpha (Cap: 120)",
+      capacity: 1,
+      skills: ["PROCTORING", "PROJECTOR"],
+      active: true,
+      created_at: "2026-10-01T10:00:00Z",
+      updated_at: "2026-10-01T10:00:00Z",
+    },
+    {
+      id: "res-002",
+      resource_key: "invigilator-lead",
+      type: "PERSON",
+      display_label: "Senior Invigilator (Staff #1)",
+      capacity: 1,
+      skills: ["INVIGILATION"],
+      active: true,
+      created_at: "2026-10-01T10:00:00Z",
+      updated_at: "2026-10-01T10:00:00Z",
+    },
+  ];
+
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.spyOn(apiClient, "listResources").mockResolvedValue(sampleResources as any);
     mockAuthValue.user.roles = ["operator", "scheduler", "approver"];
     mockAuthValue.user.permissions = ["read", "write", "schedule:publish", "schedule:repair"];
   });

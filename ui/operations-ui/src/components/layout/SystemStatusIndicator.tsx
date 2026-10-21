@@ -41,26 +41,26 @@ export const SystemStatusIndicator: React.FC = () => {
 
   const config = {
     healthy: {
-      color: "bg-emerald-400",
-      border: "border-emerald-800 text-emerald-300",
+      color: "bg-emerald-500",
+      buttonStyle: "border-slate-200 text-slate-700 hover:bg-slate-50",
       label: "System Healthy",
-      icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />,
+      icon: <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />,
     },
     degraded: {
-      color: "bg-amber-400",
-      border: "border-amber-800 text-amber-300",
+      color: "bg-amber-500",
+      buttonStyle: "border-amber-200 text-amber-800 bg-amber-50/50 hover:bg-amber-50",
       label: "System Degraded",
-      icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />,
+      icon: <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />,
     },
     unavailable: {
       color: "bg-rose-500",
-      border: "border-rose-800 text-rose-300",
+      buttonStyle: "border-rose-200 text-rose-800 bg-rose-50/50 hover:bg-rose-50",
       label: "Backend Offline",
-      icon: <XCircle className="w-3.5 h-3.5 text-rose-400" />,
+      icon: <XCircle className="w-3.5 h-3.5 text-rose-600" />,
     },
     checking: {
       color: "bg-slate-400",
-      border: "border-slate-700 text-slate-400",
+      buttonStyle: "border-slate-200 text-slate-500 hover:bg-slate-50",
       label: "Checking...",
       icon: <Activity className="w-3.5 h-3.5 text-slate-400 animate-pulse" />,
     },
@@ -72,20 +72,20 @@ export const SystemStatusIndicator: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         aria-label={`System status: ${config.label}`}
         aria-expanded={isOpen}
-        className={`flex items-center gap-2 px-2.5 py-1 rounded-lg border text-xs font-medium bg-slate-900 hover:bg-slate-800 transition-colors cursor-pointer ${config.border}`}
+        className={`flex items-center gap-2 px-2.5 py-1 rounded-md border text-xs font-medium bg-white transition-colors cursor-pointer shadow-xs ${config.buttonStyle}`}
       >
-        <span className={`w-2 h-2 rounded-full ${config.color} ${state === "healthy" ? "animate-pulse" : ""}`} />
+        <span className={`w-2 h-2 rounded-full ${config.color} shrink-0`} />
         <span className="hidden sm:inline">{config.label}</span>
       </button>
 
       {isOpen && (
         <div
-          className="absolute right-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-4 z-50 text-left text-xs space-y-3 animate-in fade-in"
+          className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-lg shadow-lg p-4 z-50 text-left text-xs space-y-3"
           role="region"
           aria-label="System Health Details"
         >
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-            <div className="flex items-center gap-2 font-semibold text-white">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-2 font-semibold text-slate-900">
               {config.icon}
               <span>Operations Engine Core</span>
             </div>
@@ -93,40 +93,40 @@ export const SystemStatusIndicator: React.FC = () => {
               onClick={checkStatus}
               disabled={isRefreshing}
               aria-label="Refresh health status"
-              className="text-slate-400 hover:text-white p-1 rounded bg-transparent border-none cursor-pointer"
+              className="text-slate-400 hover:text-slate-700 p-1 rounded bg-transparent border-none cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             </button>
           </div>
 
-          <div className="space-y-1.5 text-slate-300">
+          <div className="space-y-1.5 text-slate-700">
             <div className="flex justify-between">
               <span className="text-slate-500">Service:</span>
-              <span className="font-mono text-slate-200">
+              <span className="font-mono text-slate-800">
                 {healthData?.service || "operations-engine"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Environment:</span>
-              <span className="font-mono text-slate-200">
+              <span className="font-mono text-slate-800">
                 {healthData?.environment || "local"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Liveness (/health):</span>
-              <span className="font-semibold text-emerald-400">
+              <span className="font-semibold text-emerald-700">
                 {healthData ? "HTTP 200 OK" : "UNREACHABLE"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Readiness (/ready):</span>
-              <span className="font-semibold text-emerald-400">
+              <span className="font-semibold text-emerald-700">
                 {readyData ? "HTTP 200 READY" : "NOT READY"}
               </span>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-500 flex justify-between">
+          <div className="pt-2 border-t border-slate-100 text-[10px] text-slate-400 flex justify-between">
             <span>Gateway Target:</span>
             <span className="font-mono truncate">127.0.0.1:8088</span>
           </div>

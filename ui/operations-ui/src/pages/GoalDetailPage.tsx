@@ -7,7 +7,6 @@ import {
   Clock,
   ShieldAlert,
   Layers,
-  ArrowLeft,
   ArrowRight,
   Sparkles,
   RefreshCw,
@@ -100,21 +99,34 @@ export const GoalDetailPage: React.FC = () => {
     );
   }
 
+  const breadcrumbs = [
+    { label: "Goals", href: "/goals" },
+    { label: goal.objective ? (goal.objective.length > 32 ? `${goal.objective.substring(0, 32)}...` : goal.objective) : goal.id.substring(0, 8) },
+  ];
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-xs text-slate-400">
-        <Link to="/goals" className="hover:text-slate-200 flex items-center gap-1">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Goals
-        </Link>
-        <span>/</span>
-        <span className="font-mono text-slate-300">{goal.id.substring(0, 8)}...</span>
-      </div>
-
       <PageHeader
+        breadcrumbs={breadcrumbs}
         title={goal.objective}
-        description={goal.scope || "Operational goal metadata and synthesis controls."}
+        description={goal.scope || "Operational goal metadata and automated plan synthesis controls."}
+        badge={
+          goal.priority_target ? (
+            <Badge
+              variant={
+                goal.priority_target.toUpperCase() === "HIGH" ||
+                goal.priority_target.toUpperCase() === "CRITICAL"
+                  ? "warning"
+                  : "info"
+              }
+              size="sm"
+            >
+              {goal.priority_target}
+            </Badge>
+          ) : undefined
+        }
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Button
               variant="secondary"
               size="sm"
@@ -130,9 +142,9 @@ export const GoalDetailPage: React.FC = () => {
               size="sm"
               onClick={handleGeneratePlan}
               disabled={isGeneratingPlan}
-              className="flex items-center gap-2 shadow-sm shadow-indigo-500/20"
+              className="flex items-center gap-2"
             >
-              <Sparkles className={`w-4 h-4 ${isGeneratingPlan ? "animate-spin" : ""}`} />
+              <Sparkles className={`w-3.5 h-3.5 ${isGeneratingPlan ? "animate-spin" : ""}`} />
               {isGeneratingPlan ? "Synthesizing Plan..." : "Generate Plan"}
             </Button>
           </div>
@@ -140,43 +152,45 @@ export const GoalDetailPage: React.FC = () => {
       />
 
       {generateError && (
-        <div className="p-3.5 text-xs rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300">
+        <div className="p-3.5 text-xs rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
           <p className="font-semibold mb-0.5">Plan Generation Error</p>
           <p>{generateError}</p>
         </div>
       )}
 
-      {/* Goal Details Cards */}
+      {/* Goal Details Split Panes */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <Card className="p-5 md:col-span-2 space-y-4">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Target className="w-4 h-4 text-indigo-400" />
-            Operational Objective & Boundaries
-          </h2>
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Target className="w-4 h-4 text-indigo-600" />
+            <h2 className="text-sm font-semibold text-slate-900">
+              Operational Objective & Boundaries
+            </h2>
+          </div>
 
-          <div className="space-y-3 text-xs">
+          <div className="space-y-4 text-xs">
             <div>
-              <span className="text-slate-400 font-medium">Objective:</span>
-              <p className="text-slate-100 text-sm mt-0.5 leading-relaxed font-medium">
+              <span className="text-slate-500 font-medium block mb-1">Objective:</span>
+              <p className="text-slate-900 text-sm leading-relaxed font-semibold">
                 {goal.objective}
               </p>
             </div>
 
             {goal.scope && (
               <div>
-                <span className="text-slate-400 font-medium">Scope:</span>
-                <p className="text-slate-300 mt-0.5 leading-relaxed">{goal.scope}</p>
+                <span className="text-slate-500 font-medium block mb-1">Scope:</span>
+                <p className="text-slate-700 leading-relaxed">{goal.scope}</p>
               </div>
             )}
 
             {goal.constraints && goal.constraints.length > 0 && (
               <div>
-                <span className="text-slate-400 font-medium flex items-center gap-1.5 mb-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Active Constraints:
+                <span className="text-slate-500 font-medium flex items-center gap-1.5 mb-1.5">
+                  <ShieldAlert className="w-3.5 h-3.5 text-amber-600" /> Active Constraints:
                 </span>
-                <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
+                <ul className="list-disc list-inside space-y-1 text-slate-700 pl-1">
                   {goal.constraints.map((c, idx) => (
-                    <li key={idx}>{c}</li>
+                    <li key={idx} className="font-mono text-[11px]">{c}</li>
                   ))}
                 </ul>
               </div>
@@ -184,12 +198,12 @@ export const GoalDetailPage: React.FC = () => {
 
             {goal.resource_scope && goal.resource_scope.length > 0 && (
               <div>
-                <span className="text-slate-400 font-medium flex items-center gap-1.5 mb-1.5">
-                  <Layers className="w-3.5 h-3.5 text-blue-400" /> Resource Scope:
+                <span className="text-slate-500 font-medium flex items-center gap-1.5 mb-1.5">
+                  <Layers className="w-3.5 h-3.5 text-blue-600" /> Resource Scope:
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {goal.resource_scope.map((rs, idx) => (
-                    <Badge key={idx} variant="info">
+                    <Badge key={idx} variant="info" size="sm">
                       {rs}
                     </Badge>
                   ))}
@@ -199,37 +213,32 @@ export const GoalDetailPage: React.FC = () => {
           </div>
         </Card>
 
-        {/* Temporal & Operational Metadata */}
+        {/* Temporal & Execution Parameters */}
         <Card className="p-5 space-y-4">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Clock className="w-4 h-4 text-emerald-400" />
-            Execution Parameters
-          </h2>
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+            <Clock className="w-4 h-4 text-emerald-600" />
+            <h2 className="text-sm font-semibold text-slate-900">
+              Execution Parameters
+            </h2>
+          </div>
 
           <div className="space-y-3 text-xs">
             <div>
-              <span className="text-slate-400 block mb-0.5">Canonical Goal ID</span>
-              <span className="font-mono text-[11px] text-slate-200 select-all block break-all">
+              <span className="text-slate-500 block mb-0.5">Canonical Goal ID</span>
+              <span className="font-mono text-[11px] text-slate-800 select-all block break-all bg-slate-50 p-1.5 rounded border border-slate-200">
                 {goal.id}
               </span>
             </div>
 
             <div>
-              <span className="text-slate-400 block mb-0.5">Tenant</span>
-              <Badge variant="neutral">{goal.tenant_id}</Badge>
+              <span className="text-slate-500 block mb-0.5">Workspace Tenant</span>
+              <Badge variant="neutral" size="sm">{goal.tenant_id}</Badge>
             </div>
-
-            {goal.priority_target && (
-              <div>
-                <span className="text-slate-400 block mb-0.5">Priority Target</span>
-                <Badge variant="warning">{goal.priority_target}</Badge>
-              </div>
-            )}
 
             {goal.deadline && (
               <div>
-                <span className="text-slate-400 block mb-0.5">Target Deadline</span>
-                <div className="flex items-center gap-1.5 text-slate-200">
+                <span className="text-slate-500 block mb-0.5">Target Deadline</span>
+                <div className="flex items-center gap-1.5 text-slate-800 font-medium">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   {new Date(goal.deadline).toLocaleString()}
                 </div>
@@ -238,8 +247,8 @@ export const GoalDetailPage: React.FC = () => {
 
             {goal.target_window && (
               <div>
-                <span className="text-slate-400 block mb-0.5">Target Window</span>
-                <div className="text-[11px] space-y-0.5 text-slate-300">
+                <span className="text-slate-500 block mb-0.5">Target Window</span>
+                <div className="text-[11px] space-y-0.5 text-slate-700 bg-slate-50 p-2 rounded border border-slate-200">
                   {goal.target_window.start_at && (
                     <div>Start: {formatDateTime(goal.target_window.start_at)}</div>
                   )}
@@ -250,7 +259,7 @@ export const GoalDetailPage: React.FC = () => {
               </div>
             )}
 
-            <div className="pt-2 border-t border-slate-800 text-[11px] text-slate-400 space-y-0.5">
+            <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-500 space-y-0.5">
               <div>Created: {formatDateTime(goal.created_at)}</div>
               <div>Updated: {formatDateTime(goal.updated_at)}</div>
             </div>
@@ -258,13 +267,15 @@ export const GoalDetailPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Related Synthesized Plans */}
+      {/* Prominent Linked Synthesized Plans Section */}
       <Card className="p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <FileSpreadsheet className="w-4 h-4 text-indigo-400" />
-            Synthesized Operational Plans ({plans.length})
-          </h2>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <FileSpreadsheet className="w-4 h-4 text-indigo-600" />
+            <h2 className="text-sm font-semibold text-slate-900">
+              Synthesized Operational Plans ({plans.length})
+            </h2>
+          </div>
           <Button
             variant="secondary"
             size="sm"
@@ -278,23 +289,23 @@ export const GoalDetailPage: React.FC = () => {
         </div>
 
         {plans.length === 0 ? (
-          <div className="p-6 text-center border border-dashed border-slate-800 rounded-xl text-xs text-slate-400 space-y-2">
-            <p>No plans synthesized for this goal yet.</p>
-            <p className="text-slate-400 text-[11px]">
+          <div className="p-8 text-center border border-dashed border-slate-200 rounded-lg text-xs text-slate-500 space-y-2 bg-slate-50/50">
+            <p className="font-medium text-slate-700">No plans synthesized for this goal yet.</p>
+            <p className="text-slate-500 text-[11px]">
               Click &quot;Generate Plan&quot; to synthesize an operational plan with WBS steps and dependency sequencing.
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-800 border border-slate-800 rounded-xl overflow-hidden">
+          <div className="divide-y divide-slate-100 border border-slate-200 rounded-lg overflow-hidden bg-white">
             {plans.map((p) => (
               <div
                 key={p.id}
-                className="p-4 flex items-center justify-between hover:bg-slate-900/60 transition-colors"
+                className="p-4 flex items-center justify-between hover:bg-slate-50/80 transition-colors"
               >
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-white">{p.plan_name}</span>
-                    <Badge variant="neutral">v{p.version_number}</Badge>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-slate-900">{p.plan_name}</span>
+                    <Badge variant="neutral" size="sm">v{p.version_number}</Badge>
                     <Badge
                       variant={
                         p.status === "ACTIVE" || p.status === "APPROVED"
@@ -303,12 +314,17 @@ export const GoalDetailPage: React.FC = () => {
                           ? "neutral"
                           : "warning"
                       }
+                      size="sm"
                     >
                       {formatStatus(p.status)}
                     </Badge>
-                    {p.is_baseline && <Badge variant="info">Baselined</Badge>}
+                    {p.is_baseline && (
+                      <Badge variant="info" size="sm" dot>
+                        Baselined
+                      </Badge>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4 text-[11px] text-slate-400 font-mono">
+                  <div className="flex items-center gap-4 text-[11px] text-slate-500 font-mono flex-wrap">
                     <span>ID: {formatShortId(p.id)}</span>
                     {p.baseline_hash && (
                       <span className="flex items-center gap-1">
@@ -322,9 +338,10 @@ export const GoalDetailPage: React.FC = () => {
 
                 <Link
                   to={`/plans/${p.id}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors no-underline"
                 >
-                  Inspect WBS & Critical Path <ArrowRight className="w-3.5 h-3.5" />
+                  <span>Inspect WBS & Critical Path</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
             ))}

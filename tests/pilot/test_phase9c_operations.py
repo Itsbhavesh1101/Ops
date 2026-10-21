@@ -21,9 +21,9 @@ from typing import Any
 from uuid import uuid4
 
 from app.audit.schemas import AuditEventCreate, AuditEventOutcome
-from app.scheduling.education.dataset import load_education_dataset
 from app.scheduling.repair.models import ScheduleRepairRequest
 from app.workflow.dmn.validator import DmnValidator
+from tests.fixtures.scheduling.education.dataset import load_education_dataset
 
 PILOT_TENANT_ID: str = "tenant-pilot-001"
 PILOT_CREDENTIAL_ID: str = "cred-pilot-exam-admin"

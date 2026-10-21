@@ -62,7 +62,6 @@ from app.integrations.engagement.handlers import (
     SchedulePublishedNotificationHandler,
 )
 from app.integrations.engagement.mock import MockNotificationDispatcher
-from app.scheduling.education.dataset import load_education_dataset
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.handlers.resource_unavailable import ResourceUnavailableHandler
 from app.scheduling.handlers.task_completed import TaskCompletedSchedulingHandler
@@ -86,6 +85,7 @@ from tests.e2e.phase6.conftest import (
     FLOWABLE_USER,
     REPO_ROOT,
 )
+from tests.fixtures.scheduling.education.dataset import load_education_dataset
 
 
 def _create_consumer_settings(
@@ -345,7 +345,9 @@ async def test_live_semester_exam_vertical_slice(
     compiler = AcademicConstraintCompiler()
     scheduling_service = SchedulingService()
     task_completed_handler = TaskCompletedSchedulingHandler(
-        scheduling_service=scheduling_service, compiler=compiler
+        scheduling_service=scheduling_service,
+        compiler=compiler,
+        dataset_loader=load_education_dataset,
     )
     task_completed_processor = ConsumerEventProcessor(
         consumer_name="scheduling.task_completed_consumer",

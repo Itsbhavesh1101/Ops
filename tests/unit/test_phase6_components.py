@@ -425,9 +425,12 @@ async def test_task_completed_scheduling_handler_filtering_and_compilation() -> 
     scheduling_service = AsyncMock()
     compiler = AcademicConstraintCompiler()
 
+    from tests.fixtures.scheduling.education.dataset import load_education_dataset
+
     handler = TaskCompletedSchedulingHandler(
         scheduling_service=scheduling_service,
         compiler=compiler,
+        dataset_loader=load_education_dataset,
     )
 
     # 1. Non-readiness task should be ignored (returns None, does not call scheduling)

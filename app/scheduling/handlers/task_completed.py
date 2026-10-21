@@ -8,6 +8,8 @@ Enforces:
 - Utilizes the frozen Phase-5 OR-Tools academic constraint compiler.
 """
 
+from typing import Any
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,7 +17,6 @@ from app.audit.repository import AuditRepository
 from app.audit.schemas import AuditEventCreate, AuditEventOutcome
 from app.db.models.scheduling import ScheduleJobRecord
 from app.events.schemas import EventEnvelope
-from app.scheduling.education.dataset import load_education_dataset
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.service import SchedulingService
 
@@ -33,9 +34,11 @@ class TaskCompletedSchedulingHandler:
         self,
         scheduling_service: SchedulingService | None = None,
         compiler: AcademicConstraintCompiler | None = None,
+        dataset_loader: Any | None = None,
     ) -> None:
         self.scheduling_service = scheduling_service or SchedulingService()
         self.compiler = compiler or AcademicConstraintCompiler()
+        self.dataset_loader = dataset_loader
 
     async def handle(
         self,
@@ -49,7 +52,7 @@ class TaskCompletedSchedulingHandler:
         1. Validate tenant_id and task temporary_id.
         2. Check if the task is an approved readiness trigger.
         3. Check idempotency: does a schedule job already exist for this plan?
-        4. Compile canonical education benchmark demand via AcademicConstraintCompiler.
+        4. Compile canonical demand via AcademicConstraintCompiler if legitimate request provided.
         5. Submit asynchronous scheduling job via SchedulingService.
         """
         tenant_id = envelope.tenant_id
@@ -82,14 +85,23 @@ class TaskCompletedSchedulingHandler:
             # Duplicate task.completed delivery: idempotent return
             return existing_job
 
-        # Load canonical Phase-5 education dataset
-        dataset, raw_resources = load_education_dataset("FEASIBLE")
+        # Compile demand strictly from explicit request or test harness loader
+        request = None
+        if "scheduling_request" in payload and payload["scheduling_request"]:
+            request = self.compiler.compile_request(
+                dataset=payload["scheduling_request"].get("dataset"),
+                raw_resources=payload["scheduling_request"].get("raw_resources", []),
+            )
+        elif self.dataset_loader is not None:
+            dataset, raw_resources = self.dataset_loader("FEASIBLE")
+            request = self.compiler.compile_request(
+                dataset=dataset,
+                raw_resources=raw_resources,
+            )
 
-        # Compile into canonical SchedulingRequest
-        request = self.compiler.compile_request(
-            dataset=dataset,
-            raw_resources=raw_resources,
-        )
+        if request is None:
+            # Runtime data purity invariant: zero synthetic fallback in production
+            return None
 
         # Submit scheduling job to the system of record
         job = await self.scheduling_service.submit_job(

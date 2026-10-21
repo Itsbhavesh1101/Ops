@@ -31,7 +31,6 @@ from app.core.capacity.quotas import (
     TenantQuotaExceededError,
     TenantQuotaManager,
 )
-from app.scheduling.education.dataset import load_education_dataset
 from app.scheduling.education.evaluator import EducationScheduleEvaluator
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.schemas import ScheduleStatus
@@ -49,6 +48,7 @@ from app.workflow.sla.models import (
     SlaStatus,
 )
 from app.workflow.sla.service import SlaService
+from tests.fixtures.scheduling.education.dataset import load_education_dataset
 from tests.security.conftest import make_valid_schedule_problem
 from tests.uat.conftest import (
     UAT_GOAL_ALPHA_ID,

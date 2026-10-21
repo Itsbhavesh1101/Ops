@@ -161,7 +161,6 @@ async def run_canary_orchestration(
     from app.db.uow import SqlAlchemyUnitOfWorkFactory
     from app.events.outbox.models import OutboxEventRecord
     from app.events.schemas import EventCreate, create_event_envelope
-    from app.scheduling.education.dataset import load_education_dataset
     from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
     from app.scheduling.handlers.task_completed import TaskCompletedSchedulingHandler
     from app.scheduling.policy import DefaultSchedulePublishPolicy
@@ -175,6 +174,7 @@ async def run_canary_orchestration(
     from app.workflow.handlers.plan_approved import PlanApprovedWorkflowHandler
     from app.workflow.service import WorkflowService
     from app.workflow.variables import PHASE_6_ALLOWED_VARIABLES, WorkflowVariablePolicy
+    from tests.fixtures.scheduling.education.dataset import load_education_dataset
 
     active_run_id = run_id or f"canary-9b-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}"
     correlation_id = f"corr-{active_run_id}"

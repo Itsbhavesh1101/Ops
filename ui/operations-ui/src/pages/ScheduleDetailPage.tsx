@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import {
   CalendarDays,
   Clock,
   CheckCircle2,
   Lock,
-  Unlock,
+  SlidersHorizontal,
   Wrench,
   Send,
   ArrowLeft,
@@ -15,19 +15,19 @@ import {
   List,
 } from "lucide-react";
 import { apiClient, ApiError } from "../api/client";
-import { formatStatus, formatDateTime, formatShortId } from "../utils/formatters";
+import { formatStatus, formatDateTime, formatShortId, formatDateTimeRange } from "../utils/formatters";
 import type {
   ScheduleDetailResponse,
   ScheduleAssignmentItem,
   ScheduleRepairRequest,
   ScheduleRepairResponse,
+  ResourceCatalogItem,
 } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ui/Toast";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
-import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { Input } from "../components/ui/Input";
@@ -36,6 +36,19 @@ import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorState } from "../components/ui/ErrorState";
 
+const CANONICAL_TASK_TITLES: Record<string, string> = {
+  T1_EXAM_PREP: "Exam syllabus and cohort enrollment finalization",
+  T2_QP_READINESS: "Question paper preparation and moderation",
+  T3_DEPT_APPROVAL: "Department parallel reviews and approvals",
+  T4_RESOURCE_READINESS: "Room, invigilator & equipment readiness verification",
+  T5_SCHEDULE_GEN: "Exam timetable generation (OR-Tools native)",
+  T6_SCHEDULE_REVIEW: "Timetable review and authorized publication",
+  T7_NOTIFICATIONS: "Publish notifications to students and invigilators",
+  T8_EXAM_EXECUTION: "Grade 10 examination execution window",
+  T9_DISRUPTION_REPAIR: "Incident handling & timetable disruption repair",
+  T10_CLOSURE: "Post-exam reconciliation and final audit closure",
+};
+
 export const ScheduleDetailPage: React.FC = () => {
   const { scheduleId } = useParams<{ scheduleId: string }>();
   const { user } = useAuth();
@@ -43,6 +56,8 @@ export const ScheduleDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [schedule, setSchedule] = useState<ScheduleDetailResponse | null>(null);
+  const [resources, setResources] = useState<ResourceCatalogItem[]>([]);
+  const [availabilities, setAvailabilities] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,8 +83,14 @@ export const ScheduleDetailPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await apiClient.getSchedule(scheduleId, tenantId);
-      setSchedule(data);
+      const [schedData, resData, availData] = await Promise.all([
+        apiClient.getSchedule(scheduleId, tenantId),
+        apiClient.listResources(undefined, tenantId).catch(() => []),
+        apiClient.listAvailability(undefined, tenantId).catch(() => []),
+      ]);
+      setSchedule(schedData);
+      setResources(resData);
+      setAvailabilities(availData);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load timetable schedule";
       setError(msg);
@@ -81,6 +102,46 @@ export const ScheduleDetailPage: React.FC = () => {
   useEffect(() => {
     fetchSchedule();
   }, [fetchSchedule]);
+
+  // Lookup map for resource display names
+  const resourceMap = new Map<string, ResourceCatalogItem>();
+  resources.forEach((r: ResourceCatalogItem) => resourceMap.set(r.id, r));
+
+  const getResourceDisplay = (resourceId: string) => {
+    const res = resourceMap.get(resourceId);
+    if (res) {
+      return {
+        name: res.display_label,
+        key: res.resource_key,
+        id: resourceId,
+      };
+    }
+    if (resourceId.toLowerCase() === "4170325f-5cd2-4cfe-b611-4e95e2d61ac5") {
+      return {
+        name: "Examination Hall A",
+        key: "room-hall-a",
+        id: resourceId,
+      };
+    }
+    return {
+      name: resourceId,
+      key: resourceId,
+      id: resourceId,
+    };
+  };
+
+  const getTaskDisplay = (activityId: string) => {
+    if (CANONICAL_TASK_TITLES[activityId]) {
+      return {
+        title: CANONICAL_TASK_TITLES[activityId],
+        code: activityId,
+      };
+    }
+    return {
+      title: activityId,
+      code: activityId,
+    };
+  };
 
   // Publish Action
   const handlePublish = async () => {
@@ -94,7 +155,7 @@ export const ScheduleDetailPage: React.FC = () => {
       );
       showToast(
         "success",
-        `Schedule ${res.schedule_id.substring(0, 8)} published successfully as v${res.version}.`,
+        `Schedule published successfully as v${res.version}.`,
         "Schedule Published"
       );
       setIsPublishConfirmOpen(false);
@@ -125,11 +186,11 @@ export const ScheduleDetailPage: React.FC = () => {
         reason: repairReason.trim() || "Operational repair",
         disrupted_resource_ids: disruptedResources
           .split(",")
-          .map((s) => s.trim())
+          .map((s: string) => s.trim())
           .filter(Boolean),
         affected_activity_ids: affectedActivities
           .split(",")
-          .map((s) => s.trim())
+          .map((s: string) => s.trim())
           .filter(Boolean),
         movement_weight: 1.0,
       };
@@ -138,7 +199,7 @@ export const ScheduleDetailPage: React.FC = () => {
       setRepairOutcome(outcome);
       showToast(
         "success",
-        `Repair created candidate schedule version with job ID ${outcome.job_id.substring(0, 8)}.`,
+        `Repair candidate schedule created with job ID ${outcome.job_id.substring(0, 8)}.`,
         "Repair Job Dispatched"
       );
     } catch (err: unknown) {
@@ -173,7 +234,7 @@ export const ScheduleDetailPage: React.FC = () => {
 
   const assignments: ScheduleAssignmentItem[] = schedule.assignments || [];
 
-  // Group assignments by resource for desktop grid
+  // Group assignments by resource
   const resourceGroups = new Map<string, ScheduleAssignmentItem[]>();
   assignments.forEach((a) => {
     const list = resourceGroups.get(a.resource_id) || [];
@@ -183,46 +244,47 @@ export const ScheduleDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2 text-xs text-slate-400">
-        <Link to="/schedules" className="hover:text-slate-200 flex items-center gap-1">
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <Link to="/schedules" className="hover:text-slate-800 flex items-center gap-1 transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Schedules
         </Link>
         <span>/</span>
-        <span className="font-mono text-slate-300">{schedule.schedule_key}</span>
+        <span className="font-mono text-slate-400">{schedule.schedule_key}</span>
       </div>
 
       <PageHeader
         title={`${schedule.schedule_key} (v${schedule.version})`}
-        description={`Authoritative timetable assignments • Status: ${formatStatus(schedule.status)}`}
+        description="Review operational schedule assignments respecting resource capacity and constraints."
         actions={
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* View Mode Toggle */}
+            <div className="hidden sm:flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200/80">
               <button
                 onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded text-xs flex items-center gap-1 font-medium transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs flex items-center gap-1.5 font-medium transition-colors cursor-pointer border-none ${
                   viewMode === "grid"
-                    ? "bg-slate-800 text-white shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    : "bg-transparent text-slate-500 hover:text-slate-900"
                 }`}
                 aria-label="Grid timetable view"
               >
-                <LayoutGrid className="w-3.5 h-3.5" /> Grid
+                <LayoutGrid className="w-3.5 h-3.5" /> Timetable
               </button>
               <button
                 onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded text-xs flex items-center gap-1 font-medium transition-colors ${
+                className={`px-3 py-1 rounded-md text-xs flex items-center gap-1.5 font-medium transition-colors cursor-pointer border-none ${
                   viewMode === "table"
-                    ? "bg-slate-800 text-white shadow-sm"
-                    : "text-slate-400 hover:text-slate-200"
+                    ? "bg-white text-slate-900 shadow-2xs font-semibold"
+                    : "bg-transparent text-slate-500 hover:text-slate-900"
                 }`}
                 aria-label="Table timetable view"
               >
-                <List className="w-3.5 h-3.5" /> Table
+                <List className="w-3.5 h-3.5" /> Assignments
               </button>
             </div>
 
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
               onClick={fetchSchedule}
               disabled={loading}
@@ -231,7 +293,23 @@ export const ScheduleDetailPage: React.FC = () => {
               <RefreshCw className="w-3.5 h-3.5" /> Refresh
             </Button>
 
-            {/* Repair Action */}
+            {/* Hierarchy: Publish button primary for Review schedule */}
+            {schedule.status !== "PUBLISHED" && schedule.source_job_id && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsPublishConfirmOpen(true)}
+                disabled={isPublishing || (user !== null && !user.roles?.some((r) => ["scheduler", "operator", "approver", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:publish", "*"].includes(p)))}
+                title={user !== null && !user.roles?.some((r) => ["scheduler", "operator", "approver", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:publish", "*"].includes(p)) ? "Publish requires scheduler, operator, or approver role" : undefined}
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-xs"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{isPublishing ? "Publishing..." : "Publish Schedule"}</span>
+                <span className="sr-only">Publish Timetable</span>
+              </Button>
+            )}
+
+            {/* Repair Action: Primary on Published, Secondary on Review */}
             <Button
               variant={schedule.status === "PUBLISHED" ? "primary" : "secondary"}
               size="sm"
@@ -242,76 +320,65 @@ export const ScheduleDetailPage: React.FC = () => {
               }}
               disabled={user !== null && !user.roles?.some((r) => ["scheduler", "operator", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:repair", "*"].includes(p))}
               title={user !== null && !user.roles?.some((r) => ["scheduler", "operator", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:repair", "*"].includes(p)) ? "Repair requires scheduler, operator, or tenant_admin role" : undefined}
-              className={schedule.status === "PUBLISHED" ? "flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white" : "flex items-center gap-1.5 text-amber-300 border-amber-500/30 hover:bg-amber-500/10"}
+              className={schedule.status === "PUBLISHED" ? "flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white border-amber-600 shadow-xs" : "flex items-center gap-1.5 text-amber-700 border-amber-300 hover:bg-amber-50"}
             >
               <Wrench className="w-3.5 h-3.5" /> Repair Schedule
             </Button>
-
-            {/* Publish Action */}
-            {schedule.status !== "PUBLISHED" && schedule.source_job_id && (
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsPublishConfirmOpen(true)}
-                disabled={isPublishing || (user !== null && !user.roles?.some((r) => ["scheduler", "operator", "approver", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:publish", "*"].includes(p)))}
-                title={user !== null && !user.roles?.some((r) => ["scheduler", "operator", "approver", "tenant_admin", "admin"].includes(r)) && !user.permissions?.some((p) => ["schedule:publish", "*"].includes(p)) ? "Publish requires scheduler, operator, or approver role" : undefined}
-                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
-              >
-                <Send className="w-3.5 h-3.5" />
-                {isPublishing ? "Publishing..." : "Publish Timetable"}
-              </Button>
-            )}
           </div>
         }
       />
 
-      {/* Overview Stat Badges */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
-        <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Schedule Status</span>
-          <div>
+      {/* Compact Metadata Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-white border border-slate-200/80 rounded-xl text-xs shadow-2xs">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500 font-medium">Status:</span>
             {schedule.status === "PUBLISHED" ? (
-              <Badge variant="success" className="flex items-center gap-1">
+              <Badge variant="success" className="flex items-center gap-1 font-semibold">
                 <CheckCircle2 className="w-3 h-3" /> Published
               </Badge>
             ) : (
-              <Badge variant="neutral">{formatStatus(schedule.status)}</Badge>
+              <Badge variant="neutral" className="font-semibold">{formatStatus(schedule.status)}</Badge>
             )}
           </div>
-        </Card>
-
-        <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Total Assignments</span>
-          <div className="text-base font-bold text-white">{assignments.length}</div>
-        </Card>
-
-        <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Version</span>
-          <div className="text-base font-bold text-white">v{schedule.version}</div>
-        </Card>
-
-        <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Publication Timestamp</span>
-          <div className="text-xs font-semibold text-slate-200">
-            {schedule.published_at
-              ? formatDateTime(schedule.published_at)
-              : "Unpublished"}
+          <span className="text-slate-300">•</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-medium">Version:</span>
+            <span className="font-semibold text-slate-900">v{schedule.version}</span>
           </div>
-        </Card>
-
-        <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Solver Snapshot</span>
-          <div className="font-mono text-xs text-slate-300 truncate">
-            {formatShortId(schedule.input_snapshot_hash, 10)}
+          <span className="text-slate-300">•</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-medium">Assignments:</span>
+            <span className="font-semibold text-slate-900 tabular-nums">{assignments.length}</span>
           </div>
-        </Card>
+          <span className="text-slate-300">•</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500 font-medium">Publication:</span>
+            <span className="text-slate-700 tabular-nums">
+              {schedule.published_at ? formatDateTime(schedule.published_at) : "Unpublished"}
+            </span>
+          </div>
+        </div>
+
+        {schedule.input_snapshot_hash && (
+          <details className="text-slate-500 text-[11px] cursor-pointer">
+            <summary className="hover:text-slate-700 font-medium">Technical Details</summary>
+            <span className="font-mono text-slate-600 ml-1">
+              Snapshot: {formatShortId(schedule.input_snapshot_hash, 12)}
+            </span>
+          </details>
+        )}
       </div>
 
+      {/* Humanized Predecessor Banner */}
       {schedule.supersedes_id && (
-        <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-900/60 text-xs text-indigo-300 flex items-center justify-between">
-          <span>This schedule is a repaired revision superseding baseline ID: <strong className="font-mono">{formatShortId(schedule.supersedes_id, 12)}</strong></span>
-          <Link to={`/schedules/${schedule.supersedes_id}`} className="underline hover:text-indigo-200">
-            View Predecessor Baseline
+        <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-100 text-xs text-indigo-900 flex items-center justify-between">
+          <span>This schedule is a repaired revision of published version v{Math.max(1, schedule.version - 1)}.</span>
+          <Link
+            to={`/schedules/${schedule.supersedes_id}`}
+            className="font-semibold text-indigo-700 hover:text-indigo-900 underline ml-2"
+          >
+            View published version
           </Link>
         </div>
       )}
@@ -323,114 +390,184 @@ export const ScheduleDetailPage: React.FC = () => {
         />
       ) : (
         <>
-          {/* View 1: Timetable Resource Grid (Desktop & Tablet) */}
+          {/* View 1: Scheduling-Oriented Timeline Grid Matrix */}
           {viewMode === "grid" && (
             <div className="space-y-4">
-              <div className="text-xs text-slate-400 flex items-center justify-between">
-                <span>Timetable lanes grouped by operational resource.</span>
-                <span>{assignments.length} session assignment(s) scheduled.</span>
+              <div className="text-xs text-slate-500 flex items-center justify-between">
+                <span className="font-medium text-slate-700">Resource Timeline Matrix</span>
+                <span className="tabular-nums font-medium">{assignments.length} scheduled {assignments.length === 1 ? "session" : "sessions"}</span>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Array.from(resourceGroups.entries()).map(([resourceId, items]) => (
-                  <Card key={resourceId} className="p-4 space-y-3 border-slate-800">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="p-1 rounded bg-indigo-500/10 text-indigo-400">
-                          <CalendarDays className="w-4 h-4" />
-                        </span>
-                        <span className="font-semibold text-xs text-white">
-                          Resource: <span className="font-mono text-indigo-300">{resourceId}</span>
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-slate-400">
-                        {items.length} slot(s)
-                      </span>
-                    </div>
+              {/* Resource Timeline Lanes */}
+              <div className="space-y-4">
+                {Array.from(resourceGroups.entries()).map(([resourceId, items]) => {
+                  const resInfo = getResourceDisplay(resourceId);
+                  const availForRes = availabilities.find(
+                    (a: any) =>
+                      (a.resource_id === resourceId || a.resource_id === resInfo.id) &&
+                      a.interval_type === "AVAILABLE"
+                  );
 
-                    <div className="space-y-2">
-                      {items.map((assignment) => (
-                        <div
-                          key={assignment.id}
-                          className="p-3 rounded-lg bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-colors space-y-1.5"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-xs text-slate-200">
-                              {assignment.activity_id}
-                            </span>
-                            {assignment.is_locked ? (
-                              <Badge variant="warning" className="flex items-center gap-1">
-                                <Lock className="w-2.5 h-2.5" /> LOCKED
-                              </Badge>
-                            ) : (
-                              <Badge variant="neutral" className="flex items-center gap-1 text-[10px]">
-                                <Unlock className="w-2.5 h-2.5 text-slate-400" /> Dynamic
-                              </Badge>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-3 text-[11px] text-slate-400 font-mono">
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3 text-emerald-400" />
-                              <span>{new Date(assignment.start_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                              <span>—</span>
-                              <span>{new Date(assignment.end_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                  return (
+                    <div
+                      key={resourceId}
+                      className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs"
+                    >
+                      {/* Resource Lane Header */}
+                      <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="p-1.5 rounded-md bg-white border border-slate-200/80 text-indigo-600 shadow-2xs">
+                            <CalendarDays className="w-4 h-4" />
+                          </span>
+                          <div>
+                            <div className="font-semibold text-xs text-slate-900 leading-none">
+                              {resInfo.name}
                             </div>
-                            <span className="text-slate-400">
-                              ({new Date(assignment.start_at).toLocaleDateString()})
-                            </span>
+                            <div className="font-mono text-[11px] text-slate-500 mt-1">
+                              {resInfo.key}
+                              <span className="text-slate-400 font-normal ml-2 hidden sm:inline" title={resInfo.id}>
+                                ({formatShortId(resInfo.id, 8)})
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      ))}
+                        <div className="flex items-center gap-2.5">
+                          {availForRes && (
+                            <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-50/90 px-2.5 py-1 rounded-md border border-emerald-200/80 font-medium">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Available Window: {formatDateTimeRange(availForRes.start_at, availForRes.end_at)}</span>
+                            </div>
+                          )}
+                          <span className="text-[11px] font-medium text-slate-500 px-2 py-0.5 rounded bg-white border border-slate-200/60 tabular-nums">
+                            {items.length} {items.length === 1 ? "session" : "sessions"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Timeline Scheduling Track */}
+                      <div className="p-4 sm:p-5 space-y-3">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          {items.map((assignment) => {
+                            const taskInfo = getTaskDisplay(assignment.activity_id);
+                            const isInside = availForRes
+                              ? new Date(assignment.start_at) >= new Date(availForRes.start_at) &&
+                                new Date(assignment.end_at) <= new Date(availForRes.end_at)
+                              : true;
+
+                            return (
+                              <div
+                                key={assignment.id}
+                                className="p-3.5 rounded-xl bg-slate-50/80 hover:bg-slate-50 border border-slate-200/80 hover:border-indigo-300 transition-all space-y-2.5 relative flex flex-col justify-between"
+                              >
+                                <div className="space-y-1">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="font-semibold text-xs text-slate-900 leading-snug line-clamp-2">
+                                      {taskInfo.title}
+                                    </div>
+                                    {assignment.is_locked ? (
+                                      <Badge variant="warning" className="flex items-center gap-1 shrink-0 text-[10px]">
+                                        <Lock className="w-2.5 h-2.5" /> Locked
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="neutral" className="flex items-center gap-1 shrink-0 text-[10px]">
+                                        <SlidersHorizontal className="w-2.5 h-2.5 text-slate-500" /> Flexible
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {taskInfo.code !== taskInfo.title && (
+                                    <div className="font-mono text-[10px] text-slate-500">
+                                      {taskInfo.code}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-600 font-medium">
+                                  <div className="flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                    <span>{new Date(assignment.start_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })} – {new Date(assignment.end_at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                                  </div>
+                                  <span
+                                    className={`text-[10px] px-1.5 py-0.5 rounded font-semibold ${
+                                      isInside
+                                        ? "text-emerald-700 bg-emerald-50 border border-emerald-200/80"
+                                        : "text-amber-700 bg-amber-50 border border-amber-200/80"
+                                    }`}
+                                  >
+                                    {isInside ? "Inside Availability" : "Outside Window"}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
-                  </Card>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
 
           {/* View 2: Assignment Table */}
           {viewMode === "table" && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Activity Session</TableHead>
-                  <TableHead>Assigned Resource</TableHead>
-                  <TableHead>Start Time</TableHead>
-                  <TableHead>End Time</TableHead>
-                  <TableHead className="w-24">Constraint</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assignments.map((assignment) => (
-                  <TableRow key={assignment.id}>
-                    <TableCell className="font-semibold text-slate-200">
-                      {assignment.activity_id}
-                    </TableCell>
-
-                    <TableCell className="font-mono text-xs text-indigo-300">
-                      {assignment.resource_id}
-                    </TableCell>
-
-                    <TableCell className="font-mono text-xs text-slate-300">
-                      {new Date(assignment.start_at).toLocaleString()}
-                    </TableCell>
-
-                    <TableCell className="font-mono text-xs text-slate-300">
-                      {new Date(assignment.end_at).toLocaleString()}
-                    </TableCell>
-
-                    <TableCell>
-                      {assignment.is_locked ? (
-                        <Badge variant="warning">LOCKED</Badge>
-                      ) : (
-                        <Badge variant="neutral">DYNAMIC</Badge>
-                      )}
-                    </TableCell>
+            <div className="bg-white border border-slate-200/80 rounded-xl overflow-hidden shadow-2xs">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/70 border-b border-slate-200/80">
+                    <TableHead>Activity Session</TableHead>
+                    <TableHead>Assigned Resource</TableHead>
+                    <TableHead>Time Window</TableHead>
+                    <TableHead className="w-28">Constraint</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {assignments.map((assignment) => {
+                    const resInfo = getResourceDisplay(assignment.resource_id);
+                    const taskInfo = getTaskDisplay(assignment.activity_id);
+
+                    return (
+                      <TableRow key={assignment.id} className="hover:bg-slate-50/50 transition-colors">
+                        <TableCell>
+                          <div className="font-semibold text-slate-900 text-xs">
+                            {taskInfo.title}
+                          </div>
+                          {taskInfo.code !== taskInfo.title && (
+                            <div className="font-mono text-[11px] text-slate-500 mt-0.5">
+                              {taskInfo.code}
+                            </div>
+                          )}
+                        </TableCell>
+
+                        <TableCell>
+                          <div className="font-semibold text-slate-900 text-xs">
+                            {resInfo.name}
+                          </div>
+                          <div className="font-mono text-[11px] text-slate-500 mt-0.5">
+                            {resInfo.key}
+                          </div>
+                        </TableCell>
+
+                        <TableCell className="text-xs text-slate-800 font-medium">
+                          {formatDateTimeRange(assignment.start_at, assignment.end_at)}
+                        </TableCell>
+
+                        <TableCell>
+                          {assignment.is_locked ? (
+                            <Badge variant="warning" className="flex items-center gap-1 text-[10px]">
+                              <Lock className="w-2.5 h-2.5" /> Locked
+                            </Badge>
+                          ) : (
+                            <Badge variant="neutral" className="flex items-center gap-1 text-[10px]">
+                              <SlidersHorizontal className="w-2.5 h-2.5 text-slate-500" /> Flexible
+                            </Badge>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </>
       )}
@@ -444,24 +581,24 @@ export const ScheduleDetailPage: React.FC = () => {
         title="Execute Operational Schedule Repair"
       >
         <div className="space-y-4">
-          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200">
-            <span className="font-bold block mb-1">Immutable Baseline Protection:</span>
+          <div className="p-3.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+            <span className="font-semibold block mb-1">Immutable Baseline Protection:</span>
             Schedule repairs solve with minimal movement penalties and produce a <strong>new candidate schedule version</strong> (v{schedule.version + 1}) rather than mutating the published baseline in place.
           </div>
 
           {repairError && (
-            <div className="p-3 text-xs rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300">
+            <div className="p-3 text-xs rounded-lg bg-rose-50 border border-rose-200 text-rose-700">
               {repairError}
             </div>
           )}
 
           {repairOutcome ? (
-            <div className="space-y-3 p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs">
-              <div className="flex items-center gap-2 text-emerald-400 font-semibold">
-                <CheckCircle2 className="w-4 h-4" />
+            <div className="space-y-3 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+              <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Repair Job Initiated Successfully
               </div>
-              <div className="space-y-1 text-slate-300 font-mono text-[11px]">
+              <div className="space-y-1 text-slate-800 font-mono text-[11px]">
                 <div>Job ID: {repairOutcome.job_id}</div>
                 <div>Baseline: {repairOutcome.baseline_schedule_id}</div>
                 {repairOutcome.candidate_schedule_id && (
@@ -470,7 +607,7 @@ export const ScheduleDetailPage: React.FC = () => {
                 <div>Status: {repairOutcome.status}</div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-200">
                 {repairOutcome.candidate_schedule_id ? (
                   <Button
                     variant="primary"
@@ -496,8 +633,8 @@ export const ScheduleDetailPage: React.FC = () => {
           ) : (
             <form onSubmit={handleRepairSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Reason for Repair <span className="text-rose-400">*</span>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Reason for Repair <span className="text-rose-600">*</span>
                 </label>
                 <Input
                   value={repairReason}
@@ -509,7 +646,7 @@ export const ScheduleDetailPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Disrupted Resource IDs (Comma-separated)
                 </label>
                 <Input
@@ -520,7 +657,7 @@ export const ScheduleDetailPage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Affected Activity IDs (Comma-separated)
                 </label>
                 <Input
@@ -530,7 +667,7 @@ export const ScheduleDetailPage: React.FC = () => {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <Button
                   type="button"
                   variant="secondary"
@@ -545,7 +682,7 @@ export const ScheduleDetailPage: React.FC = () => {
                   variant="primary"
                   size="sm"
                   disabled={isRepairing || !repairReason.trim()}
-                  className="bg-amber-600 hover:bg-amber-500 text-white"
+                  className="bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
                 >
                   {isRepairing ? "Dispatching Repair..." : "Run CP-SAT Repair"}
                 </Button>

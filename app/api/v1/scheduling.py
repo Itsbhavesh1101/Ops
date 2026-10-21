@@ -15,9 +15,9 @@ Architectural & Security Invariants:
 
 import inspect
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Body, Depends, Header, Path, Query, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,6 +27,8 @@ from sqlalchemy.orm import selectinload
 
 from app.api.errors import ApiError, ApiErrorResponse
 from app.api.idempotency import IDEMPOTENCY_KEY_HEADER
+from app.audit.repository import AuditRepository
+from app.audit.schemas import AuditEventCreate, AuditEventOutcome
 from app.core.auth.models import AuthenticatedPrincipal, TenantContext
 from app.core.capacity.quotas import TenantQuotaManager
 from app.core.idempotency.contracts import (
@@ -40,9 +42,13 @@ from app.core.idempotency.repository import (
     IdempotencyRepository,
 )
 from app.db.models.scheduling import (
+    ResourceAvailabilityRecord,
     ResourceRecord,
     ScheduleRecord,
 )
+from app.events.outbox.repository import OutboxRepository
+from app.events.schemas import EventCreate, create_event_envelope
+from app.resources.schemas import AvailabilityIntervalCreate, ResourceCreate
 from app.resources.service import ResourceNotFoundError, ResourceService
 from app.scheduling.hashing import compute_input_snapshot_hash
 from app.scheduling.policy import (
@@ -422,32 +428,6 @@ def create_scheduling_router(
         result = await session.execute(stmt)
         records = list(result.scalars().all())
 
-        if not records and resource_service is not None:
-            try:
-                mem_resources = resource_service.list_resources(
-                    tenant_id=tenant_id, active_only=active_only
-                )
-                if type:
-                    mem_resources = [r for r in mem_resources if r.type == type]
-                records_paginated = mem_resources[offset : offset + limit]
-                return [
-                    ResourceCatalogItem(
-                        id=r.id,
-                        resource_key=r.resource_key,
-                        type=r.type,
-                        display_label=r.display_label,
-                        capacity=r.capacity,
-                        skills=r.skills,
-                        attributes=r.attributes,
-                        active=r.active,
-                        created_at=r.created_at,
-                        updated_at=r.updated_at,
-                    )
-                    for r in records_paginated
-                ]
-            except Exception:
-                pass
-
         return [
             ResourceCatalogItem(
                 id=r.id,
@@ -463,6 +443,239 @@ def create_scheduling_router(
             )
             for r in records
         ]
+
+    @router.post(
+        "/resources",
+        response_model=ResourceCatalogItem,
+        status_code=status.HTTP_201_CREATED,
+        summary="Create Local Operator-Managed Resource",
+        responses={
+            201: {"model": ResourceCatalogItem, "description": "Resource created."},
+            400: {
+                "model": ApiErrorResponse,
+                "description": "Validation error or invalid resource type.",
+            },
+            403: {"model": ApiErrorResponse, "description": "Unauthorized to create resources."},
+            409: {
+                "model": ApiErrorResponse,
+                "description": "Duplicate resource key or idempotency conflict.",
+            },
+        },
+    )
+    async def create_resource(
+        payload: ResourceCreate = Body(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal_ctx: Any = Depends(_principal_dep),
+        session: AsyncSession = Depends(session_dependency),
+        idempotency_key: str | None = Header(None, alias=IDEMPOTENCY_KEY_HEADER),
+    ) -> ResourceCatalogItem:
+        if isinstance(principal_ctx, AuthenticatedPrincipal):
+            if principal_ctx.has_role("auditor") and not (
+                principal_ctx.has_any_role(
+                    "operator", "planner", "scheduler", "tenant_admin", "admin"
+                )
+                or principal_ctx.has_any_permission(
+                    "resource:create", "resource:write", "write", "*"
+                )
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="resource.unauthorized",
+                    message="Auditors cannot create operational resources.",
+                )
+            if not (
+                principal_ctx.has_any_role(
+                    "operator", "planner", "scheduler", "tenant_admin", "admin"
+                )
+                or principal_ctx.has_any_permission(
+                    "resource:create", "resource:write", "write", "*"
+                )
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="resource.unauthorized",
+                    message="Principal is not authorized to create operational resources.",
+                )
+
+        tenant_id = _extract_tenant_id(tenant_context)
+        res_type = payload.type.value if hasattr(payload.type, "value") else str(payload.type)
+
+        if res_type == "PERSON":
+            raise ApiError(
+                status_code=400,
+                code="resource.invalid_type",
+                message=(
+                    "Local operator endpoint cannot create PERSON resources; "
+                    "workforce must originate from authoritative ERP integration."
+                ),
+            )
+        if res_type not in ("ROOM", "EQUIPMENT", "OTHER"):
+            raise ApiError(
+                status_code=400,
+                code="resource.invalid_type",
+                message=(
+                    f"Unsupported resource type '{res_type}'. "
+                    "Allowed types: ROOM, EQUIPMENT, OTHER."
+                ),
+            )
+        if res_type == "ROOM" and payload.capacity < 1:
+            raise ApiError(
+                status_code=400,
+                code="resource.invalid_capacity",
+                message="Room capacity must be greater than zero.",
+            )
+        if not payload.display_label or not payload.display_label.strip():
+            raise ApiError(
+                status_code=400,
+                code="resource.invalid_name",
+                message="Resource display label must not be empty.",
+            )
+
+        if idempotency_key:
+            identity = create_idempotency_identity(
+                tenant_id=tenant_id,
+                operation_name="resource.create",
+                raw_key=idempotency_key,
+            )
+            fingerprint = fingerprint_bytes(
+                f"{payload.resource_key}:{payload.display_label}:{res_type}".encode()
+            )
+            idempotency_repo = IdempotencyRepository(session)
+            decision = await idempotency_repo.acquire_or_observe(
+                identity=identity,
+                request_fingerprint=fingerprint,
+            )
+            if decision.decision == IdempotencyDecisionType.EXISTING_CONFLICT:
+                assert decision.existing_fingerprint is not None
+                raise IdempotencyConflictError(
+                    identity=identity,
+                    request_fingerprint=fingerprint,
+                    existing_fingerprint=decision.existing_fingerprint,
+                )
+            elif decision.decision == IdempotencyDecisionType.EXISTING_MATCH:
+                existing_res = (
+                    await session.execute(
+                        select(ResourceRecord).where(
+                            ResourceRecord.tenant_id == tenant_id,
+                            ResourceRecord.resource_key == payload.resource_key,
+                        )
+                    )
+                ).scalar_one_or_none()
+                if existing_res:
+                    return ResourceCatalogItem(
+                        id=existing_res.id,
+                        resource_key=existing_res.resource_key,
+                        type=existing_res.type,
+                        display_label=existing_res.display_label,
+                        capacity=existing_res.capacity,
+                        skills=existing_res.skills,
+                        attributes=existing_res.attributes,
+                        active=existing_res.active,
+                        created_at=existing_res.created_at,
+                        updated_at=existing_res.updated_at,
+                    )
+
+        existing = (
+            await session.execute(
+                select(ResourceRecord).where(
+                    ResourceRecord.tenant_id == tenant_id,
+                    ResourceRecord.resource_key == payload.resource_key,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing:
+            raise ApiError(
+                status_code=409,
+                code="resource.duplicate_key",
+                message=(
+                    f"Resource with key '{payload.resource_key}' "
+                    f"already exists in tenant '{tenant_id}'."
+                ),
+            )
+
+        now = datetime.now(UTC)
+        actor_id = (
+            principal_ctx.principal_id
+            if isinstance(principal_ctx, AuthenticatedPrincipal)
+            else "operator"
+        )
+
+        attrs = dict(payload.attributes or {})
+        attrs["provenance"] = "USER_CREATED"
+        attrs["source"] = "LOCAL"
+        attrs["created_by"] = actor_id
+
+        record = ResourceRecord(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            resource_key=payload.resource_key,
+            type=res_type,
+            display_label=payload.display_label.strip(),
+            capacity=payload.capacity,
+            skills=list(payload.skills),
+            attributes=attrs,
+            active=payload.active,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(record)
+
+        outbox_repo = OutboxRepository(session)
+        envelope = create_event_envelope(
+            EventCreate(
+                event_type="resource.created",
+                event_version=1,
+                tenant_id=tenant_id,
+                correlation_id=None,
+                subject_type="resource",
+                subject_id=str(record.id),
+                payload={
+                    "resource_id": str(record.id),
+                    "resource_key": record.resource_key,
+                    "type": record.type,
+                    "display_label": record.display_label,
+                    "capacity": record.capacity,
+                    "provenance": "USER_CREATED",
+                },
+            )
+        )
+        await outbox_repo.enqueue(envelope)
+
+        audit_repo = AuditRepository(session)
+        await audit_repo.append(
+            AuditEventCreate(
+                tenant_id=tenant_id,
+                actor_principal_id=actor_id,
+                actor_principal_type="HUMAN",
+                authentication_method="OIDC",
+                event_type="resource.created",
+                resource_type="resource",
+                resource_id=str(record.id),
+                outcome=AuditEventOutcome.SUCCESS,
+                details={
+                    "resource_key": record.resource_key,
+                    "type": record.type,
+                    "display_label": record.display_label,
+                    "capacity": record.capacity,
+                    "provenance": "USER_CREATED",
+                },
+            )
+        )
+
+        await session.flush()
+
+        return ResourceCatalogItem(
+            id=record.id,
+            resource_key=record.resource_key,
+            type=record.type,
+            display_label=record.display_label,
+            capacity=record.capacity,
+            skills=record.skills,
+            attributes=record.attributes,
+            active=record.active,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
 
     def _default_resource_service() -> ResourceService | None:
         return None
@@ -481,41 +694,234 @@ def create_scheduling_router(
     )
     async def get_resource_availabilities(
         tenant_context: Any = Depends(tenant_dependency),
+        session: AsyncSession = Depends(session_dependency),
         resource_id: UUID | None = Query(None),
         resource_service: ResourceService | None = Depends(
             resource_service_dependency or _default_resource_service
         ),
     ) -> list[ResourceAvailabilityItem]:
         tenant_id = _extract_tenant_id(tenant_context)
-        if not resource_service:
-            return []
 
+        # 1. First query canonical PostgreSQL ResourceAvailabilityRecord
+        records = []
         try:
-            res = resource_service.get_intervals(
-                tenant_id=tenant_id,
-                resource_id=resource_id,
+            stmt = select(ResourceAvailabilityRecord).where(
+                ResourceAvailabilityRecord.tenant_id == tenant_id
             )
-            if inspect.isawaitable(res):
-                intervals = await res
-            else:
-                intervals = res
-        except ResourceNotFoundError as err:
+            if resource_id:
+                stmt = stmt.where(ResourceAvailabilityRecord.resource_id == resource_id)
+            stmt = stmt.order_by(ResourceAvailabilityRecord.start_at.asc())
+            result = await session.execute(stmt)
+            scalars_fn = getattr(result, "scalars", None)
+            if callable(scalars_fn):
+                sc = scalars_fn()
+                if hasattr(sc, "all") and callable(sc.all):
+                    res_all = sc.all()
+                    if inspect.isawaitable(res_all):
+                        res_all = await res_all
+                    if isinstance(res_all, (list, tuple)):
+                        records = [r for r in res_all if isinstance(r, ResourceAvailabilityRecord)]
+        except Exception:
+            records = []
+
+        if records:
+            return [
+                ResourceAvailabilityItem(
+                    resource_id=r.resource_id,
+                    interval_type=r.interval_type,
+                    start_at=r.start_at,
+                    end_at=r.end_at,
+                    reason=r.reason,
+                )
+                for r in records
+            ]
+
+        # 2. If resource_service is provided and has live intervals
+        if resource_service:
+            try:
+                res = resource_service.get_intervals(
+                    tenant_id=tenant_id,
+                    resource_id=resource_id,
+                )
+                if inspect.isawaitable(res):
+                    intervals = await res
+                else:
+                    intervals = res
+                return [
+                    ResourceAvailabilityItem(
+                        resource_id=item.resource_id,
+                        interval_type=(
+                            item.interval_type.value
+                            if hasattr(item.interval_type, "value")
+                            else str(item.interval_type)
+                        ),
+                        start_at=item.start_at,
+                        end_at=item.end_at,
+                        reason=item.reason,
+                    )
+                    for item in intervals
+                ]
+            except ResourceNotFoundError:
+                return []
+
+        return []
+
+    @router.post(
+        "/resources/availability",
+        response_model=ResourceAvailabilityItem,
+        status_code=status.HTTP_201_CREATED,
+        summary="Record Resource Availability or Blackout Interval",
+        responses={
+            201: {"model": ResourceAvailabilityItem, "description": "Interval recorded."},
+            400: {"model": ApiErrorResponse, "description": "Invalid time interval or parameters."},
+            403: {"model": ApiErrorResponse, "description": "Unauthorized."},
+            404: {"model": ApiErrorResponse, "description": "Resource not found."},
+        },
+    )
+    async def create_resource_availability(
+        payload: AvailabilityIntervalCreate = Body(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal_ctx: Any = Depends(_principal_dep),
+        session: AsyncSession = Depends(session_dependency),
+    ) -> ResourceAvailabilityItem:
+        if isinstance(principal_ctx, AuthenticatedPrincipal):
+            if principal_ctx.has_role("auditor") and not (
+                principal_ctx.has_any_role(
+                    "operator", "planner", "scheduler", "tenant_admin", "admin"
+                )
+                or principal_ctx.has_any_permission(
+                    "resource:create", "resource:write", "write", "*"
+                )
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="resource.unauthorized",
+                    message="Auditors cannot record resource availability.",
+                )
+            if not (
+                principal_ctx.has_any_role(
+                    "operator", "planner", "scheduler", "tenant_admin", "admin"
+                )
+                or principal_ctx.has_any_permission(
+                    "resource:create", "resource:write", "write", "*"
+                )
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="resource.unauthorized",
+                    message="Principal is not authorized to record resource availability.",
+                )
+
+        tenant_id = _extract_tenant_id(tenant_context)
+
+        res = (
+            await session.execute(
+                select(ResourceRecord).where(
+                    ResourceRecord.tenant_id == tenant_id,
+                    ResourceRecord.id == payload.resource_id,
+                )
+            )
+        ).scalar_one_or_none()
+        if not res:
             raise ApiError(
                 status_code=404,
                 code="resource.not_found",
-                message=str(err),
-            ) from err
-
-        return [
-            ResourceAvailabilityItem(
-                resource_id=item.resource_id,
-                interval_type=item.interval_type.value,
-                start_at=item.start_at,
-                end_at=item.end_at,
-                reason=item.reason,
+                message=f"Resource '{payload.resource_id}' not found in tenant '{tenant_id}'.",
             )
-            for item in intervals
-        ]
+
+        if payload.end_at < payload.start_at:
+            raise ApiError(
+                status_code=400,
+                code="resource_availability.invalid_interval",
+                message=(
+                    f"end_at ({payload.end_at}) cannot be earlier "
+                    f"than start_at ({payload.start_at})."
+                ),
+            )
+
+        interval_type_val = (
+            payload.interval_type.value
+            if hasattr(payload.interval_type, "value")
+            else str(payload.interval_type)
+        )
+        if interval_type_val not in ("AVAILABLE", "UNAVAILABLE"):
+            raise ApiError(
+                status_code=400,
+                code="resource_availability.invalid_type",
+                message=(
+                    f"Invalid interval_type '{interval_type_val}'. Allowed: AVAILABLE, UNAVAILABLE."
+                ),
+            )
+
+        now = datetime.now(UTC)
+        actor_id = (
+            principal_ctx.principal_id
+            if isinstance(principal_ctx, AuthenticatedPrincipal)
+            else "operator"
+        )
+
+        avail_record = ResourceAvailabilityRecord(
+            id=uuid4(),
+            tenant_id=tenant_id,
+            resource_id=payload.resource_id,
+            start_at=payload.start_at,
+            end_at=payload.end_at,
+            interval_type=interval_type_val,
+            reason=payload.reason,
+            created_at=now,
+        )
+        session.add(avail_record)
+
+        outbox_repo = OutboxRepository(session)
+        envelope = create_event_envelope(
+            EventCreate(
+                event_type="resource.availability_created",
+                event_version=1,
+                tenant_id=tenant_id,
+                correlation_id=None,
+                subject_type="resource",
+                subject_id=str(res.id),
+                payload={
+                    "availability_id": str(avail_record.id),
+                    "resource_id": str(res.id),
+                    "interval_type": interval_type_val,
+                    "start_at": payload.start_at.isoformat(),
+                    "end_at": payload.end_at.isoformat(),
+                },
+            )
+        )
+        await outbox_repo.enqueue(envelope)
+
+        audit_repo = AuditRepository(session)
+        await audit_repo.append(
+            AuditEventCreate(
+                tenant_id=tenant_id,
+                actor_principal_id=actor_id,
+                actor_principal_type="HUMAN",
+                authentication_method="OIDC",
+                event_type="resource.availability_created",
+                resource_type="resource",
+                resource_id=str(res.id),
+                outcome=AuditEventOutcome.SUCCESS,
+                details={
+                    "availability_id": str(avail_record.id),
+                    "resource_id": str(res.id),
+                    "interval_type": interval_type_val,
+                    "start_at": payload.start_at.isoformat(),
+                    "end_at": payload.end_at.isoformat(),
+                },
+            )
+        )
+
+        await session.flush()
+
+        return ResourceAvailabilityItem(
+            resource_id=avail_record.resource_id,
+            interval_type=avail_record.interval_type,
+            start_at=avail_record.start_at,
+            end_at=avail_record.end_at,
+            reason=avail_record.reason,
+        )
 
     @router.post(
         "/schedule-jobs/{job_id}/publish",

@@ -142,4 +142,91 @@ describe("Resources & Availability Feature Screens (F2)", () => {
       expect(screen.getByText("Examination Hall Alpha (Cap: 120)")).toBeInTheDocument();
     });
   });
+
+  it("opens Add Resource modal and submits new room successfully", async () => {
+    vi.spyOn(apiClient, "listResources").mockResolvedValue(sampleResources);
+    const createSpy = vi.spyOn(apiClient, "createResource").mockResolvedValue({
+      id: "res-003",
+      resource_key: "room-hall-a",
+      type: "ROOM",
+      display_label: "Examination Hall A",
+      capacity: 80,
+      skills: ["cctv_monitored"],
+      active: true,
+      created_at: "2026-10-21T00:00:00Z",
+      updated_at: "2026-10-21T00:00:00Z",
+    });
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/resources"]}>
+          <Routes>
+            <Route path="/resources" element={<ResourcesPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Add Resource")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Add Resource"));
+
+    expect(screen.getByText("Add Local Operational Resource")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("e.g., room-hall-a"), {
+      target: { value: "room-hall-a" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("e.g., Examination Hall A"), {
+      target: { value: "Examination Hall A" },
+    });
+
+    const createBtn = screen.getByRole("button", { name: /Create Resource/i });
+    fireEvent.click(createBtn);
+
+    await waitFor(() => {
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resource_key: "room-hall-a",
+          display_label: "Examination Hall A",
+          type: "ROOM",
+        }),
+        "tenant-engineering"
+      );
+    });
+  });
+
+  it("opens Add Window modal on AvailabilityPage and submits window successfully", async () => {
+    vi.spyOn(apiClient, "listAvailability").mockResolvedValue(sampleAvailability);
+    vi.spyOn(apiClient, "listResources").mockResolvedValue(sampleResources);
+    vi.spyOn(apiClient, "createAvailability").mockResolvedValue({
+      resource_id: "res-001",
+      interval_type: "AVAILABLE",
+      start_at: "2026-10-25T08:00:00.000Z",
+      end_at: "2026-10-25T18:00:00.000Z",
+      reason: "Shift A",
+    });
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/resources/availability"]}>
+          <Routes>
+            <Route path="/resources/availability" element={<AvailabilityPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Add Window")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText("Add Window"));
+
+    expect(screen.getByText("Add Operational Availability Window")).toBeInTheDocument();
+
+    const saveBtn = screen.getByRole("button", { name: /Save Window/i });
+    expect(saveBtn).toBeInTheDocument();
+  });
 });

@@ -291,12 +291,12 @@ export const PlanDetailPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Breadcrumb Navigation */}
-      <div className="flex items-center gap-2 text-xs text-slate-400">
-        <Link to="/plans" className="hover:text-slate-200 flex items-center gap-1">
+      <div className="flex items-center gap-2 text-xs text-slate-500">
+        <Link to="/plans" className="hover:text-slate-800 flex items-center gap-1 transition-colors">
           <ArrowLeft className="w-3.5 h-3.5" /> Back to Plans
         </Link>
         <span>/</span>
-        <span className="font-mono text-slate-300">{formatShortId(plan.id)}</span>
+        <span className="font-mono text-slate-400">{formatShortId(plan.id)}</span>
       </div>
 
       {/* Header & Primary Actions */}
@@ -304,7 +304,7 @@ export const PlanDetailPage: React.FC = () => {
         title={plan.plan_name}
         description={`Plan Version v${plan.version_number} • Goal: ${formatShortId(plan.goal_id)}`}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <Button
               variant="secondary"
               size="sm"
@@ -336,7 +336,7 @@ export const PlanDetailPage: React.FC = () => {
                   size="sm"
                   onClick={handleValidatePlan}
                   disabled={isValidating}
-                  className="flex items-center gap-1.5 border-slate-700 hover:border-slate-600"
+                  className="flex items-center gap-1.5"
                 >
                   <ShieldCheck className={`w-3.5 h-3.5 ${isValidating ? "animate-spin" : ""}`} />
                   {isValidating ? "Validating..." : "Re-validate"}
@@ -348,7 +348,7 @@ export const PlanDetailPage: React.FC = () => {
                   onClick={handleSubmitForApproval}
                   disabled={isSubmitting || !canSubmit}
                   title={!canSubmit ? "Submission requires planner or tenant_admin role" : undefined}
-                  className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                  className="flex items-center gap-1.5"
                 >
                   <Send className={`w-3.5 h-3.5 ${isSubmitting ? "animate-spin" : ""}`} />
                   {isSubmitting ? "Submitting..." : "Submit for Approval"}
@@ -363,7 +363,7 @@ export const PlanDetailPage: React.FC = () => {
                 onClick={() => setIsApproveConfirmOpen(true)}
                 disabled={isApproving || !canApprove}
                 title={!canApprove ? "Approval requires approver or tenant_admin role" : undefined}
-                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white"
+                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600"
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 {isApproving ? "Approving..." : "Approve Plan"}
@@ -372,15 +372,15 @@ export const PlanDetailPage: React.FC = () => {
 
             {(plan.status === "APPROVED" || plan.status === "ACTIVE" || plan.is_baseline) && (
               <>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   Approved Baseline
                 </div>
                 <Link to="/scheduling/jobs">
                   <Button
                     variant="primary"
                     size="sm"
-                    className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white"
+                    className="flex items-center gap-1.5"
                   >
                     <span>Proceed to Scheduling</span>
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -393,11 +393,11 @@ export const PlanDetailPage: React.FC = () => {
       />
 
       {submitError && (
-        <div className="p-3.5 text-xs rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center justify-between">
+        <div className="p-3.5 text-xs rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-between">
           <span>{submitError}</span>
           <button
             onClick={() => setSubmitError(null)}
-            className="text-rose-400 hover:text-rose-200 font-bold"
+            className="text-rose-500 hover:text-rose-700 font-bold"
           >
             ✕
           </button>
@@ -405,11 +405,11 @@ export const PlanDetailPage: React.FC = () => {
       )}
 
       {approvalError && (
-        <div className="p-3.5 text-xs rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 flex items-center justify-between">
+        <div className="p-3.5 text-xs rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-center justify-between">
           <span>{approvalError}</span>
           <button
             onClick={() => setApprovalError(null)}
-            className="text-rose-400 hover:text-rose-200 font-bold"
+            className="text-rose-500 hover:text-rose-700 font-bold"
           >
             ✕
           </button>
@@ -417,9 +417,9 @@ export const PlanDetailPage: React.FC = () => {
       )}
 
       {/* Overview Stat Badges */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Plan Status</span>
+          <span className="text-[11px] text-slate-500">Plan Status</span>
           <div>
             <Badge
               variant={
@@ -436,7 +436,7 @@ export const PlanDetailPage: React.FC = () => {
         </Card>
 
         <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Baseline Status</span>
+          <span className="text-[11px] text-slate-500">Baseline Status</span>
           <div>
             {plan.is_baseline ? (
               <Badge variant="info">Baselined</Badge>
@@ -447,34 +447,34 @@ export const PlanDetailPage: React.FC = () => {
         </Card>
 
         <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Total WBS Tasks</span>
-          <div className="text-base font-bold text-white">{tasks.length}</div>
+          <span className="text-[11px] text-slate-500">Total WBS Tasks</span>
+          <div className="text-base font-semibold text-slate-900 tabular-nums">{tasks.length}</div>
         </Card>
 
         <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Milestones</span>
-          <div className="text-base font-bold text-white">{milestones.length}</div>
+          <span className="text-[11px] text-slate-500">Milestones</span>
+          <div className="text-base font-semibold text-slate-900 tabular-nums">{milestones.length}</div>
         </Card>
 
         <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Dependencies</span>
-          <div className="text-base font-bold text-white">{dependencies.length}</div>
+          <span className="text-[11px] text-slate-500">Dependencies</span>
+          <div className="text-base font-semibold text-slate-900 tabular-nums">{dependencies.length}</div>
         </Card>
 
         <Card className="p-3.5 space-y-1">
-          <span className="text-[11px] text-slate-400">Identified Risks</span>
-          <div className="text-base font-bold text-white">{risks.length}</div>
+          <span className="text-[11px] text-slate-500">Identified Risks</span>
+          <div className="text-base font-semibold text-slate-900 tabular-nums">{risks.length}</div>
         </Card>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-800 flex gap-2">
+      <div className="border-b border-slate-200 flex gap-1">
         <button
           onClick={() => setActiveTab("wbs")}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
             activeTab === "wbs"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-indigo-600 text-indigo-600 font-semibold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
           <Layers className="w-3.5 h-3.5" />
@@ -483,49 +483,49 @@ export const PlanDetailPage: React.FC = () => {
 
         <button
           onClick={() => setActiveTab("critical-path")}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
             activeTab === "critical-path"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-indigo-600 text-indigo-600 font-semibold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <Activity className="w-3.5 h-3.5 text-amber-400" />
+          <Activity className="w-3.5 h-3.5 text-amber-500" />
           Critical Path Analysis
         </button>
 
         <button
           onClick={() => setActiveTab("milestones")}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
             activeTab === "milestones"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-indigo-600 text-indigo-600 font-semibold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <Flag className="w-3.5 h-3.5 text-blue-400" />
+          <Flag className="w-3.5 h-3.5 text-blue-500" />
           Milestones ({milestones.length})
         </button>
 
         <button
           onClick={() => setActiveTab("dependencies")}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
             activeTab === "dependencies"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-indigo-600 text-indigo-600 font-semibold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <GitCommit className="w-3.5 h-3.5 text-violet-400" />
+          <GitCommit className="w-3.5 h-3.5 text-violet-500" />
           Dependencies ({dependencies.length})
         </button>
 
         <button
           onClick={() => setActiveTab("risks")}
-          className={`px-4 py-2 text-xs font-semibold border-b-2 transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
             activeTab === "risks"
-              ? "border-indigo-500 text-indigo-400"
-              : "border-transparent text-slate-400 hover:text-slate-200"
+              ? "border-indigo-600 text-indigo-600 font-semibold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
           }`}
         >
-          <AlertOctagon className="w-3.5 h-3.5 text-rose-400" />
+          <AlertOctagon className="w-3.5 h-3.5 text-rose-500" />
           Risks ({risks.length})
         </button>
       </div>
@@ -926,22 +926,23 @@ export const PlanDetailPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Progress Percentage: {taskProgress}%
             </label>
             <input
               type="range"
+              role="slider"
               min="0"
               max="100"
               step="5"
               value={taskProgress}
               onChange={(e) => setTaskProgress(Number(e.target.value))}
-              className="w-full accent-indigo-500"
+              className="w-full accent-indigo-600 cursor-pointer"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Actual Duration (Minutes)
             </label>
             <Input
@@ -955,8 +956,8 @@ export const PlanDetailPage: React.FC = () => {
 
           {taskStatus === "BLOCKED" && (
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Blocked Reason <span className="text-rose-400">*</span>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Blocked Reason <span className="text-rose-600">*</span>
               </label>
               <textarea
                 value={taskBlockedReason}
@@ -964,12 +965,12 @@ export const PlanDetailPage: React.FC = () => {
                 rows={2}
                 required
                 placeholder="Explain what is blocking task execution..."
-                className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-500"
               />
             </div>
           )}
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <Button
               type="button"
               variant="secondary"
@@ -999,16 +1000,16 @@ export const PlanDetailPage: React.FC = () => {
       >
         <div className="space-y-4">
           <div
-            className={`p-4 rounded-xl border flex items-center gap-3 ${
+            className={`p-4 rounded-lg border flex items-center gap-3 ${
               validationResult?.is_valid
-                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                : "bg-rose-50 border-rose-200 text-rose-800"
             }`}
           >
             {validationResult?.is_valid ? (
-              <Check className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <Check className="w-5 h-5 text-emerald-600 shrink-0" />
             ) : (
-              <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+              <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
             )}
             <div>
               <h4 className="font-semibold text-sm">
@@ -1023,15 +1024,15 @@ export const PlanDetailPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-xs">
-            <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-              <span className="text-slate-400 block mb-0.5">Evaluated Tasks</span>
-              <span className="font-bold text-white text-sm">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <span className="text-slate-500 block mb-0.5">Evaluated Tasks</span>
+              <span className="font-bold text-slate-900 text-sm tabular-nums">
                 {validationResult?.evaluated_task_count ?? tasks.length}
               </span>
             </div>
-            <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-              <span className="text-slate-400 block mb-0.5">Evaluated Dependencies</span>
-              <span className="font-bold text-white text-sm">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <span className="text-slate-500 block mb-0.5">Evaluated Dependencies</span>
+              <span className="font-bold text-slate-900 text-sm tabular-nums">
                 {validationResult?.evaluated_dependency_count ?? dependencies.length}
               </span>
             </div>
@@ -1039,14 +1040,14 @@ export const PlanDetailPage: React.FC = () => {
 
           {validationResult?.issues && validationResult.issues.length > 0 && (
             <div className="space-y-2">
-              <span className="text-xs font-semibold text-slate-300">
+              <span className="text-xs font-semibold text-slate-700">
                 Issues ({validationResult.issues.length})
               </span>
               <div className="max-h-48 overflow-y-auto space-y-2">
                 {validationResult.issues.map((issue, idx) => (
                   <div
                     key={idx}
-                    className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-xs space-y-1"
+                    className="p-3 bg-white border border-slate-200 rounded-lg text-xs space-y-1 shadow-xs"
                   >
                     <div className="flex items-center justify-between">
                       <Badge
@@ -1055,6 +1056,7 @@ export const PlanDetailPage: React.FC = () => {
                             ? "error"
                             : "warning"
                         }
+                        size="sm"
                       >
                         {issue.severity || "ERROR"}
                       </Badge>
@@ -1062,7 +1064,7 @@ export const PlanDetailPage: React.FC = () => {
                         {issue.code}
                       </span>
                     </div>
-                    <div className="text-slate-200">{issue.message}</div>
+                    <div className="text-slate-800">{issue.message}</div>
                     <div className="text-[10px] text-slate-400 font-mono">Location: {issue.location}</div>
                   </div>
                 ))}
@@ -1070,7 +1072,7 @@ export const PlanDetailPage: React.FC = () => {
             </div>
           )}
 
-          <div className="flex justify-end pt-3 border-t border-slate-800">
+          <div className="flex justify-end pt-3 border-t border-slate-100">
             <Button
               variant="secondary"
               size="sm"

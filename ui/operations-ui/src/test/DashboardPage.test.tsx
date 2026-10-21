@@ -126,7 +126,7 @@ describe("DashboardPage Real Analytics Integration", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("Operations Engine Executive Dashboard")).toBeInTheDocument();
+      expect(screen.getByText("Operations Overview")).toBeInTheDocument();
       expect(screen.getByText("67%")).toBeInTheDocument(); // progress_percentage
       expect(screen.getByText("Semester 1 Examination Schedule Plan")).toBeInTheDocument();
       expect(screen.getByText("FEASIBLE")).toBeInTheDocument(); // schedule_health.status
@@ -191,7 +191,7 @@ describe("DashboardPage Real Analytics Integration", () => {
     fireEvent.click(retryBtn);
 
     await waitFor(() => {
-      expect(screen.getByText("Operations Engine Executive Dashboard")).toBeInTheDocument();
+      expect(screen.getByText("Operations Overview")).toBeInTheDocument();
       expect(screen.getByText("0%")).toBeInTheDocument();
     });
   });

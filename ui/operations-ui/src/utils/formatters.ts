@@ -102,6 +102,52 @@ export function formatDate(isoString: string | null | undefined): string {
 }
 
 /**
+ * Format ISO datetime interval into a single readable date and time range.
+ * Example: "21 Oct 2026, 1:30 PM – 11:30 PM"
+ */
+export function formatDateTimeRange(
+  startIso: string | null | undefined,
+  endIso: string | null | undefined
+): string {
+  if (!startIso) return "—";
+  try {
+    const start = new Date(startIso);
+    if (isNaN(start.getTime())) return startIso;
+    const datePart = start.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    const startTimePart = start.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    if (!endIso) return `${datePart}, ${startTimePart}`;
+    const end = new Date(endIso);
+    if (isNaN(end.getTime())) return `${datePart}, ${startTimePart}`;
+    const sameDay =
+      start.getFullYear() === end.getFullYear() &&
+      start.getMonth() === end.getMonth() &&
+      start.getDate() === end.getDate();
+    const endTimePart = end.toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+    });
+    if (sameDay) {
+      return `${datePart}, ${startTimePart} – ${endTimePart}`;
+    }
+    const endDatePart = end.toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    return `${datePart} ${startTimePart} – ${endDatePart} ${endTimePart}`;
+  } catch {
+    return startIso;
+  }
+}
+
+/**
  * Format technical UUID into a concise copyable reference while keeping readability.
  */
 export function formatShortId(id: string | null | undefined, length: number = 8): string {

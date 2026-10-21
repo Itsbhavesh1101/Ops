@@ -626,6 +626,248 @@ class TestResourcesCatalogEndpoint:
         resp = client.get("/api/v1/resources?type=PERSON&active=true")
         assert resp.status_code == 200
 
+    @pytest.mark.asyncio
+    async def test_create_resource_room_success(self) -> None:
+        app = FastAPI()
+        register_api_exception_handlers(app)
+
+        tenant_id = "tenant-demo-real-001"
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session.execute.return_value = mock_result
+
+        async def get_tenant() -> TenantContext:
+            return TenantContext(tenant_id=tenant_id)
+
+        async def get_principal() -> AuthenticatedPrincipal:
+            return _make_human_principal(tenant_id=tenant_id, roles={"operator"})
+
+        router = create_scheduling_router(
+            tenant_dependency=get_tenant,
+            session_dependency=lambda: mock_session,  # type: ignore[arg-type]
+            scheduling_service_dependency=lambda: MagicMock(),  # type: ignore[arg-type]
+            principal_dependency=get_principal,
+        )
+        app.include_router(router, prefix="/api/v1")
+        client = TestClient(app)
+
+        payload = {
+            "resource_key": "res-hall-a",
+            "type": "ROOM",
+            "display_label": "Examination Hall A",
+            "capacity": 80,
+            "skills": ["cctv_monitored", "air_conditioned"],
+            "attributes": {"building": "Block B"},
+            "active": True,
+        }
+        resp = client.post("/api/v1/resources", json=payload)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["resource_key"] == "res-hall-a"
+        assert data["type"] == "ROOM"
+        assert data["display_label"] == "Examination Hall A"
+        assert data["capacity"] == 80
+        assert data["attributes"]["provenance"] == "USER_CREATED"
+        assert data["attributes"]["source"] == "LOCAL"
+        assert mock_session.add.called
+        assert mock_session.flush.called
+
+    @pytest.mark.asyncio
+    async def test_create_resource_rbac_auditor_rejected(self) -> None:
+        app = FastAPI()
+        register_api_exception_handlers(app)
+
+        tenant_id = "tenant-demo-real-001"
+        mock_session = AsyncMock()
+
+        async def get_tenant() -> TenantContext:
+            return TenantContext(tenant_id=tenant_id)
+
+        async def get_principal() -> AuthenticatedPrincipal:
+            p = _make_human_principal(tenant_id=tenant_id, roles={"auditor"})
+            return p.model_copy(update={"permissions": frozenset({"plan:read"})})
+
+        router = create_scheduling_router(
+            tenant_dependency=get_tenant,
+            session_dependency=lambda: mock_session,  # type: ignore[arg-type]
+            scheduling_service_dependency=lambda: MagicMock(),  # type: ignore[arg-type]
+            principal_dependency=get_principal,
+        )
+        app.include_router(router, prefix="/api/v1")
+        client = TestClient(app)
+
+        payload = {
+            "resource_key": "res-hall-a",
+            "type": "ROOM",
+            "display_label": "Examination Hall A",
+            "capacity": 80,
+        }
+        resp = client.post("/api/v1/resources", json=payload)
+        assert resp.status_code == 403
+        assert resp.json()["error"]["code"] == "resource.unauthorized"
+
+    @pytest.mark.asyncio
+    async def test_create_resource_validation_person_rejected(self) -> None:
+        app = FastAPI()
+        register_api_exception_handlers(app)
+
+        tenant_id = "tenant-demo-real-001"
+        mock_session = AsyncMock()
+
+        async def get_tenant() -> TenantContext:
+            return TenantContext(tenant_id=tenant_id)
+
+        async def get_principal() -> AuthenticatedPrincipal:
+            return _make_human_principal(tenant_id=tenant_id, roles={"operator"})
+
+        router = create_scheduling_router(
+            tenant_dependency=get_tenant,
+            session_dependency=lambda: mock_session,  # type: ignore[arg-type]
+            scheduling_service_dependency=lambda: MagicMock(),  # type: ignore[arg-type]
+            principal_dependency=get_principal,
+        )
+        app.include_router(router, prefix="/api/v1")
+        client = TestClient(app)
+
+        payload = {
+            "resource_key": "res-fake-staff",
+            "type": "PERSON",
+            "display_label": "Fake Staff Member",
+            "capacity": 1,
+        }
+        resp = client.post("/api/v1/resources", json=payload)
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "resource.invalid_type"
+
+    @pytest.mark.asyncio
+    async def test_create_resource_validation_room_capacity_zero(self) -> None:
+        app = FastAPI()
+        register_api_exception_handlers(app)
+
+        tenant_id = "tenant-demo-real-001"
+        mock_session = AsyncMock()
+
+        async def get_tenant() -> TenantContext:
+            return TenantContext(tenant_id=tenant_id)
+
+        async def get_principal() -> AuthenticatedPrincipal:
+            return _make_human_principal(tenant_id=tenant_id, roles={"operator"})
+
+        router = create_scheduling_router(
+            tenant_dependency=get_tenant,
+            session_dependency=lambda: mock_session,  # type: ignore[arg-type]
+            scheduling_service_dependency=lambda: MagicMock(),  # type: ignore[arg-type]
+            principal_dependency=get_principal,
+        )
+        app.include_router(router, prefix="/api/v1")
+        client = TestClient(app)
+
+        payload = {
+            "resource_key": "res-zero-room",
+            "type": "ROOM",
+            "display_label": "Zero Capacity Room",
+            "capacity": 0,
+        }
+        resp = client.post("/api/v1/resources", json=payload)
+        assert resp.status_code == 400
+        assert resp.json()["error"]["code"] == "resource.invalid_capacity"
+
+    @pytest.mark.asyncio
+    async def test_create_resource_duplicate_key_rejected(self) -> None:
+        app = FastAPI()
+        register_api_exception_handlers(app)
+
+        tenant_id = "tenant-demo-real-001"
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        existing_rec = MagicMock()
+        mock_result.scalar_one_or_none.return_value = existing_rec
+        mock_session.execute.return_value = mock_result
+
+        async def get_tenant() -> TenantContext:
+            return TenantContext(tenant_id=tenant_id)
+
+        async def get_principal() -> AuthenticatedPrincipal:
+            return _make_human_principal(tenant_id=tenant_id, roles={"operator"})
+
+        router = create_scheduling_router(
+            tenant_dependency=get_tenant,
+            session_dependency=lambda: mock_session,  # type: ignore[arg-type]
+            scheduling_service_dependency=lambda: MagicMock(),  # type: ignore[arg-type]
+            principal_dependency=get_principal,
+        )
+        app.include_router(router, prefix="/api/v1")
+        client = TestClient(app)
+
+        payload = {
+            "resource_key": "res-existing-hall",
+            "type": "ROOM",
+            "display_label": "Existing Hall",
+            "capacity": 50,
+        }
+        resp = client.post("/api/v1/resources", json=payload)
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "resource.duplicate_key"
+
+    @pytest.mark.asyncio
+    async def test_create_resource_availability_success_and_validation(self) -> None:
+        app = FastAPI()
+        register_api_exception_handlers(app)
+
+        tenant_id = "tenant-demo-real-001"
+        res_id = uuid4()
+
+        mock_session = AsyncMock()
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = MagicMock(id=res_id)
+        mock_session.execute.return_value = mock_result
+
+        async def get_tenant() -> TenantContext:
+            return TenantContext(tenant_id=tenant_id)
+
+        async def get_principal() -> AuthenticatedPrincipal:
+            return _make_human_principal(tenant_id=tenant_id, roles={"operator"})
+
+        router = create_scheduling_router(
+            tenant_dependency=get_tenant,
+            session_dependency=lambda: mock_session,  # type: ignore[arg-type]
+            scheduling_service_dependency=lambda: MagicMock(),  # type: ignore[arg-type]
+            principal_dependency=get_principal,
+        )
+        app.include_router(router, prefix="/api/v1")
+        client = TestClient(app)
+
+        # 1. Success
+        payload = {
+            "resource_id": str(res_id),
+            "interval_type": "AVAILABLE",
+            "start_at": "2026-11-01T09:00:00Z",
+            "end_at": "2026-11-01T17:00:00Z",
+            "reason": "Standard operational window",
+        }
+        resp = client.post("/api/v1/resources/availability", json=payload)
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["resource_id"] == str(res_id)
+        assert data["interval_type"] == "AVAILABLE"
+
+        # 2. Invalid interval order
+        bad_payload = {
+            "resource_id": str(res_id),
+            "interval_type": "AVAILABLE",
+            "start_at": "2026-11-01T17:00:00Z",
+            "end_at": "2026-11-01T09:00:00Z",
+        }
+        resp = client.post("/api/v1/resources/availability", json=bad_payload)
+        assert resp.status_code == 422
+
+        # 3. Resource not found
+        mock_result.scalar_one_or_none.return_value = None
+        resp = client.post("/api/v1/resources/availability", json=payload)
+        assert resp.status_code == 404
+        assert resp.json()["error"]["code"] == "resource.not_found"
+
 
 # ==============================================================================
 # 4. Schedule Query APIs Tests

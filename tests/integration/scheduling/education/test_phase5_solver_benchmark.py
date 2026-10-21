@@ -21,12 +21,12 @@ from pathlib import Path
 
 import pytest
 
-from app.scheduling.education.benchmark import (
+from benchmarks.education.benchmark import (
     FET_BENCHMARK_STATUS,
     EducationBenchmarkHarness,
     save_benchmark_evidence,
 )
-from app.scheduling.education.dataset import (
+from tests.fixtures.scheduling.education.dataset import (
     build_benchmark_manifest,
     load_education_dataset,
 )

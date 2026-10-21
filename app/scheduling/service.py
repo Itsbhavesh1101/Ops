@@ -153,7 +153,7 @@ class SchedulingService:
                 .group_by(ScheduleJobRecord.tenant_id)
             )
             active_counts_result = await session.execute(active_counts_stmt)
-            active_per_tenant: dict[str, int] = dict(active_counts_result.all())
+            active_per_tenant: dict[str, int] = dict(active_counts_result.tuples().all())
 
             now = datetime.now(UTC)
             claimed: list[ScheduleJobRecord] = []

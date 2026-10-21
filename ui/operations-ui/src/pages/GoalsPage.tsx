@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Target, Plus, Calendar, ShieldAlert, ArrowRight, RefreshCw, Layers } from "lucide-react";
+import { Target, Plus, Calendar, ShieldAlert, ArrowRight, RefreshCw, Search } from "lucide-react";
 import { apiClient } from "../api/client";
 import { formatDate } from "../utils/formatters";
 import type { GoalResponse, GoalCreate } from "../api/types";
@@ -9,9 +9,9 @@ import { useToast } from "../components/ui/Toast";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
-import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
 import { Input } from "../components/ui/Input";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/Table";
 import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorState } from "../components/ui/ErrorState";
@@ -24,6 +24,7 @@ export const GoalsPage: React.FC = () => {
   const [goals, setGoals] = useState<GoalResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Create Goal Modal State
   const [isCreateOpen, setIsCreateOpen] = useState<boolean>(false);
@@ -58,6 +59,17 @@ export const GoalsPage: React.FC = () => {
   useEffect(() => {
     fetchGoals();
   }, [fetchGoals]);
+
+  const filteredGoals = useMemo(() => {
+    if (!searchQuery.trim()) return goals;
+    const q = searchQuery.toLowerCase();
+    return goals.filter(
+      (g) =>
+        g.objective.toLowerCase().includes(q) ||
+        (g.scope && g.scope.toLowerCase().includes(q)) ||
+        (g.priority_target && g.priority_target.toLowerCase().includes(q))
+    );
+  }, [goals, searchQuery]);
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +142,7 @@ export const GoalsPage: React.FC = () => {
         title="Operational Goals"
         description="High-level operational objectives, planning constraints, and resource boundaries."
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Button
               variant="secondary"
               size="sm"
@@ -174,211 +186,183 @@ export const GoalsPage: React.FC = () => {
       )}
 
       {!loading && !error && goals.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {goals.map((goal) => (
-            <Card
-              key={goal.id}
-              className="p-5 flex flex-col justify-between hover:border-slate-700 transition-colors"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
-                      <Target className="w-4 h-4" />
+        <div className="space-y-4">
+          {/* Compact Filter Toolbar */}
+          <div className="flex items-center justify-between gap-4 py-1">
+            <div className="w-72">
+              <Input
+                placeholder="Search goals..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                leftIcon={<Search className="w-3.5 h-3.5" />}
+              />
+            </div>
+            <div className="text-xs text-slate-500 tabular-nums">
+              {filteredGoals.length} {filteredGoals.length === 1 ? "goal" : "goals"}
+            </div>
+          </div>
+
+          {/* Operational Goals Table */}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Goal</TableHead>
+                <TableHead>Priority</TableHead>
+                <TableHead>Scope</TableHead>
+                <TableHead>Deadline</TableHead>
+                <TableHead>Status / Constraints</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredGoals.map((goal) => (
+                <TableRow key={goal.id} className="hover:bg-slate-50/70 transition-colors">
+                  <TableCell>
+                    <Link
+                      to={`/goals/${goal.id}`}
+                      className="font-medium text-slate-900 hover:text-indigo-600 transition-colors no-underline block"
+                    >
+                      {goal.objective}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    {goal.priority_target ? (
+                      <Badge
+                        variant={
+                          goal.priority_target.toUpperCase() === "HIGH" ||
+                          goal.priority_target.toUpperCase() === "CRITICAL"
+                            ? "warning"
+                            : "info"
+                        }
+                        size="sm"
+                      >
+                        {goal.priority_target}
+                      </Badge>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-xs text-slate-600 line-clamp-1">
+                      {goal.scope || "—"}
                     </span>
-                    <span className="font-mono text-[11px] text-slate-400">
-                      {goal.id.substring(0, 8)}...
-                    </span>
-                  </div>
-                  {goal.priority_target && (
-                    <Badge variant="warning">{goal.priority_target}</Badge>
-                  )}
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-semibold text-white line-clamp-2 leading-snug">
-                    {goal.objective}
-                  </h3>
-                  {goal.scope && (
-                    <p className="text-xs text-slate-400 mt-1 line-clamp-2">{goal.scope}</p>
-                  )}
-                </div>
-
-                <div className="space-y-1.5 text-xs text-slate-400 pt-2 border-t border-slate-800/80">
-                  {goal.deadline && (
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                      <span>
-                        Deadline:{" "}
-                        <strong className="text-slate-200">
-                          {formatDate(goal.deadline)}
-                        </strong>
-                      </span>
-                    </div>
-                  )}
-
-                  {goal.constraints && goal.constraints.length > 0 && (
-                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                      <ShieldAlert className="w-3.5 h-3.5 text-amber-400/80" />
-                      <span className="text-[11px] text-slate-400">
-                        {goal.constraints.length} constraint(s)
-                      </span>
-                    </div>
-                  )}
-
-                  {goal.resource_scope && goal.resource_scope.length > 0 && (
-                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                      <Layers className="w-3.5 h-3.5 text-blue-400/80" />
-                      <span className="text-[11px] text-slate-400">
-                        Scope: {goal.resource_scope.join(", ")}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-400 text-[11px]">
-                  Created {formatDate(goal.created_at)}
-                </span>
-                <Link
-                  to={`/goals/${goal.id}`}
-                  className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 font-medium transition-colors"
-                >
-                  View Details <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
-              </div>
-            </Card>
-          ))}
+                  </TableCell>
+                  <TableCell>
+                    {goal.deadline ? (
+                      <div className="flex items-center gap-1.5 text-xs text-slate-600">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{formatDate(goal.deadline)}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {goal.constraints && goal.constraints.length > 0 ? (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-700">
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{goal.constraints.length} constraint{goal.constraints.length > 1 ? "s" : ""}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400 text-xs">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link
+                      to={`/goals/${goal.id}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 no-underline px-2 py-1 rounded hover:bg-indigo-50/50 transition-colors"
+                    >
+                      <span>View</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
 
       {/* Create Goal Modal */}
       <Modal
         isOpen={isCreateOpen}
-        onClose={() => {
-          if (!isSubmitting) {
-            setIsCreateOpen(false);
-            resetForm();
-          }
-        }}
+        onClose={() => setIsCreateOpen(false)}
         title="Define Operational Goal"
+        description="Specify operational objective and constraints for engine plan synthesis."
+        maxWidth="lg"
       >
         <form onSubmit={handleCreateSubmit} className="space-y-4">
           {createError && (
-            <div className="p-3 text-xs rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300">
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
               {createError}
             </div>
           )}
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Objective <span className="text-rose-400">*</span>
-            </label>
-            <textarea
-              value={objective}
-              onChange={(e) => setObjective(e.target.value)}
-              placeholder="e.g. Conduct Semester 1 Final Examination for all engineering cohorts"
-              rows={3}
-              required
-              minLength={3}
-              maxLength={1000}
-              className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              High-level operational objective to achieve (3-1000 characters).
-            </p>
-          </div>
+          <Input
+            label="Objective *"
+            placeholder="e.g. Conduct Semester 1 Final Examination"
+            value={objective}
+            onChange={(e) => setObjective(e.target.value)}
+            required
+          />
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Operational Scope
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
+              label="Scope"
+              placeholder="e.g. Campus-wide Faculty of Engineering"
               value={scope}
               onChange={(e) => setScope(e.target.value)}
-              placeholder="e.g. Campus-wide halls, invigilators, and laboratory assets"
             />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Priority Target
-              </label>
-              <Input
-                value={priorityTarget}
-                onChange={(e) => setPriorityTarget(e.target.value)}
-                placeholder="e.g. HIGH, P0, CRITICAL"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Target Deadline
-              </label>
-              <Input
-                type="datetime-local"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Target Window Start
-              </label>
-              <Input
-                type="datetime-local"
-                value={targetStart}
-                onChange={(e) => setTargetStart(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Target Window End
-              </label>
-              <Input
-                type="datetime-local"
-                value={targetEnd}
-                onChange={(e) => setTargetEnd(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Constraints (Comma-separated)
-            </label>
             <Input
-              value={constraintsText}
-              onChange={(e) => setConstraintsText(e.target.value)}
-              placeholder="e.g. No weekend sessions, Mandatory 15m transition buffer"
+              label="Priority Target"
+              placeholder="e.g. HIGH, NORMAL, CRITICAL"
+              value={priorityTarget}
+              onChange={(e) => setPriorityTarget(e.target.value)}
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              Resource Scope Categories (Comma-separated)
-            </label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <Input
-              value={resourceScopeText}
-              onChange={(e) => setResourceScopeText(e.target.value)}
-              placeholder="e.g. ROOM, PERSON, EQUIPMENT"
+              label="Hard Deadline"
+              type="datetime-local"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+            />
+            <Input
+              label="Target Window Start"
+              type="datetime-local"
+              value={targetStart}
+              onChange={(e) => setTargetStart(e.target.value)}
+            />
+            <Input
+              label="Target Window End"
+              type="datetime-local"
+              value={targetEnd}
+              onChange={(e) => setTargetEnd(e.target.value)}
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <Input
+            label="Operational Constraints (comma separated)"
+            placeholder="e.g. NO_SUNDAY_EXAMS, MAX_CONCURRENT_2"
+            value={constraintsText}
+            onChange={(e) => setConstraintsText(e.target.value)}
+          />
+
+          <Input
+            label="Resource Scope (comma separated)"
+            placeholder="e.g. hall-alpha, hall-beta, invigilator-pool-1"
+            value={resourceScopeText}
+            onChange={(e) => setResourceScopeText(e.target.value)}
+          />
+
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2.5">
             <Button
               type="button"
               variant="secondary"
               size="sm"
+              onClick={() => setIsCreateOpen(false)}
               disabled={isSubmitting}
-              onClick={() => {
-                setIsCreateOpen(false);
-                resetForm();
-              }}
             >
               Cancel
             </Button>
@@ -386,9 +370,11 @@ export const GoalsPage: React.FC = () => {
               type="submit"
               variant="primary"
               size="sm"
-              disabled={isSubmitting || !objective.trim()}
+              isLoading={isSubmitting}
+              className="flex items-center gap-1.5"
             >
-              {isSubmitting ? "Creating..." : "Establish Goal"}
+              <Target className="w-3.5 h-3.5" />
+              Establish Goal
             </Button>
           </div>
         </form>
