@@ -1,0 +1,297 @@
+# ==============================================================================
+# E-7 Operations Engine — Production Prometheus Alert Rules
+# ==============================================================================
+# Location Note: This file mirrors deploy/prometheus/alert.rules.yml for deployment
+# targets where Alertmanager rule packages are colocated.
+#
+# Authoritative Alert Evaluation Rules for Prometheus (Evaluated by Prometheus Server).
+# Note: Prometheus evaluates rules and fires alerts to Alertmanager.
+# Alertmanager routes notifications based on alertmanager.yml.
+#
+# Rule State & Verification Classification:
+# - OPERATIONAL (6 rules): Backed by verified application telemetry emitted via OTel;
+#   syntactically verified via 'promtool check rules' and validated through offline
+#   state-transition simulation via 'promtool test rules'. Live runtime verification
+#   (application emission, OTel export, Prometheus scraping, alert firing, and delivery)
+#   is formally classified as PENDING VERIFICATION in live cluster runtime.
+# - NOT_OPERATIONAL (11 rules): Proposed operational rules awaiting internal
+#   telemetry middleware, external infrastructure exporters, or scrape configurations.
+# ==============================================================================
+
+groups:
+  # ----------------------------------------------------------------------------
+  # Group 1: Transactional Outbox & Capacity (OPERATIONAL)
+  # Producer: app/core/telemetry/capacity.py and app/core/telemetry/outbox.py
+  # Scrape Target: otel-collector:8889
+  # ----------------------------------------------------------------------------
+  - name: e7_transactional_outbox
+    rules:
+      - alert: E7OutboxBacklogAccumulating
+        expr: e7_capacity_outbox_pending_depth > 100
+        for: 5m
+        labels:
+          severity: SEV-2
+          tier: backend
+          service: e7-worker
+          status: OPERATIONAL
+        annotations:
+          summary: "Transactional outbox pending event backlog exceeds 100 records"
+          description: "Outbox dispatcher backlog depth is {{ $value }}. Event publishing may be stalled or lagging."
+          telemetry_producer: "app/core/telemetry/capacity.py"
+          metric_name: "e7_capacity_outbox_pending_depth"
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-05"
+
+      - alert: E7OutboxDeliveryFailuresSpike
+        expr: rate(e7_outbox_dispatch_failures_total[5m]) > 0.1
+        for: 3m
+        labels:
+          severity: SEV-2
+          tier: backend
+          service: e7-worker
+          status: OPERATIONAL
+        annotations:
+          summary: "High rate of transactional outbox dispatch failures"
+          description: "Outbox dispatcher is experiencing {{ $value }} failures/sec when publishing events to RabbitMQ."
+          telemetry_producer: "app/core/telemetry/outbox.py"
+          metric_name: "e7_outbox_dispatch_failures_total"
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-06"
+
+      - alert: E7CapacityQuotaRejectionsSpike
+        expr: rate(e7_capacity_quota_rejections_total[5m]) > 0.2
+        for: 3m
+        labels:
+          severity: SEV-3
+          tier: backend
+          service: e7-api
+          status: OPERATIONAL
+        annotations:
+          summary: "High rate of tenant quota and backpressure rejections"
+          description: "Capacity controller is rejecting {{ $value }} requests/sec due to resource quota limits."
+          telemetry_producer: "app/core/telemetry/capacity.py"
+          metric_name: "e7_capacity_quota_rejections_total"
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-14"
+
+  # ----------------------------------------------------------------------------
+  # Group 2: Constraint Scheduling Engine (OPERATIONAL)
+  # Producer: app/core/telemetry/capacity.py and app/core/telemetry/scheduling.py
+  # Scrape Target: otel-collector:8889
+  # ----------------------------------------------------------------------------
+  - name: e7_scheduling_engine
+    rules:
+      - alert: E7SolverQueueBacklogAccumulating
+        expr: e7_capacity_schedule_queue_depth > 25
+        for: 10m
+        labels:
+          severity: SEV-3
+          tier: scheduler
+          service: e7-scheduler-worker
+          status: OPERATIONAL
+        annotations:
+          summary: "CP-SAT solver queue backlog exceeds 25 pending jobs"
+          description: "Pending optimization queue depth is {{ $value }}. Scheduling worker may be CPU-constrained."
+          telemetry_producer: "app/core/telemetry/capacity.py"
+          metric_name: "e7_capacity_schedule_queue_depth"
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-08"
+
+      - alert: E7SolverBudgetExhaustionSpike
+        expr: rate(e7_scheduling_solve_results_total{result_status="BUDGET_EXHAUSTED"}[10m]) > 0.2
+        for: 5m
+        labels:
+          severity: SEV-2
+          tier: scheduler
+          service: e7-scheduler-worker
+          status: OPERATIONAL
+        annotations:
+          summary: "Sustained high rate of solver time budget exhaustions"
+          description: "Constraint solver is failing to find feasible solutions within allocated time (rate: {{ $value }}/s)."
+          telemetry_producer: "app/core/telemetry/scheduling.py"
+          metric_name: "e7_scheduling_solve_results_total"
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-09"
+
+  # ----------------------------------------------------------------------------
+  # Group 3: Flowable Workflow Engine (OPERATIONAL)
+  # Producer: app/core/telemetry/flowable.py
+  # Scrape Target: otel-collector:8889
+  # ----------------------------------------------------------------------------
+  - name: e7_workflow_engine
+    rules:
+      - alert: E7FlowableUnavailable
+        expr: sum by (service) (rate(e7_flowable_requests_total{outcome="error"}[5m])) / sum by (service) (rate(e7_flowable_requests_total[5m])) > 0.1
+        for: 3m
+        labels:
+          severity: SEV-1
+          tier: workflow
+          service: flowable
+          status: OPERATIONAL
+        annotations:
+          summary: "Flowable REST client request error rate exceeds 10%"
+          description: "Flowable workflow roundtrips are failing at {{ $value | humanizePercentage }}. Workflow execution impaired."
+          telemetry_producer: "app/core/telemetry/flowable.py"
+          metric_name: "e7_flowable_requests_total"
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-10"
+
+  # ----------------------------------------------------------------------------
+  # Group 4: Application Availability & HTTP Ingress (NOT_OPERATIONAL)
+  # Awaiting: Direct Prometheus scrape job for e7-api, or Prometheus HTTP middleware
+  # ----------------------------------------------------------------------------
+  - name: e7_availability_and_health
+    rules:
+      - alert: E7ApiUnavailable
+        expr: up{job="e7-api"} == 0
+        for: 1m
+        labels:
+          severity: SEV-1
+          tier: api
+          service: e7-api
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "E-7 FastAPI application service instance is down"
+          description: "Prometheus cannot scrape e7-api instance on port 8000."
+          remaining_dependency: "Direct Prometheus scrape job 'job=e7-api' targeting /api/v1/health or blackbox probe."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-01"
+
+      - alert: E7HttpHighErrorRate
+        expr: rate(http_server_requests_total{status=~"5.."}[5m]) / rate(http_server_requests_total[5m]) > 0.05
+        for: 3m
+        labels:
+          severity: SEV-2
+          tier: api
+          service: e7-api
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "E-7 API 5xx HTTP error rate exceeds 5%"
+          description: "Internal server error rate is {{ $value | humanizePercentage }} over a 5m evaluation window."
+          remaining_dependency: "Prometheus HTTP request counter middleware in app/core/telemetry/fastapi.py."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-02"
+
+      - alert: E7HttpExcessiveLatency
+        expr: histogram_quantile(0.99, rate(http_server_requests_duration_seconds_bucket[5m])) > 2.0
+        for: 5m
+        labels:
+          severity: SEV-3
+          tier: api
+          service: e7-api
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "E-7 API p99 latency exceeds 2.0 seconds"
+          description: "99th percentile response duration is {{ $value }}s over a 5m window."
+          remaining_dependency: "Prometheus HTTP request duration histogram in app/core/telemetry/fastapi.py."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-03"
+
+      - alert: E7SchedulingWorkerUnavailable
+        expr: up{job="e7-worker-scheduling"} == 0
+        for: 2m
+        labels:
+          severity: SEV-1
+          tier: scheduler
+          service: e7-scheduler-worker
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "E-7 dedicated scheduling worker is down"
+          description: "Prometheus cannot reach e7-scheduler-worker process."
+          remaining_dependency: "Prometheus scrape target or process supervisor exporter for scheduler worker."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-07"
+
+      - alert: E7AuthFailureSpike
+        expr: rate(http_server_requests_total{handler=~".*auth.*",status="401"}[5m]) > 2.0
+        for: 3m
+        labels:
+          severity: SEV-2
+          tier: security
+          service: e7-api
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "Unusual spike in HTTP 401 Unauthorized responses"
+          description: "Authentication failure rate is {{ $value }} req/s. Potential brute-force or expired token storm."
+          remaining_dependency: "Dedicated HTTP authentication 401 counter instrumentation."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-15"
+
+      - alert: E7ExternalIntegrationDegraded
+        expr: rate(e7_external_adapter_requests_total{status=~"5..|timeout"}[5m]) / rate(e7_external_adapter_requests_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: SEV-3
+          tier: integrations
+          service: e7-api
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "External MySQL ERP sync failure rate exceeds 5%"
+          description: "MySqlIreduAdapter error/timeout rate is {{ $value | humanizePercentage }}."
+          remaining_dependency: "Custom OpenTelemetry counter in app/integrations/erp/mysql_adapter.py."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-16"
+
+  # ----------------------------------------------------------------------------
+  # Group 5: External Infrastructure & Exporters (NOT_OPERATIONAL)
+  # Awaiting: Deployment of postgres_exporter, rabbitmq_exporter, and backup cron
+  # ----------------------------------------------------------------------------
+  - name: e7_infrastructure_and_storage
+    rules:
+      - alert: E7PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: SEV-1
+          tier: database
+          service: postgres
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "PostgreSQL primary database instance is unreachable"
+          description: "Postgres exporter cannot reach the PostgreSQL primary instance."
+          remaining_dependency: "postgres_exporter container running and scraped by Prometheus."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-04"
+
+      - alert: E7PostgresPoolExhaustion
+        expr: pg_stat_activity_count / pg_settings_max_connections > 0.85
+        for: 3m
+        labels:
+          severity: SEV-2
+          tier: database
+          service: postgres
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "Database connection utilization exceeds 85%"
+          description: "Active server connections ratio is {{ $value | humanizePercentage }} of max_connections."
+          remaining_dependency: "postgres_exporter or application pool metric from app/db/engine.py get_pool_status()."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-11"
+
+      - alert: E7RabbitMQDown
+        expr: rabbitmq_up == 0
+        for: 1m
+        labels:
+          severity: SEV-1
+          tier: broker
+          service: rabbitmq
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "RabbitMQ message broker node is unreachable"
+          description: "Prometheus cannot scrape RabbitMQ management endpoint on port 15692."
+          remaining_dependency: "Prometheus scrape job targeting RabbitMQ Prometheus plugin on port 15692."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-12"
+
+      - alert: E7RabbitMQConnectionFailure
+        expr: rabbitmq_connections_total == 0
+        for: 2m
+        labels:
+          severity: SEV-2
+          tier: broker
+          service: rabbitmq
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "Zero active AMQP connections on RabbitMQ broker"
+          description: "No active client connections reported by RabbitMQ exporter."
+          remaining_dependency: "Prometheus scrape job targeting RabbitMQ Prometheus plugin on port 15692."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-13"
+
+      - alert: E7BackupMissingOrFailed
+        expr: time() - e7_backup_last_success_timestamp_seconds > 90000
+        for: 15m
+        labels:
+          severity: SEV-1
+          tier: infrastructure
+          service: backup-cron
+          status: NOT_OPERATIONAL
+        annotations:
+          summary: "PostgreSQL automated backup missing or stale (> 25 hours)"
+          description: "No verified backup timestamp recorded in the past 25 hours."
+          remaining_dependency: "External backup verification script writing to node_exporter textfile collector."
+          runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-17"

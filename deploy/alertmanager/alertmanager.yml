@@ -1,0 +1,89 @@
+# ==============================================================================
+# E-7 Operations Engine — Production Alertmanager Routing Configuration
+# ==============================================================================
+# Authoritative Alertmanager Configuration (Routes, Receivers, Inhibition Rules)
+# Note: Alertmanager receives firing alerts from Prometheus and handles routing,
+# grouping, deduplication, and dispatch to notification channels.
+#
+# Production Destinations: All Slack, PagerDuty, and email credentials remain
+# unprovisioned and are marked as enterprise-managed placeholders.
+# ==============================================================================
+
+global:
+  resolve_timeout: 5m
+
+# The root route on which each incoming alert enters
+route:
+  group_by: ['alertname', 'service', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default-fallback-blackhole'
+
+  routes:
+    # SEV-1: Critical Outages -> Urgent PagerDuty Escalation
+    - match:
+        severity: SEV-1
+      receiver: 'enterprise-pagerduty-sev1'
+      group_wait: 10s
+      repeat_interval: 1h
+
+    # SEV-2: High Impairment -> Primary Operations PagerDuty & Slack
+    - match:
+        severity: SEV-2
+      receiver: 'enterprise-pagerduty-sev2'
+      group_wait: 30s
+      repeat_interval: 2h
+
+    # SEV-3: Moderate Degradation -> SRE On-Call Slack Channel
+    - match:
+        severity: SEV-3
+      receiver: 'enterprise-slack-sev3'
+      group_wait: 1m
+      repeat_interval: 8h
+
+# Inhibition rules: Suppress low-severity symptoms when root cause is already firing
+inhibit_rules:
+  # If PostgreSQL is down (SEV-1), inhibit database pool exhaustion (SEV-2)
+  - source_match:
+      alertname: 'E7PostgresDown'
+    target_match:
+      alertname: 'E7PostgresPoolExhaustion'
+    equal: ['service']
+
+  # If RabbitMQ is down (SEV-1), inhibit RabbitMQ connection failures and outbox delivery failures (SEV-2)
+  - source_match:
+      alertname: 'E7RabbitMQDown'
+    target_match_re:
+      alertname: 'E7RabbitMQConnectionFailure|E7OutboxDeliveryFailuresSpike'
+    equal: ['service']
+
+  # If API is down (SEV-1), inhibit HTTP error rate and latency alerts (SEV-2/SEV-3)
+  - source_match:
+      alertname: 'E7ApiUnavailable'
+    target_match_re:
+      alertname: 'E7HttpHighErrorRate|E7HttpExcessiveLatency'
+    equal: ['service']
+
+# Notification receivers (Configured with enterprise-managed secret references)
+receivers:
+  - name: 'default-fallback-blackhole'
+
+  - name: 'enterprise-pagerduty-sev1'
+    # Placeholder: Routing key injected via Vault/K8s secret in production
+    # pagerduty_configs:
+    #   - service_key: '${PAGERDUTY_SEV1_SERVICE_KEY}'
+    #     severity: 'critical'
+
+  - name: 'enterprise-pagerduty-sev2'
+    # Placeholder: Routing key injected via Vault/K8s secret in production
+    # pagerduty_configs:
+    #   - service_key: '${PAGERDUTY_SEV2_SERVICE_KEY}'
+    #     severity: 'error'
+
+  - name: 'enterprise-slack-sev3'
+    # Placeholder: Slack webhook URL injected via Vault/K8s secret in production
+    # slack_configs:
+    #   - api_url: '${SLACK_OPS_WEBHOOK_URL}'
+    #     channel: '#e7-ops-alerts'
+    #     send_resolved: true

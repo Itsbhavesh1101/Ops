@@ -1,0 +1,220 @@
+# ==============================================================================
+# E-7 Operations Engine — Promtool Alert Rule Unit Tests
+# ==============================================================================
+# Verifies PromQL semantics, alert transition states (inactive -> pending -> firing),
+# and zero-traffic / missing-series behavior using Prometheus official promtool test suite.
+# ==============================================================================
+
+rule_files:
+  - F:/operations-engine/deploy/prometheus/alert.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ----------------------------------------------------------------------------
+  # Test 1: E7OutboxBacklogAccumulating (Threshold > 100, for: 5m)
+  # ----------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: 'e7_capacity_outbox_pending_depth{service="e7-worker"}'
+        values: '0 50 80 120 130 140 150 160 170 180'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: E7OutboxBacklogAccumulating
+        exp_alerts: [] # Normal (< 100) -> INACTIVE
+      - eval_time: 5m
+        alertname: E7OutboxBacklogAccumulating
+        exp_alerts: [] # Value > 100, but only for 2m (< 5m) -> PENDING (not firing)
+      - eval_time: 8m
+        alertname: E7OutboxBacklogAccumulating
+        exp_alerts:
+          - exp_labels:
+              severity: SEV-2
+              tier: backend
+              service: e7-worker
+              status: OPERATIONAL
+            exp_annotations:
+              summary: "Transactional outbox pending event backlog exceeds 100 records"
+              description: "Outbox dispatcher backlog depth is 170. Event publishing may be stalled or lagging."
+              telemetry_producer: "app/core/telemetry/capacity.py"
+              metric_name: "e7_capacity_outbox_pending_depth"
+              runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-05"
+
+  # ----------------------------------------------------------------------------
+  # Test 2: E7OutboxDeliveryFailuresSpike (rate > 0.1/s, for: 3m)
+  # ----------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      # 12 failures every minute = 12 / 60 = 0.2 failures/sec (> 0.1/s)
+      - series: 'e7_outbox_dispatch_failures_total{service="e7-worker"}'
+        values: '0 12 24 36 48 60 72 84 96 108 120 132 144'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: E7OutboxDeliveryFailuresSpike
+        exp_alerts: [] # INACTIVE
+      - eval_time: 4m
+        alertname: E7OutboxDeliveryFailuresSpike
+        exp_alerts: [] # PENDING
+      - eval_time: 6m
+        alertname: E7OutboxDeliveryFailuresSpike
+        exp_alerts:
+          - exp_labels:
+              severity: SEV-2
+              tier: backend
+              service: e7-worker
+              status: OPERATIONAL
+            exp_annotations:
+              summary: "High rate of transactional outbox dispatch failures"
+              description: "Outbox dispatcher is experiencing 0.2 failures/sec when publishing events to RabbitMQ."
+              telemetry_producer: "app/core/telemetry/outbox.py"
+              metric_name: "e7_outbox_dispatch_failures_total"
+              runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-06"
+
+  # ----------------------------------------------------------------------------
+  # Test 3: E7CapacityQuotaRejectionsSpike (rate > 0.2/s, for: 3m)
+  # ----------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      # 24 rejections every minute = 24 / 60 = 0.4 rejections/sec (> 0.2/s)
+      - series: 'e7_capacity_quota_rejections_total{service="e7-api"}'
+        values: '0 24 48 72 96 120 144 168 192 216 240'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: E7CapacityQuotaRejectionsSpike
+        exp_alerts: [] # INACTIVE
+      - eval_time: 4m
+        alertname: E7CapacityQuotaRejectionsSpike
+        exp_alerts: [] # PENDING
+      - eval_time: 6m
+        alertname: E7CapacityQuotaRejectionsSpike
+        exp_alerts:
+          - exp_labels:
+              severity: SEV-3
+              tier: backend
+              service: e7-api
+              status: OPERATIONAL
+            exp_annotations:
+              summary: "High rate of tenant quota and backpressure rejections"
+              description: "Capacity controller is rejecting 0.4 requests/sec due to resource quota limits."
+              telemetry_producer: "app/core/telemetry/capacity.py"
+              metric_name: "e7_capacity_quota_rejections_total"
+              runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-14"
+
+  # ----------------------------------------------------------------------------
+  # Test 4: E7SolverQueueBacklogAccumulating (depth > 25, for: 10m)
+  # ----------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: 'e7_capacity_schedule_queue_depth{service="e7-scheduler-worker"}'
+        values: '5 10 15 30 35 40 45 50 55 60 65 70 75 80'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: E7SolverQueueBacklogAccumulating
+        exp_alerts: [] # Normal (15 <= 25) -> INACTIVE
+      - eval_time: 8m
+        alertname: E7SolverQueueBacklogAccumulating
+        exp_alerts: [] # > 25 for 5m (< 10m) -> PENDING
+      - eval_time: 14m
+        alertname: E7SolverQueueBacklogAccumulating
+        exp_alerts:
+          - exp_labels:
+              severity: SEV-3
+              tier: scheduler
+              service: e7-scheduler-worker
+              status: OPERATIONAL
+            exp_annotations:
+              summary: "CP-SAT solver queue backlog exceeds 25 pending jobs"
+              description: "Pending optimization queue depth is 80. Scheduling worker may be CPU-constrained."
+              telemetry_producer: "app/core/telemetry/capacity.py"
+              metric_name: "e7_capacity_schedule_queue_depth"
+              runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-08"
+
+  # ----------------------------------------------------------------------------
+  # Test 5: E7SolverBudgetExhaustionSpike (rate > 0.2/s, for: 5m)
+  # ----------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      # 24 budget exhaustions per minute = 24 / 60 = 0.4/s (> 0.2/s)
+      - series: 'e7_scheduling_solve_results_total{service="e7-scheduler-worker",result_status="BUDGET_EXHAUSTED"}'
+        values: '0 24 48 72 96 120 144 168 192 216 240'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: E7SolverBudgetExhaustionSpike
+        exp_alerts: [] # INACTIVE
+      - eval_time: 6m
+        alertname: E7SolverBudgetExhaustionSpike
+        exp_alerts: [] # PENDING (< 5m)
+      - eval_time: 11m
+        alertname: E7SolverBudgetExhaustionSpike
+        exp_alerts:
+          - exp_labels:
+              result_status: BUDGET_EXHAUSTED
+              severity: SEV-2
+              tier: scheduler
+              service: e7-scheduler-worker
+              status: OPERATIONAL
+            exp_annotations:
+              summary: "Sustained high rate of solver time budget exhaustions"
+              description: "Constraint solver is failing to find feasible solutions within allocated time (rate: 0.4/s)."
+              telemetry_producer: "app/core/telemetry/scheduling.py"
+              metric_name: "e7_scheduling_solve_results_total"
+              runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-09"
+
+  # ----------------------------------------------------------------------------
+  # Test 6: E7FlowableUnavailable (error_rate / total_rate > 0.1, for: 3m)
+  # ----------------------------------------------------------------------------
+  - interval: 1m
+    input_series:
+      # Total requests: 10/min
+      - series: 'e7_flowable_requests_total{service="flowable"}'
+        values: '0 10 20 30 40 50 60 70 80'
+      # Error requests: 3/min (23.08% interpolated error rate > 10%)
+      - series: 'e7_flowable_requests_total{service="flowable",outcome="error"}'
+        values: '0 3 6 9 12 15 18 21 24'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: E7FlowableUnavailable
+        exp_alerts: [] # INACTIVE
+      - eval_time: 3m
+        alertname: E7FlowableUnavailable
+        exp_alerts: [] # PENDING (< 3m)
+      - eval_time: 4m
+        alertname: E7FlowableUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: SEV-1
+              tier: workflow
+              service: flowable
+              status: OPERATIONAL
+            exp_annotations:
+              summary: "Flowable REST client request error rate exceeds 10%"
+              description: "Flowable workflow roundtrips are failing at 23.08%. Workflow execution impaired."
+              telemetry_producer: "app/core/telemetry/flowable.py"
+              metric_name: "e7_flowable_requests_total"
+              runbook_url: "docs/production/INCIDENT_RESPONSE_GUIDE.md#inc-10"
+
+  # ----------------------------------------------------------------------------
+  # Test 7: Zero-Traffic Semantics Validation (Missing-series and Idle behavior)
+  # When no traffic exists or series are absent, zero alerts must fire.
+  # ----------------------------------------------------------------------------
+  - interval: 1m
+    input_series: [] # Zero series present
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: E7OutboxBacklogAccumulating
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: E7OutboxDeliveryFailuresSpike
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: E7CapacityQuotaRejectionsSpike
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: E7SolverQueueBacklogAccumulating
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: E7SolverBudgetExhaustionSpike
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: E7FlowableUnavailable
+        exp_alerts: []

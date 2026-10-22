@@ -67,6 +67,10 @@ class CapacityTelemetry:
             unit="1",
             description="Concurrent active workflow process creation pressure",
         )
+        self._last_outbox_depth: int = 0
+        self._last_schedule_depth: int = 0
+        self._last_repair_depth: int = 0
+        self._last_workflow_pressure: int = 0
 
     def record_quota_rejection(self, resource_class: str) -> None:
         """Safely record a tenant quota rejection without exposing tenant ID."""
@@ -84,16 +88,28 @@ class CapacityTelemetry:
         repair_depth: int | None = None,
         workflow_pressure: int | None = None,
     ) -> None:
-        """Record queue depth gauges safely."""
+        """Record queue depth gauges safely by emitting deltas to UpDownCounters."""
         try:
             if outbox_depth is not None:
-                self._outbox_pending_gauge.add(outbox_depth)
+                delta = outbox_depth - self._last_outbox_depth
+                if delta != 0:
+                    self._outbox_pending_gauge.add(delta)
+                self._last_outbox_depth = outbox_depth
             if schedule_depth is not None:
-                self._schedule_queue_depth.add(schedule_depth)
+                delta = schedule_depth - self._last_schedule_depth
+                if delta != 0:
+                    self._schedule_queue_depth.add(delta)
+                self._last_schedule_depth = schedule_depth
             if repair_depth is not None:
-                self._repair_queue_depth.add(repair_depth)
+                delta = repair_depth - self._last_repair_depth
+                if delta != 0:
+                    self._repair_queue_depth.add(delta)
+                self._last_repair_depth = repair_depth
             if workflow_pressure is not None:
-                self._workflow_pressure.add(workflow_pressure)
+                delta = workflow_pressure - self._last_workflow_pressure
+                if delta != 0:
+                    self._workflow_pressure.add(delta)
+                self._last_workflow_pressure = workflow_pressure
         except BaseException:
             pass
 

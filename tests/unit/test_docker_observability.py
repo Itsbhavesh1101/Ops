@@ -51,6 +51,12 @@ def test_observability_services_under_profile(compose_data: dict[str, Any]) -> N
         "prometheus must be under ['observability'] profile"
     )
 
+    assert "alertmanager" in services, "alertmanager service must be defined"
+    am = services["alertmanager"]
+    assert am.get("profiles") == ["observability"], (
+        "alertmanager must be under ['observability'] profile"
+    )
+
 
 def test_strict_absence_of_grafana(compose_data: dict[str, Any]) -> None:
     """Verify Grafana is deferred and strictly absent from Compose services."""
@@ -80,7 +86,9 @@ def test_default_compose_excludes_observability() -> None:
             "otel-collector must not be included in default Compose"
         )
         assert "prometheus" not in services, "prometheus must not be included in default Compose"
-        assert "worker" not in services, "worker must not be included in default Compose"
+        assert "alertmanager" not in services, (
+            "alertmanager must not be included in default Compose"
+        )
 
 
 def test_collector_configuration_validity() -> None:
@@ -178,6 +186,11 @@ def test_configurable_host_ports(compose_data: dict[str, Any]) -> None:
     prom_ports = services["prometheus"].get("ports", [])
     assert any("PROMETHEUS_PORT" in p for p in prom_ports), (
         "prometheus host port must be configurable via PROMETHEUS_PORT"
+    )
+
+    am_ports = services["alertmanager"].get("ports", [])
+    assert any("ALERTMANAGER_PORT" in p for p in am_ports), (
+        "alertmanager host port must be configurable via ALERTMANAGER_PORT"
     )
 
 

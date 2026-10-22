@@ -60,6 +60,7 @@ def test_compose_canonical_services(compose_data: dict[str, Any]) -> None:
         "flowable",
         "otel-collector",
         "prometheus",
+        "alertmanager",
     }
     assert service_names == expected_services, (
         f"Compose services must be exactly {expected_services}, found {service_names}"

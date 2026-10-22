@@ -84,7 +84,7 @@ def get_pkg_info(pkg_name: str) -> dict:
         }
 
 
-def generate_sbom(rc_content_id: str = "") -> dict:
+def generate_sbom(rc_content_id: str = "", output_path: Path | None = None) -> dict:
     bom_serial = f"urn:uuid:{uuid.uuid4()}"
     timestamp = datetime.now(UTC).isoformat()
 
@@ -348,7 +348,11 @@ def generate_sbom(rc_content_id: str = "") -> dict:
         "components": components,
     }
 
-    out_file = REPO_ROOT / "docs" / "phase-8" / "release" / "SBOM.cyclonedx.json"
+    out_file = (
+        output_path
+        if output_path is not None
+        else (REPO_ROOT / "docs" / "phase-8" / "release" / "SBOM.cyclonedx.json")
+    )
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(sbom, f, indent=2, sort_keys=True)
 

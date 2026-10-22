@@ -198,10 +198,31 @@ services:
       - "--storage.tsdb.path=/prometheus"
     volumes:
       - ./docker/observability/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
     ports:
       - "${PROMETHEUS_PORT:-9090}:9090"
     depends_on:
       - otel-collector
+      - alertmanager
+
+  # ----------------------------------------------------------------------------
+  # Alertmanager: Local Alert Routing and Deduplication (Stage 2)
+  # Receives firing alerts from Prometheus; routes according to alertmanager.yml
+  # Placed behind 'observability' profile.
+  # ----------------------------------------------------------------------------
+  alertmanager:
+    profiles:
+      - observability
+    image: prom/alertmanager:v0.28.1
+    container_name: e7-alertmanager
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    volumes:
+      - ./deploy/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    ports:
+      - "${ALERTMANAGER_PORT:-9093}:9093"
 
 
 volumes:

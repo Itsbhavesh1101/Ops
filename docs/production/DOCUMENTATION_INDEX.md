@@ -69,7 +69,25 @@ Validated disaster recovery drill procedures reside in `docs/phase-8/recovery/`:
 
 ---
 
+---
+
 ## 5. Traceability & Source of Truth
 
 - [Requirements Traceability Matrix](file:///f:/operations-engine/docs/REQUIREMENTS_TRACEABILITY_MATRIX.md)
 - **Original Source Documents:** `docs/source-of-truth/` (*Strictly Read-Only*)
+
+---
+
+## 6. Stage 2 Production Handover & Operational Automation
+
+Canonical handover packages, release packaging tooling, and alerting automation:
+
+- [Operations Handover Master Checklist](file:///f:/operations-engine/docs/production/OPERATIONS_HANDOVER_CHECKLIST.md)
+- [Database Administration Handover](file:///f:/operations-engine/docs/production/handover/DATABASE_ADMINISTRATION_HANDOVER.md)
+- [Corporate Identity & IAM Handover](file:///f:/operations-engine/docs/production/handover/IDENTITY_TEAM_HANDOVER.md)
+- [E-8 Engagement Platform Handover](file:///f:/operations-engine/docs/production/handover/E8_PLATFORM_TEAM_HANDOVER.md)
+- [Cloud Infrastructure & SRE Handover](file:///f:/operations-engine/docs/production/handover/CLOUD_INFRASTRUCTURE_SRE_HANDOVER.md)
+- [Prometheus Alert Evaluation Rules](file:///f:/operations-engine/deploy/prometheus/alert.rules.yml)
+- [Alertmanager Notification Routing Configuration](file:///f:/operations-engine/deploy/alertmanager/alertmanager.yml)
+- [Automated Production Release Packaging Tool](file:///f:/operations-engine/scripts/release/build_production_release.py)
+
