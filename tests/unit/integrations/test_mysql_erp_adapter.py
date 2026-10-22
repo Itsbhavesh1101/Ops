@@ -580,3 +580,270 @@ async def test_read_only_session_and_arbitrary_sql_enforcement(
             adapter._validate_read_only(q)
 
 
+def test_evaluate_grants_least_privilege_compliant_11_tables() -> None:
+    """Compliant SELECT-only grants across exact 11 active tables pass verification."""
+    compliant_grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`sch_settings` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`sessions` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`classes` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`sections` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`class_sections` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`subjects` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`staff` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`department` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`staff_designation` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`student_session` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`subject_timetable` TO `e7_ro_sync`@`%`",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(compliant_grants)
+    assert eval_result["is_compliant"] is True
+    assert eval_result["is_complete"] is True
+    assert eval_result["violations"] == []
+    assert len(eval_result["granted_tables"]) == 11
+    assert eval_result["missing_active_tables"] == []
+    assert eval_result["raw_grants_count"] == 12
+
+
+def test_evaluate_grants_least_privilege_unauthorized_additional_table() -> None:
+    """Rejects grants that include an unauthorized table (e.g. students, payroll)."""
+    grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`classes` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`students` TO `e7_ro_sync`@`%`",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(grants)
+    assert eval_result["is_compliant"] is False
+    assert any("Unauthorized table 'students'" in v for v in eval_result["violations"])
+
+
+def test_evaluate_grants_least_privilege_schema_wide_select() -> None:
+    """Rejects schema-wide wildcard SELECT ON iredu.*."""
+    grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.* TO `e7_ro_sync`@`%`",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(grants)
+    assert eval_result["is_compliant"] is False
+    assert any("Schema-wide wildcard SELECT" in v for v in eval_result["violations"])
+
+
+def test_evaluate_grants_least_privilege_global_select() -> None:
+    """Rejects global SELECT ON *.*."""
+    grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON *.* TO `e7_ro_sync`@`%`",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(grants)
+    assert eval_result["is_compliant"] is False
+    assert any(
+        "Global SELECT privilege on *.* is prohibited" in v
+        for v in eval_result["violations"]
+    )
+
+
+def test_evaluate_grants_least_privilege_cross_database_select() -> None:
+    """Rejects SELECT grants on unauthorized or unrelated databases."""
+    grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `other_database`.`classes` TO `e7_ro_sync`@`%`",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(grants)
+    assert eval_result["is_compliant"] is False
+    assert any(
+        "Cross-database privilege granted on unauthorized database 'other_database'" in v
+        for v in eval_result["violations"]
+    )
+
+
+def test_evaluate_grants_least_privilege_conditional_support_tables() -> None:
+    """Rejects conditional support tables by default, allows when explicitly approved."""
+    grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`subject_groups` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`roles` TO `e7_ro_sync`@`%`",
+    ]
+    # 1. Default: allow_conditional_tables=False -> rejected
+    eval_default = MySqlIreduAdapter.evaluate_grants_least_privilege(grants)
+    assert eval_default["is_compliant"] is False
+    assert any(
+        "Conditional support table 'subject_groups'" in v
+        for v in eval_default["violations"]
+    )
+    assert any("Conditional support table 'roles'" in v for v in eval_default["violations"])
+
+    # 2. When explicitly approved: allow_conditional_tables=True -> compliant
+    eval_allowed = MySqlIreduAdapter.evaluate_grants_least_privilege(
+        grants, allow_conditional_tables=True
+    )
+    assert eval_allowed["is_compliant"] is True
+    assert "subject_groups" in eval_allowed["granted_tables"]
+    assert "roles" in eval_allowed["granted_tables"]
+
+
+def test_evaluate_grants_least_privilege_role_grants() -> None:
+    """Rejects MySQL 8.0 role-based grants whose effective privileges are unresolved."""
+    grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT `iredu_reader_role` TO `e7_ro_sync`@`%`",
+        "GRANT 'app_reader'@'%' TO 'e7_ro_sync'@'%'",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(grants)
+    assert eval_result["is_compliant"] is False
+    assert any(
+        "Role-based grant detected with unresolved effective privileges" in v
+        for v in eval_result["violations"]
+    )
+
+
+def test_evaluate_grants_least_privilege_unknown_syntax() -> None:
+    """Rejects unknown, garbled, or unexpected grant syntax fail-closed."""
+    grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "INVALID GRANT SYNTAX LINE 123",
+        "GRANT SOMETHING WEIRD ON NOTHING",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(grants)
+    assert eval_result["is_compliant"] is False
+    assert any(
+        "Unrecognized or unexpected grant syntax" in v
+        for v in eval_result["violations"]
+    )
+
+
+def test_evaluate_grants_least_privilege_write_and_admin_privileges() -> None:
+    """Rejects mutation, DDL, administrative, or GRANT OPTION privileges."""
+    violating_grants = [
+        "GRANT ALL PRIVILEGES ON `iredu`.* TO `e7_user`@`%`",
+        "GRANT INSERT, UPDATE, DELETE ON `iredu`.`staff` TO `e7_user`@`%`",
+        "GRANT DROP, ALTER ON `iredu`.* TO `e7_user`@`%`",
+        "GRANT FILE ON *.* TO `e7_user`@`%`",
+        "GRANT SUPER ON *.* TO `e7_user`@`%`",
+        "GRANT SELECT ON `iredu`.`classes` TO `e7_user`@`%` WITH GRANT OPTION",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(violating_grants)
+    assert eval_result["is_compliant"] is False
+    assert any("ALL PRIVILEGES" in v for v in eval_result["violations"])
+    assert any("INSERT" in v for v in eval_result["violations"])
+    assert any("DROP" in v for v in eval_result["violations"])
+    assert any("FILE" in v for v in eval_result["violations"])
+    assert any("SUPER" in v for v in eval_result["violations"])
+    assert any("GRANT OPTION" in v for v in eval_result["violations"])
+
+
+def test_evaluate_grants_least_privilege_safe_usage_only() -> None:
+    """Safe USAGE on *.* without tables is valid and compliant, but incomplete for ops."""
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(
+        ["GRANT USAGE ON *.* TO `e7_ro_sync`@`%`"]
+    )
+    assert eval_result["is_compliant"] is True
+    assert eval_result["is_complete"] is False
+    assert len(eval_result["missing_active_tables"]) == 11
+    assert eval_result["violations"] == []
+    assert eval_result["granted_tables"] == []
+
+
+def test_evaluate_grants_least_privilege_distinguishes_scope_from_completeness() -> None:
+    """Distinguishes authorized privilege scope from completeness of operational permissions."""
+    # Account has valid SELECT on 2 tables only: authorized scope, but incomplete for operations
+    partial_grants = [
+        "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`classes` TO `e7_ro_sync`@`%`",
+        "GRANT SELECT ON `iredu`.`sections` TO `e7_ro_sync`@`%`",
+    ]
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege(partial_grants)
+    # Authorized scope: is_compliant is True (zero violations)
+    assert eval_result["is_compliant"] is True
+    assert eval_result["violations"] == []
+    assert eval_result["granted_tables"] == ["classes", "sections"]
+
+    # Incomplete for production operations: is_complete is False, lists missing 9 tables
+    assert eval_result["is_complete"] is False
+    assert len(eval_result["missing_active_tables"]) == 9
+    assert "sch_settings" in eval_result["missing_active_tables"]
+    assert "subject_timetable" in eval_result["missing_active_tables"]
+
+
+def test_evaluate_grants_least_privilege_empty_grant_set() -> None:
+    """Empty grant set fails closed immediately."""
+    eval_result = MySqlIreduAdapter.evaluate_grants_least_privilege([])
+    assert eval_result["is_compliant"] is False
+    assert eval_result["is_complete"] is False
+    assert "Empty grant set" in eval_result["violations"][0]
+
+
+def test_read_only_enforcement_blocks_advanced_file_and_lock_mutations(
+    adapter: MySqlIreduAdapter,
+) -> None:
+    """Blocks OUTFILE, DUMPFILE, FOR UPDATE, and LOCK IN SHARE MODE."""
+    prohibited_queries = [
+        "SELECT * FROM classes INTO OUTFILE '/tmp/classes.csv'",
+        "SELECT * FROM classes INTO DUMPFILE '/tmp/classes.bin'",
+        "SELECT * FROM classes LOCK IN SHARE MODE",
+        "SELECT * FROM classes FOR UPDATE",
+    ]
+    for q in prohibited_queries:
+        with pytest.raises(ReadOnlyViolationError):
+            adapter._validate_read_only(q)
+
+
+@pytest.mark.asyncio
+async def test_freshness_tracking_degraded_state_and_recovery(
+    adapter: MySqlIreduAdapter, synthetic_executor: SyntheticMySqlExecutor
+) -> None:
+    """Freshness tracks degraded state on failure and recovers to fresh on success."""
+    tenant_id = "tenant-st-jude"
+
+    # 1. Successful fetch -> state is FRESH
+    await adapter.get_organization_context(tenant_id)
+    freshness = await adapter.check_freshness(tenant_id)
+    assert freshness.staleness_state == "FRESH"
+    assert freshness.last_error is None
+    assert freshness.last_successful_fetch is not None
+
+    # 2. Simulate connection failure -> state transitions to DEGRADED
+    synthetic_executor.simulate_outage = True
+    with pytest.raises(ErpConnectionError):
+        await adapter.get_academic_sessions(tenant_id)
+
+    degraded_freshness = await adapter.check_freshness(tenant_id)
+    assert degraded_freshness.staleness_state == "DEGRADED"
+    assert degraded_freshness.last_error is not None
+    assert "connection refused" in degraded_freshness.last_error.lower()
+    # Preserves last successful fetch timestamp from step 1
+    assert degraded_freshness.last_successful_fetch == freshness.last_successful_fetch
+
+    # 3. Recovery -> clears error and returns to FRESH
+    synthetic_executor.simulate_outage = False
+    await adapter.get_academic_sessions(tenant_id)
+    recovered_freshness = await adapter.check_freshness(tenant_id)
+    assert recovered_freshness.staleness_state == "FRESH"
+    assert recovered_freshness.last_error is None
+
+
+@pytest.mark.asyncio
+async def test_single_tenant_configured_with_unrelated_approved_scopes_still_fails_closed(
+    synthetic_executor: SyntheticMySqlExecutor,
+) -> None:
+    """When single_tenant_id is set, an unrelated tenant in approved_tenant_scopes
+    still fails closed.
+    """
+    settings = MySqlErpSettings(
+        enabled=True,
+        host="localhost",
+        user="test_ro",
+        single_tenant_id="tenant-st-jude",
+        approved_tenant_scopes_json='{"unrelated-tenant": "some_scope"}',
+    )
+    adapter = MySqlIreduAdapter(settings=settings, executor=synthetic_executor)
+
+    # Authorized tenant succeeds
+    org = await adapter.get_organization_context("tenant-st-jude")
+    assert org.tenant_id == "tenant-st-jude"
+
+    # Unrelated tenant even if in approved_scopes MUST fail closed under single-tenant binding
+    with pytest.raises(ScopeUnresolvedError, match="BLK-01: Tenant mismatch"):
+        await adapter.get_organization_context("unrelated-tenant")
+
+
+

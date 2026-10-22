@@ -129,12 +129,12 @@ Once provisioned, the DBA team delivers the connection parameters (via enterpris
 * Username: `e7_ro_sync`
 * TLS Requirement: `ssl_mode=VERIFY_IDENTITY` (Institutional CA certificate provided)
 
-The E-7 engineering operator verifies the connection with statement-level write rejection:
+The E-7 engineering operator verifies the connection with least-privilege grant compliance and read-only validation:
 ```bash
-# 1. Audit grants (Must show only SELECT on the 11 tables)
+# 1. Audit grants via MySQL client
 mysql -h <host> -u e7_ro_sync -p -e "SHOW GRANTS FOR 'e7_ro_sync'@'%';"
 
-# 2. Test read succeeds through E-7 MySqlIreduAdapter
+# 2. Automated grant evaluation and read-only verification through MySqlIreduAdapter
 python -c "
 import asyncio
 from app.integrations.erp.mysql_adapter import MySqlIreduAdapter
@@ -151,8 +151,15 @@ settings = MySqlErpSettings(
 adapter = MySqlIreduAdapter(settings=settings)
 
 async def check():
+    # Programmatic least-privilege audit
+    grants = await adapter.audit_database_user_grants()
+    compliance = adapter.evaluate_grants_least_privilege(grants)
+    assert compliance['is_compliant'], f'Least-privilege violation: {compliance[\"violations\"]}'
+    print('SUCCESS: Least-privilege grant compliance verified.')
+
+    # Functional read-only context verification
     org = await adapter.get_organization_context('<tenant_id>')
-    print('SUCCESS: Organization context read:', org.name)
+    print('SUCCESS: Organization context read:', org.institution_name)
     sessions = await adapter.get_academic_sessions('<tenant_id>')
     print('SUCCESS: Sessions read, count:', len(sessions))
 

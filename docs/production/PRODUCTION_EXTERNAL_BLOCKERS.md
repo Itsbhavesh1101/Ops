@@ -94,11 +94,22 @@ import asyncio
 from app.integrations.erp.mysql_adapter import MySqlIreduAdapter
 from app.integrations.erp.config import MySqlErpSettings
 # Test read succeeds
-adapter = MySqlIreduAdapter(MySqlErpSettings(enabled=True, host='<host>', user='e7_ro_sync', password='<pass>'))
+settings = MySqlErpSettings(
+    enabled=True,
+    host='<host>',
+    user='e7_ro_sync',
+    password='<pass>',
+    database='iredu',
+    single_tenant_id='tenant-prod-001'
+)
+adapter = MySqlIreduAdapter(settings=settings)
 async def check():
+    grants = await adapter.audit_database_user_grants()
+    compliance = adapter.evaluate_grants_least_privilege(grants)
+    assert compliance['is_compliant'], f'Least-privilege violation: {compliance[\"violations\"]}'
     org = await adapter.get_organization_context('tenant-prod-001')
     assert org is not None
-    print('MYSQL_VERIFICATION_PASS: Organization context retrieved.')
+    print('MYSQL_VERIFICATION_PASS: Organization context retrieved:', org.institution_name)
 asyncio.run(check())
 "
 ```

@@ -39,10 +39,33 @@ from app.integrations.erp.exceptions import (
 SESSION_INIT_READ_ONLY = "SET SESSION TRANSACTION READ ONLY"
 
 _MUTATION_PATTERN = re.compile(
-    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|REPLACE|GRANT|REVOKE|CALL)\b",
+    r"\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|REPLACE|GRANT|REVOKE|CALL|OUTFILE|DUMPFILE|LOCK)\b",
     re.IGNORECASE,
 )
 _ALLOWED_READ_PREFIXES = ("SELECT", "SET SESSION TRANSACTION READ ONLY", "SHOW")
+
+# Approved 11 active tables for initial production timetable operations
+APPROVED_ACTIVE_TABLES: frozenset[str] = frozenset({
+    "sch_settings",
+    "sessions",
+    "classes",
+    "sections",
+    "class_sections",
+    "subjects",
+    "staff",
+    "department",
+    "staff_designation",
+    "student_session",
+    "subject_timetable",
+})
+
+# Conditional support tables mapped in Phase 0 (require explicit Architecture Board approval)
+CONDITIONAL_SUPPORT_TABLES: frozenset[str] = frozenset({
+    "subject_groups",
+    "subject_group_subjects",
+    "roles",
+    "staff_roles",
+})
 
 
 # Predeclared parameterized queries matching Dump20260924 schema
@@ -148,12 +171,10 @@ class MySqlIreduAdapter(ErpSisAdapter):
                     if scope_reference and scope_reference.strip()
                     else f"dedicated:{self._settings.database}"
                 )
-            approved_scopes = self._settings.approved_tenant_scopes
-            if not approved_scopes or clean_tenant not in approved_scopes:
-                raise ScopeUnresolvedError(
-                    f"BLK-01: Tenant mismatch. This dedicated mysql_iredu instance is bound "
-                    f"exclusively to canonical tenant '{single_tenant}', not '{clean_tenant}'."
-                )
+            raise ScopeUnresolvedError(
+                f"BLK-01: Tenant mismatch. This dedicated mysql_iredu instance is bound "
+                f"exclusively to canonical tenant '{single_tenant}', not '{clean_tenant}'."
+            )
 
         # 2. Approved mapping table or explicit scope fallback (Outcome C / legacy test fixture)
         resolved_scope = scope_reference or self._settings.approved_tenant_scopes.get(clean_tenant)
@@ -247,6 +268,166 @@ class MySqlIreduAdapter(ErpSisAdapter):
             else:
                 grants.append(str(r))
         return grants
+
+    @staticmethod
+    def evaluate_grants_least_privilege(
+        grants: list[str],
+        *,
+        target_database: str = "iredu",
+        allow_conditional_tables: bool = False,
+    ) -> dict[str, Any]:
+        """Evaluate audited MySQL grants against the strict least-privilege security policy.
+
+        Enforces strict fail-closed least-privilege rules:
+        1. Accepts only harmless USAGE on *.* and explicitly approved SELECT grants on the
+           11 active tables in the target database.
+        2. Rejects global SELECT (SELECT ON *.*).
+        3. Rejects schema-wide SELECT (SELECT ON <database>.*).
+        4. Rejects cross-database SELECT (SELECT ON <other_db>.* or <other_db>.<table>).
+        5. Rejects unauthorized tables not in APPROVED_ACTIVE_TABLES.
+        6. Rejects conditional support tables unless allow_conditional_tables is explicitly True.
+        7. Rejects write, DDL, file, administrative, or elevated privileges.
+        8. Rejects WITH GRANT OPTION and WITH ADMIN OPTION.
+        9. Rejects role grants with unresolved effective privileges (e.g. GRANT 'role' TO ...).
+        10. Rejects any unexpected or unrecognized grant syntax.
+        11. Rejects empty grant sets (fails closed).
+        """
+        if not grants:
+            return {
+                "is_compliant": False,
+                "is_complete": False,
+                "violations": ["Empty grant set: no privileges audited (fails closed)."],
+                "granted_tables": [],
+                "missing_active_tables": sorted(list(APPROVED_ACTIVE_TABLES)),
+                "raw_grants_count": 0,
+            }
+
+        prohibited_keywords = (
+            "ALL PRIVILEGES",
+            "INSERT",
+            "UPDATE",
+            "DELETE",
+            "DROP",
+            "ALTER",
+            "CREATE",
+            "TRUNCATE",
+            "GRANT OPTION",
+            "ADMIN OPTION",
+            "SUPER",
+            "FILE",
+            "PROCESS",
+            "RELOAD",
+            "SHUTDOWN",
+            "EXECUTE",
+            "REFERENCES",
+            "INDEX",
+            "EVENT",
+            "TRIGGER",
+            "CREATE TEMPORARY TABLES",
+            "LOCK TABLES",
+        )
+
+        violations: list[str] = []
+        granted_tables: set[str] = set()
+
+        for raw_grant in grants:
+            grant = raw_grant.strip()
+            if not grant:
+                continue
+
+            grant_upper = grant.upper()
+
+            # 1. Prohibited privilege keywords anywhere in the grant
+            for kw in prohibited_keywords:
+                if re.search(rf"\b{re.escape(kw)}\b", grant_upper):
+                    violations.append(
+                        f"Prohibited privilege detected in grant: '{grant}' (keyword: {kw})"
+                    )
+
+            # 2. Global SELECT (SELECT ON *.*)
+            if re.search(r"^GRANT\s+SELECT\b.*?\s+ON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE):
+                violations.append(f"Global SELECT privilege on *.* is prohibited: '{grant}'")
+                continue
+
+            # 3. Harmless USAGE on *.*
+            if re.match(r"^GRANT\s+USAGE\s+ON\s+\*\.\*\s+TO\b", grant, re.IGNORECASE):
+                continue
+
+            # 4. Table-level SELECT on database: GRANT SELECT [(cols)] ON `db`.`tbl` TO ...
+            table_select_match = re.match(
+                r"^GRANT\s+SELECT(?:\s*\([^)]*\))?\s+ON\s+([`'\"a-zA-Z0-9_$]+)\.([`'\"a-zA-Z0-9_$*]+)\s+TO\b",
+                grant,
+                re.IGNORECASE,
+            )
+            if table_select_match:
+                db = table_select_match.group(1).strip("`'\"").lower()
+                tbl = table_select_match.group(2).strip("`'\"").lower()
+
+                # Cross-database check
+                if db != target_database.lower():
+                    violations.append(
+                        f"Cross-database privilege granted on unauthorized database "
+                        f"'{db}': '{grant}'"
+                    )
+                    continue
+
+                # Schema-wide wildcard check
+                if tbl == "*":
+                    violations.append(
+                        f"Schema-wide wildcard SELECT privilege on '{db}.*' is "
+                        f"prohibited: '{grant}'"
+                    )
+                    continue
+
+                # Conditional support tables check
+                if tbl in CONDITIONAL_SUPPORT_TABLES:
+                    if not allow_conditional_tables:
+                        violations.append(
+                            f"Conditional support table '{tbl}' is not approved for "
+                            f"production access: '{grant}'"
+                        )
+                    else:
+                        granted_tables.add(tbl)
+                    continue
+
+                # Active approved tables check
+                if tbl in APPROVED_ACTIVE_TABLES:
+                    granted_tables.add(tbl)
+                    continue
+
+                # Unauthorized table check
+                violations.append(
+                    f"Unauthorized table '{tbl}' granted in database '{db}': '{grant}'"
+                )
+                continue
+
+            # 5. Role-based grant: GRANT <role> TO <user>
+            role_match = re.match(
+                r"^GRANT\s+[`'\"a-zA-Z0-9_$-]+(?:@[`'\"a-zA-Z0-9_.%$-]+)?\s+TO\b",
+                grant,
+                re.IGNORECASE,
+            )
+            if role_match and " ON " not in grant_upper:
+                violations.append(
+                    f"Role-based grant detected with unresolved effective privileges: '{grant}'"
+                )
+                continue
+
+            # 6. Any other grant syntax not recognized above is rejected fail-closed
+            violations.append(f"Unrecognized or unexpected grant syntax: '{grant}'")
+
+        is_compliant = len(violations) == 0
+        missing_active_tables = sorted(list(APPROVED_ACTIVE_TABLES - granted_tables))
+        is_complete = is_compliant and len(missing_active_tables) == 0
+
+        return {
+            "is_compliant": is_compliant,
+            "is_complete": is_complete,
+            "violations": violations,
+            "granted_tables": sorted(list(granted_tables)),
+            "missing_active_tables": missing_active_tables,
+            "raw_grants_count": len(grants),
+        }
 
     def _record_success(self, tenant_id: str, count_key: str, count_value: int) -> None:
         """Update freshness tracking metadata upon successful retrieval."""
@@ -469,4 +650,8 @@ class MySqlIreduAdapter(ErpSisAdapter):
         )
 
 
-__all__ = ["MySqlIreduAdapter"]
+__all__ = [
+    "MySqlIreduAdapter",
+    "APPROVED_ACTIVE_TABLES",
+    "CONDITIONAL_SUPPORT_TABLES",
+]
