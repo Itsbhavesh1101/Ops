@@ -53,6 +53,7 @@ class OutboxDispatchRepository(SqlAlchemyRepository):
         *,
         limit: int,
         lease_duration: timedelta,
+        event_id: UUID | None = None,
     ) -> tuple[ClaimedOutboxEvent, ...]:
         """Claim a batch of eligible outbox events for dispatch.
 
@@ -61,6 +62,7 @@ class OutboxDispatchRepository(SqlAlchemyRepository):
         2. next_attempt_at <= database current timestamp (eligible for dispatch).
         3. claimed_at IS NULL OR claimed_at <= database current timestamp - lease_duration
            (unclaimed or lease expired).
+        4. event_id == event_id (optional filter when targeting a specific event).
 
         Concurrency semantics:
         - Uses SELECT ... FOR UPDATE SKIP LOCKED to prevent blocking or contention
@@ -78,6 +80,7 @@ class OutboxDispatchRepository(SqlAlchemyRepository):
             limit: Maximum number of events to claim. Must be positive (> 0).
             lease_duration: Duration after which an uncommitted or unfinished claim
                 is considered stale and eligible for reclaim. Must be positive (> 0s).
+            event_id: Optional UUID of a specific outbox event to target for claim.
 
         Returns:
             tuple[ClaimedOutboxEvent, ...]: Immutable claimed event value objects.
@@ -109,6 +112,8 @@ class OutboxDispatchRepository(SqlAlchemyRepository):
                 OutboxEventRecord.claimed_at <= stale_threshold,
             ),
         )
+        if event_id is not None:
+            conditions = and_(conditions, OutboxEventRecord.event_id == event_id)
 
         stmt = (
             select(OutboxEventRecord)

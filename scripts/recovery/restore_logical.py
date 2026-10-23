@@ -145,7 +145,7 @@ def restore_and_verify(
         "schedule_jobs",
         "schedules",
         "outbox_events",
-        "inbox_records",
+        "inbox_messages",
         "audit_events",
         "workflow_task_mappings",
     ]
@@ -215,7 +215,8 @@ def restore_and_verify(
 
     alembic_valid = alembic_rev in ("0013", "0014")
     tables_valid = app_tables_count in (25, 26)
-    verification_pass = alembic_valid and tables_valid
+    key_tables_valid = all(count >= 0 for count in row_counts.values())
+    verification_pass = alembic_valid and tables_valid and key_tables_valid
 
     return {
         "status": "PASS" if verification_pass else "FAIL",

@@ -28,22 +28,31 @@ The E-7 Operations Engine requires the following baseline infrastructure:
 
 The following external dependencies are currently **gated/blocked**. Deployment teams must retain these explicit blockers in production deployment planning:
 
-### 2.1 Production Ingress Gateway Rate Limiting
-- **Status:** `RATE_LIMITING = BLOCKED_ON_PRODUCTION_GATEWAY_CONFIGURATION`
-- **Current State:** Application-layer capacity quotas are active (`APPLICATION_CAPACITY_QUOTAS = PASS`). However, volumetric Layer-7 rate limiting, per-IP DDoS mitigation, and global request throttling must be configured at the external ingress API Gateway (e.g. Envoy, Kong, Cloudflare, NGINX) before public exposure.
-- **Requirement:** Deploy Gateway rate-limiting rules enforcing per-client burst limits and HTTP 429 response handling with standard `Retry-After` headers.
+### 2.1 Institutional MySQL Live Read Verification (`MYSQL_LIVE_READ_VERIFICATION`)
+- **Status:** `MYSQL_LIVE_READ_VERIFICATION = BLOCKED_ON_COMPANY_READ_ONLY_ACCESS`
+- **Owner:** Institutional Database Administration (DBA) Team
+- **Current State:** Application-side read-only guards (`ReadOnlyDatabaseConnection`) with `SET SESSION TRANSACTION READ ONLY` and mathematical query models are fully tested and pass (`PASS`).
+- **Requirement:** Database administrators must provision a strictly `SELECT`-only service account on verified institutional ERP tables (strictly the 11 approved active tables; the four conditional support tables are not part of the initial grant scope) before enabling live ERP synchronization. Do not execute migrations or alter grants directly.
 
-### 2.2 Company MySQL ERP Live Read Verification
-- **Status:** `MYSQL_LIVE_READ_VERIFICATION = BLOCKED_ON_MYSQL_READ_ONLY_ACCOUNT_PRIVILEGES`
-- **Current State:** Application-side read-only guards (`ReadOnlyDatabaseConnection`) are fully tested and pass (`PASS`). However, the database account provided by the organization holds broader privileges than `SELECT`.
-- **Requirement:** Database administrators must provision a strictly read-only account (`GRANT SELECT ON <erp_db>.* TO ...`) with least privilege before enabling live ERP synchronization. Do not expose credentials or alter grants directly.
+### 2.2 Corporate Identity & SSO (`PRODUCTION_COMPANY_OIDC`)
+- **Status:** `PRODUCTION_COMPANY_OIDC = BLOCKED_EXTERNAL`
+- **Owner:** Corporate IT / Identity Team
+- **Current State:** Production-grade Google Workspace OIDC authentication (`GoogleOidcVerifier`), subject-first identity resolution, and recycled-email account protection are implemented and pass unit tests.
+- **Requirement:** Institutional IT provisioning of Google Cloud Console OAuth Web Client ID, authorized redirect URIs, Google hosted domain (`hd`) claim enforcement, and enterprise security review sign-off.
 
-### 2.3 E8 Notification Integration
-- **Status:** `E8_NOTIFICATION_INTEGRATION = BLOCKED_ON_E8_ENDPOINT`
-- **Current State:** Local contract dispatch and mock event serialization pass (`E8_LOCAL_CONTRACT_DISPATCH = PASS`).
-- **Requirement:** Awaiting deployment and URL endpoint specification for the external E8 Notification Service. Live push remains disabled until the E8 endpoint is provisioned.
+### 2.3 E-8 Notification Integration (`E8_NOTIFICATION_INTEGRATION`)
+- **Status:** `E8_NOTIFICATION_INTEGRATION = BLOCKED_EXTERNAL`
+- **Owner:** E-8 Platform Team
+- **Current State:** Dual-transport dispatcher per ADR-012 (AMQP default broker `e8.notifications` with HTTP fallback) and dedicated `NotificationWorker` are implemented, registered, and verified with transactional inbox/outbox atomicity.
+- **Requirement:** Provisioning of enterprise AMQP broker DSN, virtual host, dedicated E-8 broker credentials, and notification queue topology or authenticated HTTP endpoint.
 
-### 2.4 Google Calendar Integration
+### 2.4 Production Gateway & Edge Security (`PRODUCTION_GATEWAY`)
+- **Status:** `PRODUCTION_GATEWAY = BLOCKED_ON_PRODUCTION_INFRASTRUCTURE`
+- **Owner:** Cloud Infrastructure Team
+- **Current State:** Application-layer capacity quotas (`TenantQuotaManager` with HTTP 429) and pilot reverse proxy (`e7-pilot-gateway` with NGINX rate limiting) are active.
+- **Requirement:** Enterprise Edge Gateway / Ingress provisioning with TLS 1.3 termination, DNS routing, OWASP WAF rules, edge volumetric rate limiting, and public/private VPC network isolation. RabbitMQ broker readiness and network access policies are tracked as subordinate dependencies.
+
+### 2.5 Google Calendar Integration (Frozen Baseline)
 - **Status:** `GOOGLE_CALENDAR_INTEGRATION = PASS / FROZEN`
 - **Current State:** Uses keyless Application Default Credentials (ADC) / OAuth2 service account. All integration tests pass. Configuration is frozen and production-ready.
 

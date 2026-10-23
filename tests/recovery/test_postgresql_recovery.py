@@ -46,6 +46,9 @@ async def test_logical_backup_and_restore_drill(tmp_path: Path) -> None:
     assert restore_result["application_tables_count"] in (25, 26)
     assert restore_result["alembic_verified"] is True
     assert restore_result["tables_verified"] is True
+    assert "inbox_messages" in restore_result["row_counts"]
+    assert restore_result["row_counts"]["inbox_messages"] >= 0
+    assert "inbox_records" not in restore_result["row_counts"]
 
 
 @pytest.mark.asyncio

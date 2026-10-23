@@ -24,12 +24,13 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
+
   # ----------------------------------------------------------------------------
-  # PostgreSQL: Expose port 55432 on loopback for local integration & perf tests
+  # Flowable: Expose port 8080 on loopback for local integration & recovery tests
   # ----------------------------------------------------------------------------
-  postgres:
+  flowable:
     ports:
-      - "127.0.0.1:${POSTGRES_PORT:-54332}:5432"
+      - "127.0.0.1:${FLOWABLE_PORT:-8080}:8080"
 
   # ----------------------------------------------------------------------------
   # E-7 API: Overlay environment for local demo OIDC verification

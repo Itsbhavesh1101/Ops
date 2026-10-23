@@ -171,7 +171,9 @@ async def test_ambiguous_broker_publish_lease_recovery_and_inbox_idempotency() -
         short_lease = timedelta(seconds=1)
         async with SqlAlchemyUnitOfWork(session_factory=manager.session_factory) as uow:
             dispatch_repo = OutboxDispatchRepository(uow.session)
-            claimed = await dispatch_repo.claim_ready(limit=1, lease_duration=short_lease)
+            claimed = await dispatch_repo.claim_ready(
+                limit=1, lease_duration=short_lease, event_id=envelope.event_id
+            )
             assert len(claimed) == 1
             assert claimed[0].event_id == envelope.event_id
             await uow.commit()
@@ -194,7 +196,9 @@ async def test_ambiguous_broker_publish_lease_recovery_and_inbox_idempotency() -
         # Phase 1: Claim transaction
         async with SqlAlchemyUnitOfWork(session_factory=manager.session_factory) as uow:
             dispatch_repo = OutboxDispatchRepository(uow.session)
-            reclaimed = await dispatch_repo.claim_ready(limit=1, lease_duration=short_lease)
+            reclaimed = await dispatch_repo.claim_ready(
+                limit=1, lease_duration=short_lease, event_id=envelope.event_id
+            )
             assert len(reclaimed) == 1
             assert reclaimed[0].event_id == envelope.event_id
             await uow.commit()
