@@ -44,7 +44,9 @@ export const OIDC_CONFIG = {
   endSessionEndpoint: isDemoOidc
     ? `${keycloakIssuer}/protocol/openid-connect/logout`
     : undefined,
-  audience: isDemoOidc ? "operations-ui" : "e7-pilot-client-id",
+  audience: isDemoOidc
+    ? "operations-ui"
+    : ((import.meta.env.VITE_OIDC_CLIENT_ID as string) || "e7-pilot-client-id"),
   redirectUri:
     typeof window !== "undefined"
       ? `${window.location.origin}/login`

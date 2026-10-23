@@ -106,7 +106,26 @@ class DefaultIdentityResolver:
         self, subject_or_email: str, principal: AuthenticatedPrincipal
     ) -> None:
         """Register deterministic principal mapping for an OIDC subject or email."""
-        self._oidc_mappings[subject_or_email] = principal
+        key = subject_or_email.strip()
+        existing = self._oidc_mappings.get(key)
+        if existing is not None:
+            if (
+                existing.principal_id != principal.principal_id
+                or existing.tenant_id != principal.tenant_id
+                or existing.roles != principal.roles
+                or (
+                    existing.external_subject
+                    and principal.external_subject
+                    and existing.external_subject != principal.external_subject
+                )
+            ):
+                raise ValueError(
+                    f"Conflicting OIDC mapping detected for '{key}': "
+                    f"existing principal '{existing.principal_id}' (tenant: {existing.tenant_id}) "
+                    f"conflicts with incoming principal '{principal.principal_id}' "
+                    f"(tenant: {principal.tenant_id})"
+                )
+        self._oidc_mappings[key] = principal
 
     def register_service_mapping(
         self, credential_id: str, principal: AuthenticatedPrincipal
@@ -120,13 +139,65 @@ class DefaultIdentityResolver:
         """Resolve verified OIDC identity to an internal principal."""
         from app.core.auth.models import AuthenticationMethod, PrincipalType
 
-        # 1. Explicit registered mapping takes precedence
-        if identity.email and identity.email in self._oidc_mappings:
-            return self._oidc_mappings[identity.email]
+        # 1. Primary lookup: IMMUTABLE SUBJECT CLAIM takes highest precedence
+        # Google Workspace / Cloud Identity stable identifier is the OIDC 'sub' claim.
+        # This prevents identity reassignment or lockout when user email changes.
         if identity.subject in self._oidc_mappings:
-            return self._oidc_mappings[identity.subject]
+            principal = self._oidc_mappings[identity.subject]
+            # Issuer verification: ensure issuer matches if explicitly recorded on principal
+            if principal.issuer and identity.issuer != principal.issuer:
+                logger.warning(
+                    "oidc_mapping_issuer_mismatch",
+                    expected_issuer=principal.issuer,
+                    actual_issuer=identity.issuer,
+                    subject=identity.subject,
+                )
+                return None
+            return principal
 
-        # 2. In production without default tenant configured, fail closed!
+        # 2. Secondary/Bootstrap lookup by email (only if subject is not yet registered)
+        if identity.email and identity.email in self._oidc_mappings:
+            principal = self._oidc_mappings[identity.email]
+            # Conflicting identity protection: if principal already recorded a different
+            # external subject, reject (preventing identity hijacking via email recycling)
+            if (
+                principal.external_subject
+                and principal.external_subject != identity.subject
+            ):
+                logger.warning(
+                    "oidc_conflicting_identity_rejected",
+                    mapped_subject=principal.external_subject,
+                    incoming_subject=identity.subject,
+                    email=identity.email,
+                    reason="email_claimed_by_different_subject",
+                )
+                return None
+
+            # Issuer verification
+            if principal.issuer and identity.issuer != principal.issuer:
+                logger.warning(
+                    "oidc_mapping_issuer_mismatch",
+                    expected_issuer=principal.issuer,
+                    actual_issuer=identity.issuer,
+                    email=identity.email,
+                )
+                return None
+
+            return principal
+
+        # 3. External Google Workspace / Cloud Identity tokens MUST NOT automatically derive
+        # tenant authority or roles through email username heuristics or external claims alone.
+        # Unmapped Google identities strictly fail closed to preserve internal governance.
+        if identity.issuer in ("https://accounts.google.com", "accounts.google.com"):
+            logger.warning(
+                "google_identity_unmapped_fail_closed",
+                subject=identity.subject,
+                email=identity.email,
+                reason="external_google_identity_not_mapped_to_internal_principal",
+            )
+            return None
+
+        # 3. In demo environments without default tenant configured, fail closed!
         if not self._default_tenant_id:
             logger.warning(
                 "oidc_tenant_mapping_failed_closed",
@@ -136,7 +207,7 @@ class DefaultIdentityResolver:
             )
             return None
 
-        # 3. Derive roles from verified identity email or subject
+        # 4. Local demonstration heuristic: derive roles from verified identity email or subject
         candidate_roles: set[str] = set()
         username = (
             (identity.email.split("@")[0] if identity.email else "")

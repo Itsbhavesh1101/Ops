@@ -10,6 +10,7 @@ Provides:
 """
 
 
+import json
 from typing import Any
 
 import structlog
@@ -23,6 +24,8 @@ from app.core.auth.google_oidc import (
 )
 from app.core.auth.models import (
     AuthenticatedPrincipal,
+    AuthenticationMethod,
+    PrincipalType,
     TenantContext,
 )
 from app.core.auth.oidc import (
@@ -30,6 +33,7 @@ from app.core.auth.oidc import (
     OidcVerifier,
 )
 from app.core.auth.resolvers import (
+    CANONICAL_ROLE_PERMISSIONS,
     CompositeIdentityResolver,
     DefaultIdentityResolver,
     ExternalIdentityResolver,
@@ -67,6 +71,14 @@ class HttpAuthenticator:
             "keycloak",
             "generic",
         ):
+            if self._settings.environment in ("production", "staging"):
+                env = self._settings.environment
+                prov = self._settings.oidc_provider_name
+                raise ValueError(
+                    f"Production/staging environment ({env}) prohibits demonstration "
+                    f"identity provider '{prov}'. "
+                    "Google Workspace / Cloud Identity OIDC is strictly required."
+                )
             self._oidc_verifier = OidcVerifier.from_settings(self._settings)
         else:
             self._oidc_verifier = GoogleOidcVerifier.from_settings(self._settings)
@@ -103,11 +115,75 @@ class HttpAuthenticator:
             self._credential_store = credential_store
             self._resolver = DefaultIdentityResolver(default_tenant_id=default_tenant)
 
+        # 2. Register server-controlled OIDC user mappings from configuration if provided
+        user_mappings_json = getattr(self._settings, "oidc_user_mappings_json", None)
+        if user_mappings_json:
+            self._load_oidc_user_mappings(user_mappings_json)
+
         self._service_key_verifier = service_key_verifier or ServiceApiKeyVerifier(
             credential_store=self._credential_store
         )
         self._external_identity_resolver = external_identity_resolver or self._resolver
         self._service_identity_resolver = service_identity_resolver or self._resolver
+
+    def _load_oidc_user_mappings(self, raw_json: str) -> None:
+        """Parse server-controlled JSON user roster and register authorized principals."""
+        try:
+            data = json.loads(raw_json)
+        except Exception as exc:
+            logger.error("failed_to_parse_oidc_user_mappings_json", error=str(exc))
+            return
+
+        if not isinstance(data, dict):
+            return
+
+        for identity_key, spec in data.items():
+            if not isinstance(spec, dict) or not spec.get("enabled", True):
+                continue  # Suspended or disabled users fail closed
+
+            tenant_id = spec.get("tenant_id")
+            if not tenant_id or not isinstance(tenant_id, str):
+                continue
+
+            raw_roles = spec.get("roles", ["viewer"])
+            roles = frozenset(str(r).strip() for r in raw_roles if str(r).strip())
+
+            perms: set[str] = set()
+            for r in roles:
+                perms.update(CANONICAL_ROLE_PERMISSIONS.get(r, frozenset()))
+            if "permissions" in spec and isinstance(spec["permissions"], (list, set, tuple)):
+                perms.update(str(p).strip() for p in spec["permissions"] if str(p).strip())
+
+            # Determine subject and email
+            subject = spec.get("subject")
+            email = spec.get("email")
+            clean_key = identity_key.strip()
+
+            if not subject and "@" not in clean_key:
+                subject = clean_key
+            if not email and "@" in clean_key:
+                email = clean_key
+
+            principal_id = spec.get("principal_id") or email or subject or clean_key
+
+            principal = AuthenticatedPrincipal(
+                principal_id=principal_id,
+                principal_type=PrincipalType.HUMAN,
+                authentication_method=AuthenticationMethod.OIDC,
+                tenant_id=tenant_id.strip(),
+                roles=roles,
+                permissions=frozenset(perms),
+                issuer=spec.get("issuer"),
+                external_subject=subject,
+            )
+            # Register under subject as primary external identity key
+            if subject:
+                self._resolver.register_oidc_mapping(subject.strip(), principal)
+            # Register under email as descriptive/bootstrap lookup key
+            if email and email.strip() != (subject or "").strip():
+                self._resolver.register_oidc_mapping(email.strip(), principal)
+            elif not subject:
+                self._resolver.register_oidc_mapping(clean_key, principal)
 
     @property
     def identity_resolver(self) -> DefaultIdentityResolver:

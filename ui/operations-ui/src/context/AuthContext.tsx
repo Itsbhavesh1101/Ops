@@ -7,6 +7,9 @@ import {
   generateRandomString,
   storePkceSession,
   retrieveAndClearPkceSession,
+  storeOidcSession,
+  retrieveAndClearOidcSession,
+  parseJwtPayload,
   exchangeCodeForTokens,
 } from "../utils/pkce";
 
@@ -25,7 +28,9 @@ export interface AuthContextType {
   error: string | null;
   loginWithBearerToken: (bearerToken: string) => Promise<AuthenticatedUser>;
   loginWithPkceRedirect: () => Promise<void>;
+  loginWithGoogleRedirect: () => Promise<void>;
   handleAuthCallback: (code: string, state: string) => Promise<AuthenticatedUser>;
+  handleIdTokenCallback: (hash: string) => Promise<AuthenticatedUser>;
   logout: () => void;
   clearError: () => void;
   oidcConfig: typeof OIDC_CONFIG;
@@ -178,6 +183,112 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [loginWithBearerToken]
   );
 
+  const loginWithGoogleRedirect = useCallback(async (): Promise<void> => {
+    setError(null);
+    try {
+      const state = generateRandomString(32);
+      const nonce = generateRandomString(32);
+
+      storeOidcSession({
+        state,
+        nonce,
+        flow: "id_token",
+      });
+
+      const params = new URLSearchParams({
+        response_type: "id_token",
+        client_id: OIDC_CONFIG.clientId,
+        redirect_uri: OIDC_CONFIG.redirectUri,
+        scope: "openid profile email",
+        state,
+        nonce,
+      });
+
+      window.location.href = `${OIDC_CONFIG.authorizationEndpoint}?${params.toString()}`;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to initiate Google OIDC login";
+      setError(msg);
+      setStatus("AUTH_ERROR");
+    }
+  }, []);
+
+  const handleIdTokenCallback = useCallback(
+    async (rawHash: string): Promise<AuthenticatedUser> => {
+      setError(null);
+      setStatus("AUTH_INITIALIZING");
+
+      // 1. Immediately scrub the URL fragment to prevent token leakage in history/referrers
+      if (typeof window !== "undefined" && window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+
+      const cleanHash = rawHash.startsWith("#") ? rawHash.substring(1) : rawHash;
+      const params = new URLSearchParams(cleanHash);
+      const returnedError = params.get("error_description") || params.get("error");
+      if (returnedError) {
+        const err = `OIDC Provider Error: ${returnedError}`;
+        setError(err);
+        setStatus("AUTH_ERROR");
+        throw new Error(err);
+      }
+
+      const idToken = params.get("id_token");
+      const returnedState = params.get("state");
+
+      // 2. Retrieve and atomically clear ephemeral session (single-use transaction protects against replay)
+      const session = retrieveAndClearOidcSession();
+
+      // 3. Reject unsolicited ID tokens (no active login session in browser)
+      if (!session.state || !session.nonce) {
+        const unsolicitedErr =
+          "OIDC Authentication Error: Unsolicited ID token rejected (no active login transaction).";
+        setError(unsolicitedErr);
+        setStatus("AUTH_ERROR");
+        throw new Error(unsolicitedErr);
+      }
+
+      // 4. Reject state mismatch (CSRF protection)
+      if (!returnedState || returnedState !== session.state) {
+        const stateErr = "OIDC Authentication Error: CSRF state parameter mismatch.";
+        setError(stateErr);
+        setStatus("AUTH_ERROR");
+        throw new Error(stateErr);
+      }
+
+      // 5. Ensure id_token is present
+      if (!idToken) {
+        const missingTokenErr = "OIDC Authentication Error: Missing id_token in callback fragment.";
+        setError(missingTokenErr);
+        setStatus("AUTH_ERROR");
+        throw new Error(missingTokenErr);
+      }
+
+      // 6. Validate nonce claim inside token payload matches stored nonce
+      try {
+        const payload = parseJwtPayload(idToken);
+        const tokenNonce = payload.nonce;
+        if (!tokenNonce || tokenNonce !== session.nonce) {
+          const nonceErr = "OIDC Authentication Error: Token nonce mismatch or missing.";
+          setError(nonceErr);
+          setStatus("AUTH_ERROR");
+          throw new Error(nonceErr);
+        }
+      } catch (parseErr: unknown) {
+        const parseMsg =
+          parseErr instanceof Error
+            ? `OIDC Authentication Error: ${parseErr.message}`
+            : "OIDC Authentication Error: Malformed token payload.";
+        setError(parseMsg);
+        setStatus("AUTH_ERROR");
+        throw new Error(parseMsg);
+      }
+
+      // 7. Verify token cryptographically and resolve principal on backend
+      return await loginWithBearerToken(idToken);
+    },
+    [loginWithBearerToken]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -188,7 +299,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         error,
         loginWithBearerToken,
         loginWithPkceRedirect,
+        loginWithGoogleRedirect,
         handleAuthCallback,
+        handleIdTokenCallback,
         logout,
         clearError,
         oidcConfig: OIDC_CONFIG,

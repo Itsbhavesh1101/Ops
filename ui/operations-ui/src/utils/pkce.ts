@@ -69,6 +69,73 @@ export function retrieveAndClearPkceSession(): { state: string | null; verifier:
   return { state, verifier };
 }
 
+export interface OidcSessionData {
+  state: string;
+  nonce?: string;
+  verifier?: string;
+  flow?: "code" | "id_token";
+}
+
+const OIDC_NONCE_KEY = "e7_oidc_nonce";
+const OIDC_FLOW_KEY = "e7_oidc_flow";
+
+/**
+ * Store ephemeral OIDC parameters (state, nonce, flow) in browser sessionStorage during redirect.
+ */
+export function storeOidcSession(data: OidcSessionData): void {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    window.sessionStorage.setItem(PKCE_STATE_KEY, data.state);
+    if (data.nonce) window.sessionStorage.setItem(OIDC_NONCE_KEY, data.nonce);
+    if (data.verifier) window.sessionStorage.setItem(PKCE_VERIFIER_KEY, data.verifier);
+    if (data.flow) window.sessionStorage.setItem(OIDC_FLOW_KEY, data.flow);
+  }
+}
+
+/**
+ * Retrieve and atomically clear ephemeral OIDC parameters upon returning from auth callback.
+ * Atomic clear guarantees single-use transaction (protects against replay).
+ */
+export function retrieveAndClearOidcSession(): {
+  state: string | null;
+  nonce: string | null;
+  verifier: string | null;
+  flow: string | null;
+} {
+  if (typeof window === "undefined" || !window.sessionStorage) {
+    return { state: null, nonce: null, verifier: null, flow: null };
+  }
+  const state = window.sessionStorage.getItem(PKCE_STATE_KEY);
+  const nonce = window.sessionStorage.getItem(OIDC_NONCE_KEY);
+  const verifier = window.sessionStorage.getItem(PKCE_VERIFIER_KEY);
+  const flow = window.sessionStorage.getItem(OIDC_FLOW_KEY);
+
+  window.sessionStorage.removeItem(PKCE_STATE_KEY);
+  window.sessionStorage.removeItem(OIDC_NONCE_KEY);
+  window.sessionStorage.removeItem(PKCE_VERIFIER_KEY);
+  window.sessionStorage.removeItem(OIDC_FLOW_KEY);
+
+  return { state, nonce, verifier, flow };
+}
+
+/**
+ * Parse unverified JWT payload in the browser for client-side claim validation (e.g. nonce).
+ */
+export function parseJwtPayload(token: string): Record<string, unknown> {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    throw new Error("Invalid JWT token format");
+  }
+  const base64Url = parts[1];
+  const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+  const jsonPayload = decodeURIComponent(
+    atob(base64)
+      .split("")
+      .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+      .join("")
+  );
+  return JSON.parse(jsonPayload);
+}
+
 export interface OidcTokenResponse {
   id_token?: string;
   access_token: string;

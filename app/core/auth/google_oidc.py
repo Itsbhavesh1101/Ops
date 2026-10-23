@@ -141,6 +141,7 @@ class GoogleOidcVerifier:
         cache_fallback_seconds: int = 3600,
         cache_max_seconds: int = 86400,
         allowed_algorithms: Iterable[str] | None = None,
+        require_email_verified: bool = False,
         http_client: httpx.AsyncClient | None = None,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
@@ -201,6 +202,7 @@ class GoogleOidcVerifier:
         else:
             self.allowed_algorithms = ALLOWED_GOOGLE_ID_TOKEN_ALGORITHMS
 
+        self.require_email_verified = require_email_verified
         self.clock = clock
 
         # HTTP client lifecycle
@@ -659,13 +661,21 @@ class GoogleOidcVerifier:
                 hd_raw.strip().lower() if (isinstance(hd_raw, str) and hd_raw.strip()) else None
             )
 
-        # Email attribute (descriptive only)
+        # Email attribute (descriptive only) & verified email handling
         email_raw = payload.get("email")
         if email_raw is not None:
             if not isinstance(email_raw, str) or not email_raw.strip():
                 raise InvalidRequiredClaimsError(
                     "Token 'email' claim, if present, must be a non-empty string"
                 )
+            # Verified email handling: in Google Workspace/OIDC, email_verified
+            # confirms email ownership. An unverified claim must fail closed.
+            email_verified = payload.get("email_verified")
+            if email_verified is not None:
+                if email_verified is False or str(email_verified).lower() in ("false", "0"):
+                    raise InvalidRequiredClaimsError("Token 'email_verified' claim must be true")
+            elif self.require_email_verified:
+                raise InvalidRequiredClaimsError("Token missing required 'email_verified' claim")
             final_email: str | None = email_raw.strip()
         else:
             final_email = None

@@ -22,7 +22,9 @@ export const LoginPage: React.FC = () => {
     isAuthenticated,
     oidcConfig,
     loginWithPkceRedirect,
+    loginWithGoogleRedirect,
     handleAuthCallback,
+    handleIdTokenCallback,
     isLoading: authLoading,
   } = useAuth();
   const navigate = useNavigate();
@@ -46,13 +48,40 @@ export const LoginPage: React.FC = () => {
     }
   }, [isAuthenticated, navigate, from]);
 
-  // Handle incoming OAuth 2.0 / OIDC Authorization Code callback
+  // Handle incoming OAuth 2.0 / OIDC callback (query params for code/error, hash for id_token)
   useEffect(() => {
-    if (oauthError) {
-      setCallbackError(`OIDC Provider Error: ${oauthError}`);
+    const hash = location.hash.startsWith("#") ? location.hash.substring(1) : location.hash;
+    const hashParams = new URLSearchParams(hash);
+    const hashIdToken = hashParams.get("id_token");
+    const combinedError =
+      oauthError || hashParams.get("error_description") || hashParams.get("error");
+
+    if (combinedError) {
+      setCallbackError(`OIDC Provider Error: ${combinedError}`);
+      if (typeof window !== "undefined" && window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname);
+      }
       return;
     }
 
+    // 1. Google ID Token callback (via URL fragment #id_token=...)
+    if (hashIdToken && !callbackHandledRef.current && !isAuthenticated) {
+      callbackHandledRef.current = true;
+      setIsProcessingCallback(true);
+      handleIdTokenCallback(location.hash)
+        .then(() => {
+          navigate(from, { replace: true });
+        })
+        .catch((err: unknown) => {
+          const msg =
+            err instanceof Error ? err.message : "Authentication token verification failed";
+          setCallbackError(msg);
+          setIsProcessingCallback(false);
+        });
+      return;
+    }
+
+    // 2. Standard PKCE Authorization Code callback (via query parameters ?code=...&state=...)
     if (code && state && !callbackHandledRef.current && !isAuthenticated) {
       callbackHandledRef.current = true;
       setIsProcessingCallback(true);
@@ -67,7 +96,17 @@ export const LoginPage: React.FC = () => {
           setIsProcessingCallback(false);
         });
     }
-  }, [code, state, oauthError, handleAuthCallback, isAuthenticated, navigate, from]);
+  }, [
+    code,
+    state,
+    oauthError,
+    location.hash,
+    handleAuthCallback,
+    handleIdTokenCallback,
+    isAuthenticated,
+    navigate,
+    from,
+  ]);
 
   const displayError = callbackError || authError;
 
@@ -212,14 +251,7 @@ export const LoginPage: React.FC = () => {
                 size="lg"
                 className="w-full flex items-center justify-center gap-2 font-medium"
                 onClick={() => {
-                  const params = new URLSearchParams({
-                    client_id: oidcConfig.clientId,
-                    redirect_uri: oidcConfig.redirectUri,
-                    response_type: "id_token",
-                    scope: "openid email profile",
-                    nonce: Math.random().toString(36).substring(2),
-                  });
-                  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+                  loginWithGoogleRedirect();
                 }}
               >
                 <ShieldCheck className="w-4 h-4" />

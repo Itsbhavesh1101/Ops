@@ -23,7 +23,9 @@ const mockAuthValue: AuthContextType = {
   error: null,
   loginWithBearerToken: vi.fn(),
   loginWithPkceRedirect: vi.fn(),
+  loginWithGoogleRedirect: vi.fn(),
   handleAuthCallback: vi.fn(),
+  handleIdTokenCallback: vi.fn(),
   logout: vi.fn(),
   clearError: vi.fn(),
   oidcConfig: {

@@ -421,4 +421,228 @@ describe("Authentication & Session Flow (Security Hardened)", () => {
     expect(setAuthTokenSpy).toHaveBeenCalledWith(null);
     expect(setActiveTenantIdSpy).toHaveBeenCalledWith(null);
   });
+
+  describe("Google Workspace OIDC ID-Token Implicit Flow Security", () => {
+    function makeSyntheticIdToken(payload: Record<string, unknown>): string {
+      const header = btoa(JSON.stringify({ alg: "RS256", kid: "test-kid" }))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+      const body = btoa(JSON.stringify(payload))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "");
+      const sig = "synthetic_signature_12345";
+      return `${header}.${body}.${sig}`;
+    }
+
+    it("initiates Google OIDC redirect with response_type=id_token, state, and nonce", async () => {
+      const originalLocation = window.location;
+      const mockLocation = { href: "", origin: "http://127.0.0.1:5173" };
+      Object.defineProperty(window, "location", {
+        value: mockLocation,
+        writable: true,
+        configurable: true,
+      });
+
+      let capturedAuth: ReturnType<typeof useAuth> | undefined;
+      const TestConsumer = () => {
+        capturedAuth = useAuth();
+        return <button onClick={() => capturedAuth?.loginWithGoogleRedirect()}>Sign in</button>;
+      };
+
+      render(
+        <MemoryRouter>
+          <AuthProvider>
+            <TestConsumer />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      await act(async () => {
+        await capturedAuth?.loginWithGoogleRedirect();
+      });
+
+      expect(mockLocation.href).toContain("response_type=id_token");
+      expect(mockLocation.href).toContain("scope=openid+profile+email");
+      expect(mockLocation.href).toContain("state=");
+      expect(mockLocation.href).toContain("nonce=");
+
+      // Verify transaction saved in sessionStorage
+      expect(sessionStorage.getItem("e7_oidc_pkce_state")).toBeTruthy();
+      expect(sessionStorage.getItem("e7_oidc_nonce")).toBeTruthy();
+
+      Object.defineProperty(window, "location", {
+        value: originalLocation,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it("rejects unsolicited ID token injection when no session transaction exists", async () => {
+      let capturedAuth: ReturnType<typeof useAuth> | undefined;
+      const TestConsumer = () => {
+        capturedAuth = useAuth();
+        return <div>Status: {capturedAuth.status}</div>;
+      };
+
+      render(
+        <MemoryRouter>
+          <AuthProvider>
+            <TestConsumer />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      const fakeToken = makeSyntheticIdToken({ sub: "sub1", nonce: "fake-nonce" });
+      await act(async () => {
+        try {
+          await capturedAuth?.handleIdTokenCallback(`#id_token=${fakeToken}&state=unsolicited_state`);
+        } catch (err: unknown) {
+          expect((err as Error).message).toMatch(/Unsolicited ID token rejected/);
+        }
+      });
+
+      expect(capturedAuth?.status).toBe("AUTH_ERROR");
+      expect(capturedAuth?.isAuthenticated).toBe(false);
+    });
+
+    it("rejects callback on CSRF state parameter mismatch", async () => {
+      sessionStorage.setItem("e7_oidc_pkce_state", "legitimate-state-value");
+      sessionStorage.setItem("e7_oidc_nonce", "legitimate-nonce-value");
+
+      let capturedAuth: ReturnType<typeof useAuth> | undefined;
+      const TestConsumer = () => {
+        capturedAuth = useAuth();
+        return <div>Status: {capturedAuth.status}</div>;
+      };
+
+      render(
+        <MemoryRouter>
+          <AuthProvider>
+            <TestConsumer />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      const fakeToken = makeSyntheticIdToken({ sub: "sub1", nonce: "legitimate-nonce-value" });
+      await act(async () => {
+        try {
+          await capturedAuth?.handleIdTokenCallback(`#id_token=${fakeToken}&state=attacker-state`);
+        } catch (err: unknown) {
+          expect((err as Error).message).toMatch(/CSRF state parameter mismatch/);
+        }
+      });
+
+      expect(capturedAuth?.status).toBe("AUTH_ERROR");
+      expect(capturedAuth?.isAuthenticated).toBe(false);
+    });
+
+    it("rejects callback on nonce parameter mismatch", async () => {
+      const validState = "state-abc-123";
+      sessionStorage.setItem("e7_oidc_pkce_state", validState);
+      sessionStorage.setItem("e7_oidc_nonce", "expected-nonce-999");
+
+      let capturedAuth: ReturnType<typeof useAuth> | undefined;
+      const TestConsumer = () => {
+        capturedAuth = useAuth();
+        return <div>Status: {capturedAuth.status}</div>;
+      };
+
+      render(
+        <MemoryRouter>
+          <AuthProvider>
+            <TestConsumer />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      // Token has a different nonce
+      const tokenWithWrongNonce = makeSyntheticIdToken({
+        sub: "sub1",
+        nonce: "attacker-manipulated-nonce",
+      });
+
+      await act(async () => {
+        try {
+          await capturedAuth?.handleIdTokenCallback(
+            `#id_token=${tokenWithWrongNonce}&state=${validState}`
+          );
+        } catch (err: unknown) {
+          expect((err as Error).message).toMatch(/Token nonce mismatch/);
+        }
+      });
+
+      expect(capturedAuth?.status).toBe("AUTH_ERROR");
+      expect(capturedAuth?.isAuthenticated).toBe(false);
+    });
+
+    it("successfully validates initiated callback, scrubs URL fragment, and authenticates user", async () => {
+      const validState = "valid-state-555";
+      const validNonce = "valid-nonce-777";
+      sessionStorage.setItem("e7_oidc_pkce_state", validState);
+      sessionStorage.setItem("e7_oidc_nonce", validNonce);
+
+      const validToken = makeSyntheticIdToken({
+        sub: "google-sub-planner-01",
+        email: "planner@irinfotech.com",
+        nonce: validNonce,
+      });
+
+      const mockPlanner = {
+        principal_id: "planner@irinfotech.com",
+        tenant_id: "tenant-prod-inst-01",
+        roles: ["planner"],
+        permissions: ["plan:create"],
+        principal_type: "HUMAN" as const,
+        authentication_method: "OIDC" as const,
+        display_name: "Production Planner",
+      };
+
+      vi.spyOn(apiClient, "getCurrentUser").mockResolvedValueOnce(mockPlanner);
+      const replaceStateSpy = vi.spyOn(window.history, "replaceState");
+
+      let capturedAuth: ReturnType<typeof useAuth> | undefined;
+      const TestConsumer = () => {
+        capturedAuth = useAuth();
+        return <div>User: {capturedAuth.user?.principal_id}</div>;
+      };
+
+      render(
+        <MemoryRouter>
+          <AuthProvider>
+            <TestConsumer />
+          </AuthProvider>
+        </MemoryRouter>
+      );
+
+      let authenticatedUser;
+      await act(async () => {
+        authenticatedUser = await capturedAuth?.handleIdTokenCallback(
+          `#id_token=${validToken}&state=${validState}`
+        );
+      });
+
+      // Verify URL fragment was immediately scrubbed
+      expect(replaceStateSpy).toHaveBeenCalled();
+
+      // Verify authenticated user
+      expect(authenticatedUser).toEqual(mockPlanner);
+      expect(capturedAuth?.isAuthenticated).toBe(true);
+      expect(capturedAuth?.user?.principal_id).toBe("planner@irinfotech.com");
+
+      // Verify sessionStorage transaction was atomically cleared (single-use)
+      expect(sessionStorage.getItem("e7_oidc_pkce_state")).toBeNull();
+      expect(sessionStorage.getItem("e7_oidc_nonce")).toBeNull();
+
+      // Verify replay rejection: subsequent call fails because session was cleared
+      await act(async () => {
+        try {
+          await capturedAuth?.handleIdTokenCallback(`#id_token=${validToken}&state=${validState}`);
+        } catch (err: unknown) {
+          expect((err as Error).message).toMatch(/Unsolicited ID token rejected/);
+        }
+      });
+    });
+  });
 });

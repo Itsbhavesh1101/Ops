@@ -195,6 +195,17 @@ class Settings(BaseSettings):
             "(fails closed in production if unset)"
         ),
     )
+    oidc_user_mappings_json: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "E7_OIDC_USER_MAPPINGS_JSON",
+            "OIDC_USER_MAPPINGS_JSON",
+            "oidc_user_mappings_json",
+        ),
+        description=(
+            "Server-controlled JSON mapping external OIDC identities to internal principal specs"
+        ),
+    )
     oidc_http_timeout_seconds: float = Field(
         default=10.0,
         validation_alias=AliasChoices(
@@ -849,6 +860,31 @@ class Settings(BaseSettings):
                 f"capacity_flowable_pool_max_keepalive_connections ({keep}) "
                 f"cannot exceed capacity_flowable_pool_max_connections ({max_c})"
             )
+
+        if self.environment in ("production", "staging"):
+            provider_norm = self.oidc_provider_name.strip().lower()
+            if provider_norm in ("keycloak", "generic", "demo"):
+                raise ValueError(
+                    f"Production/staging environment ({self.environment}) prohibits demonstration "
+                    f"identity provider '{self.oidc_provider_name}'. "
+                    "GOOGLE_CLOUD_IDENTITY_GOOGLE_WORKSPACE ('google' or 'google_oidc') "
+                    "is strictly required."
+                )
+            if self.oidc_issuer_url and (
+                "keycloak" in self.oidc_issuer_url.lower() or "8180" in self.oidc_issuer_url
+            ):
+                raise ValueError(
+                    f"Production/staging environment ({self.environment}) prohibits demonstration "
+                    f"Keycloak issuer URL '{self.oidc_issuer_url}'."
+                )
+            if self.database_echo:
+                raise ValueError(
+                    "database_echo must be strictly False in production/staging environments"
+                )
+            if any(origin.strip() == "*" for origin in self.cors_allowed_origins):
+                raise ValueError(
+                    "Wildcard CORS ('*') is strictly prohibited in production/staging environments"
+                )
         return self
 
 
