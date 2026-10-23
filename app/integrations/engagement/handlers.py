@@ -8,10 +8,16 @@ Enforces:
 - Dispatches through NotificationDispatcherProtocol without duplicate emissions.
 """
 
+from typing import Any
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.events.schemas import EventEnvelope
-from app.integrations.engagement.dispatcher import NotificationDispatcherProtocol
+from app.integrations.engagement.config import NotificationSettings
+from app.integrations.engagement.dispatcher import (
+    NotificationDispatcherProtocol,
+    get_notification_dispatcher,
+)
 from app.integrations.engagement.models import (
     NotificationCommand,
     NotificationTrigger,
@@ -24,11 +30,12 @@ class SchedulePublishedNotificationHandler:
 
     def __init__(
         self,
-        dispatcher: NotificationDispatcherProtocol,
+        dispatcher: NotificationDispatcherProtocol | None = None,
         default_recipients: list[str] | None = None,
+        settings: NotificationSettings | None = None,
     ) -> None:
-        self.dispatcher = dispatcher
-        self.default_recipients = default_recipients or ["faculty@school.edu"]
+        self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
+        self.default_recipients = default_recipients or ["urn:e7:cohort:faculty"]
 
     async def handle(
         self,
@@ -71,11 +78,12 @@ class ScheduleChangedNotificationHandler:
 
     def __init__(
         self,
-        dispatcher: NotificationDispatcherProtocol,
+        dispatcher: NotificationDispatcherProtocol | None = None,
         default_recipients: list[str] | None = None,
+        settings: NotificationSettings | None = None,
     ) -> None:
-        self.dispatcher = dispatcher
-        self.default_recipients = default_recipients or ["faculty-all@school.edu"]
+        self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
+        self.default_recipients = default_recipients or ["urn:e7:cohort:faculty-all"]
 
     async def handle(
         self,
@@ -117,7 +125,65 @@ class ScheduleChangedNotificationHandler:
         await self.dispatcher.dispatch(command=cmd, session=session)
 
 
+class NotificationConsumerHandler:
+    """Composite ConsumerEventHandler routing domain events to notification handlers.
+
+    Enforces:
+    - Implements ConsumerEventHandler protocol.
+    - Routes 'schedule.published' to SchedulePublishedNotificationHandler.
+    - Routes 'schedule.changed' to ScheduleChangedNotificationHandler.
+    - Safe no-op on non-notification events.
+    - Preserves single transactional AsyncSession across inbox deduplication and dispatch.
+    """
+
+    def __init__(
+        self,
+        dispatcher: NotificationDispatcherProtocol | None = None,
+        settings: NotificationSettings | None = None,
+        published_handler: SchedulePublishedNotificationHandler | None = None,
+        changed_handler: ScheduleChangedNotificationHandler | None = None,
+    ) -> None:
+        self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
+        self.published_handler = published_handler or SchedulePublishedNotificationHandler(
+            dispatcher=self.dispatcher, settings=settings
+        )
+        self.changed_handler = changed_handler or ScheduleChangedNotificationHandler(
+            dispatcher=self.dispatcher, settings=settings
+        )
+
+    async def handle(
+        self,
+        *,
+        envelope: EventEnvelope,
+        session: AsyncSession,
+    ) -> None:
+        """Route event envelope to appropriate domain notification handler."""
+        if envelope.event_type == "schedule.published":
+            await self.published_handler.handle(envelope=envelope, session=session)
+        elif envelope.event_type == "schedule.changed":
+            await self.changed_handler.handle(envelope=envelope, session=session)
+
+
+def create_notification_consumer_processor(
+    uow_factory: Any,
+    dispatcher: NotificationDispatcherProtocol | None = None,
+    settings: NotificationSettings | None = None,
+    consumer_name: str = "e7.notifications.consumer",
+) -> Any:
+    """Construct canonical ConsumerEventProcessor for transactional notification dispatch."""
+    from app.events.inbox.processor import ConsumerEventProcessor
+
+    handler = NotificationConsumerHandler(dispatcher=dispatcher, settings=settings)
+    return ConsumerEventProcessor(
+        consumer_name=consumer_name,
+        uow_factory=uow_factory,
+        handler=handler,
+    )
+
+
 __all__ = [
-    "SchedulePublishedNotificationHandler",
+    "NotificationConsumerHandler",
     "ScheduleChangedNotificationHandler",
+    "SchedulePublishedNotificationHandler",
+    "create_notification_consumer_processor",
 ]

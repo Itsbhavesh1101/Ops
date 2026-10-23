@@ -45,6 +45,8 @@ from app.events.publishers.config import RabbitMqPublisherSettings
 from app.events.publishers.rabbitmq import RabbitMqEventPublisher
 from app.integrations.calendar.config import GoogleCalendarSettings
 from app.integrations.calendar.worker import CalendarWorker
+from app.integrations.engagement.config import NotificationSettings
+from app.integrations.engagement.worker import NotificationWorker
 
 logger = structlog.get_logger("app.worker")
 
@@ -100,6 +102,7 @@ async def run_worker(
     outbox_settings: OutboxWorkerSettings | None = None,
     telemetry_settings: TelemetrySettings | None = None,
     calendar_settings: GoogleCalendarSettings | None = None,
+    notification_settings: NotificationSettings | None = None,
     database_manager_factory: Callable[[Settings], DatabaseManager] = DatabaseManager,
     uow_factory_provider: Callable[[Any], Callable[[], UnitOfWork]] = create_unit_of_work_factory,
     publisher_factory: Callable[[RabbitMqPublisherSettings], ManagedEventPublisher] = (
@@ -107,6 +110,7 @@ async def run_worker(
     ),
     runner_factory: Callable[..., OutboxDispatcherRunner] = OutboxDispatcherRunner,
     calendar_worker_factory: Callable[..., Any] | None = None,
+    notification_worker_factory: Callable[..., Any] | None = None,
     telemetry_initializer: Callable[..., TelemetryRuntime] = initialize_telemetry,
     telemetry_shutdown: Callable[[], None] = shutdown_telemetry,
 ) -> None:
@@ -226,9 +230,35 @@ async def run_worker(
             reconciliation_interval=cal_settings.reconciliation_interval_seconds,
         )
 
+    # 8. Start optional E-8 notification consumer worker if enabled (Stage 5)
+    notif_settings = (
+        notification_settings if notification_settings is not None else NotificationSettings()
+    )
+    notification_tasks: list[asyncio.Task[Any]] = []
+    if notif_settings.enabled:
+        notif_worker = (
+            notification_worker_factory(db_manager=db_manager, settings=notif_settings)
+            if notification_worker_factory is not None
+            else NotificationWorker(db_manager=db_manager, settings=notif_settings)
+        )
+        notification_tasks = notif_worker.start_background_tasks(actual_stop_event)
+        logger.info(
+            "worker_notification_consumer_started",
+            role="outbox_with_services",
+            tasks_count=len(notification_tasks),
+            transport=notif_settings.transport,
+        )
+
+    active_services = []
+    if cal_settings.enabled:
+        active_services.append("calendar")
+    if notif_settings.enabled:
+        active_services.append("notifications")
+    worker_role = f"outbox_with_{'_'.join(active_services)}" if active_services else "outbox_only"
+
     logger.info(
         "worker_starting",
-        role="outbox_with_calendar" if cal_settings.enabled else "outbox_only",
+        role=worker_role,
         concurrency=runner_policy.max_concurrency,
         poll_interval=runner_policy.poll_interval.total_seconds(),
         lease_duration=dispatch_policy.lease_duration.total_seconds(),
@@ -239,20 +269,27 @@ async def run_worker(
         await runner.run(stop_event=actual_stop_event)
         logger.info(
             "worker_stopped_cleanly",
-            role="outbox_with_calendar" if cal_settings.enabled else "outbox_only",
+            role=worker_role,
         )
     except BaseException as exc:
         primary_error = exc
         logger.error(
             "worker_failed",
-            role="outbox_with_calendar" if cal_settings.enabled else "outbox_only",
+            role=worker_role,
             error_type=type(exc).__name__,
         )
         raise
     finally:
         _remove_signal_handlers(installed_signals)
 
-        # 3. Calendar background tasks shut down cleanly before telemetry and database disposal
+        # 3. Background service tasks shut down cleanly before telemetry and database disposal
+        if notification_tasks:
+            for n_task in notification_tasks:
+                if not n_task.done():
+                    n_task.cancel()
+            await asyncio.gather(*notification_tasks, return_exceptions=True)
+            logger.info("worker_notification_consumer_shut_down")
+
         if calendar_tasks:
             for c_task in calendar_tasks:
                 if not c_task.done():

@@ -134,7 +134,7 @@ asyncio.run(check())
    - Discovery Endpoint: `https://accounts.google.com/.well-known/openid-configuration`.
    - JWKS URI: `https://www.googleapis.com/oauth2/v3/certs`.
    - Production Client ID (e.g. `e7-operations-production.apps.googleusercontent.com` — illustrative example).
-   - Production Client Secret (only if confidential server-side authorization code exchange is utilized; PKCE public client preferred).
+   - Production Client Secret (only if confidential server-side authorization code exchange is utilized; in production, client secret is NOT required or permitted for the public browser SPA custom ID-token flow).
 2. **Authorized JavaScript Origins & Redirect URIs:**
    - Authorized Javascript Origins: `https://operations.irinfotech.com` (and staging FQDNs — illustrative examples).
    - Authorized Redirect URIs: `https://operations.irinfotech.com/login` and `https://operations.irinfotech.com/auth/callback` (illustrative examples).
