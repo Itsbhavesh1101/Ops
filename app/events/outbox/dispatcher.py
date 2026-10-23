@@ -176,13 +176,14 @@ class OutboxDispatcher:
         self._publisher = publisher
         self._policy = policy
 
-    async def dispatch_once(self) -> DispatchResult:
+    async def dispatch_once(self, *, event_id: UUID | None = None) -> DispatchResult:
         """Execute a single bounded outbox event dispatch attempt.
 
         Phases:
         1. Transaction A (Claim):
            - Opens fresh UnitOfWork.
-           - Claims up to 1 ready event with policy.lease_duration.
+           - Claims up to 1 ready event with policy.lease_duration
+             (optionally targeted by event_id).
            - If 0 events: exits UoW, returns IDLE.
            - If 1 event: commits UoW, exits UoW.
            - If >1 events: invariant violation, raises RuntimeError.
@@ -217,6 +218,7 @@ class OutboxDispatcher:
             claimed_events = await claim_repo.claim_ready(
                 limit=1,
                 lease_duration=self._policy.lease_duration,
+                event_id=event_id,
             )
             if len(claimed_events) > 1:
                 raise RuntimeError(

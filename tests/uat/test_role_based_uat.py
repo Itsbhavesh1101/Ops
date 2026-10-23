@@ -7,6 +7,7 @@ Executes comprehensive acceptance scenarios across all 5 operational roles:
 - UAT-SCHEDULER (001, 002, 003, 004, 005, 006, 007)
 - UAT-AUDITOR (001, 002, 003)
 - UAT-TENANT-ADMIN (001, 002, 003)
+- UAT-OPERATOR (001, 002, 003)
 - Negative Authentication UAT
 - Cross-Tenant Isolation UAT
 - Idempotency & Concurrency UAT
@@ -802,6 +803,113 @@ class TestUatTenantAdminWorkflow:
         assert quota_mgr._settings.capacity_tenant_max_queued_repairs >= 1
 
 
+class TestUatOperatorWorkflow:
+    """Acceptance testing for canonical UAT_OPERATOR role.
+
+    Canonical Permissions: task:execute, task:read, schedule:repair.
+    """
+
+    def test_uat_operator_001_read_and_execute_task(
+        self, client: TestClient, uat_context: UatTestContext
+    ) -> None:
+        """UAT-OPERATOR-001: Operator reads workflow tasks and updates task execution progress.
+
+        Verifies:
+        - GET /api/v1/workflows/tasks returns HTTP 200 with task list.
+        - PATCH /api/v1/tasks/{id} returns HTTP 200 with updated task status.
+        - Operator is explicitly authorized for task read and execution.
+        """
+        headers = uat_context.get_auth_headers("operator", UAT_TENANT_ALPHA)
+
+        # 1. Read tasks for tenant
+        res_tasks = client.get(
+            "/api/v1/workflows/tasks",
+            headers=headers,
+        )
+        assert res_tasks.status_code == 200, f"Task read failed: {res_tasks.text}"
+        tasks = res_tasks.json()
+        assert len(tasks) >= 1
+        assert any(t["id"] == str(UAT_WF_TASK_ALPHA_ID) for t in tasks)
+
+        # 2. Mutate operational task progress (task:execute)
+        update_payload = {
+            "status": "COMPLETED",
+        }
+        res_patch = client.patch(
+            f"/api/v1/tasks/{UAT_TASK_ALPHA_ID}",
+            json=update_payload,
+            headers=headers,
+        )
+        assert res_patch.status_code == 200, f"Task update failed: {res_patch.text}"
+        updated = res_patch.json()
+        assert updated["status"] == "COMPLETED"
+
+    def test_uat_operator_002_repair_schedule(
+        self, client: TestClient, uat_context: UatTestContext
+    ) -> None:
+        """UAT-OPERATOR-002: Operator executes targeted disruption schedule repair.
+
+        Verifies:
+        - Operator with schedule:repair permission can invoke /api/v1/schedules/{id}/repair.
+        - Returns HTTP 200 with repair candidate response.
+        """
+        headers = uat_context.get_auth_headers("operator", UAT_TENANT_ALPHA)
+        repair_payload = {
+            "disrupted_resource_ids": ["tech-1"],
+            "affected_activity_ids": ["act-1"],
+            "reason": "resource.unavailable",
+            "movement_weight": 1.0,
+        }
+        res = client.post(
+            f"/api/v1/schedules/{UAT_SCHEDULE_ALPHA_ID}/repair",
+            json=repair_payload,
+            headers=headers,
+        )
+        assert res.status_code == 200, f"Schedule repair failed: {res.text}"
+        data = res.json()
+        assert data["baseline_schedule_id"] == str(UAT_SCHEDULE_ALPHA_ID)
+        assert data["candidate_version"] >= 2
+
+    def test_uat_operator_003_negative_authorizations(
+        self, client: TestClient, uat_context: UatTestContext
+    ) -> None:
+        """UAT-OPERATOR-003: Operator denied actions outside authorized permissions.
+
+        Verifies:
+        - Cannot approve plan (403 plan.unauthorized)
+        - Cannot deploy workflow definition (403 workflow.unauthorized)
+        - Cannot complete approver-only human task (403 workflow.task_unauthorized)
+        """
+        headers = uat_context.get_auth_headers("operator", UAT_TENANT_ALPHA)
+
+        # 1. Denied plan approval
+        res_plan = client.post(
+            f"/api/v1/plans/{UAT_PLAN_ALPHA_ID}/approve",
+            headers=headers,
+        )
+        assert res_plan.status_code == 403
+        assert res_plan.json()["error"]["code"] == "plan.unauthorized"
+
+        # 2. Denied workflow deploy
+        res_wf = client.post(
+            f"/api/v1/workflows/definitions/{UAT_WF_DEF_ALPHA_ID}/deploy",
+            headers=headers,
+        )
+        assert res_wf.status_code == 403
+        assert res_wf.json()["error"]["code"] == "workflow.unauthorized"
+
+        # 3. Denied human task action (assigned to approvers)
+        act_headers = dict(headers)
+        act_headers["Idempotency-Key"] = "operator-task-act-001"
+        res_act = client.post(
+            f"/api/v1/workflows/tasks/{UAT_WF_TASK_ALPHA_ID}/actions",
+            json={"action": "COMPLETE", "variables": {"approved": True}},
+            headers=act_headers,
+        )
+        assert res_act.status_code == 403
+        assert res_act.json()["error"]["code"] == "workflow.task_unauthorized"
+
+
 class TestNegativeAuthenticationUat:
     """Acceptance testing for negative authentication flows."""
 
@@ -1296,7 +1404,7 @@ class TestUatDegradedRabbitMq:
                 publisher=restored_pub,
                 policy=policy,
             )
-            res = await dispatcher.dispatch_once()
+            res = await dispatcher.dispatch_once(event_id=test_eid)
             assert res.outcome == DispatchOutcome.PUBLISHED
 
             # 6. Prove published_at/settlement state is correct in database
@@ -1314,7 +1422,7 @@ class TestUatDegradedRabbitMq:
                 assert settled_row["claim_token"] is None
 
             # 7. Prove downstream idempotency: no duplicate dispatch
-            idle_res = await dispatcher.dispatch_once()
+            idle_res = await dispatcher.dispatch_once(event_id=test_eid)
             assert idle_res.outcome == DispatchOutcome.IDLE
 
             await restored_pub.close()

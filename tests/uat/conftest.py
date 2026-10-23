@@ -2,14 +2,15 @@
 
 Configures:
 - Synthetic Tenants: uat-tenant-alpha, uat-tenant-beta.
-- 5 Canonical UAT Personas + Negative/Isolation Personas:
+- Canonical UAT Personas + Negative/Isolation Personas:
   1. UAT_PLANNER (planner)
   2. UAT_APPROVER (approver)
-  3. UAT_SCHEDULER (scheduler, operator)
-  4. UAT_AUDITOR (auditor)
-  5. UAT_TENANT_ADMIN (tenant_admin)
-  6. UAT_VIEWER (viewer)
-  7. UAT_FOREIGN_TENANT_USER (planner on uat-tenant-beta)
+  3. UAT_SCHEDULER (scheduler)
+  4. UAT_OPERATOR (operator)
+  5. UAT_AUDITOR (auditor)
+  6. UAT_TENANT_ADMIN (tenant_admin)
+  7. UAT_VIEWER (viewer)
+  8. UAT_FOREIGN_TENANT_USER (planner on uat-tenant-beta)
 - Realistic synthetic fixture representing:
   "Semester Exam Readiness and Scheduling"
 """
@@ -118,6 +119,24 @@ class UatStubWorkflowService(StubWorkflowService):
         self.instances[(tenant_id, inst_id)] = inst
         return inst
 
+    async def list_tasks(
+        self,
+        tenant_id: str,
+        workflow_instance_id: UUID | None = None,
+        status: str | None = None,
+        assignee: str | None = None,
+        **kwargs: Any,
+    ) -> list[WorkflowTaskResponse]:
+        return [
+            task
+            for (t_id, _), task in self.tasks.items()
+            if t_id == tenant_id
+            and (
+                workflow_instance_id is None
+                or task.workflow_instance_id == workflow_instance_id
+            )
+        ]
+
 
 class UatStubPlanService(StubPlanService):
     """Plan service stub providing complete CPMScheduleResult."""
@@ -207,13 +226,26 @@ class UatTestContext(SecurityTestContext):
             "scheduler",
             "user:uat_scheduler_alpha",
             UAT_TENANT_ALPHA,
-            roles={"scheduler", "operator"},
+            roles={"scheduler"},
             permissions={
                 "schedule:solve",
                 "schedule:publish",
                 "schedule:repair",
                 "task:execute",
                 "task:read",
+            },
+        )
+
+        # 4. UAT_OPERATOR (Tenant Alpha)
+        self.register_human_persona(
+            "operator",
+            "user:uat_operator_alpha",
+            UAT_TENANT_ALPHA,
+            roles={"operator"},
+            permissions={
+                "task:execute",
+                "task:read",
+                "schedule:repair",
             },
         )
 
