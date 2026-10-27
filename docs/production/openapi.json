@@ -1841,6 +1841,66 @@
         "title": "PlanProgressSummary",
         "type": "object"
       },
+      "PlanRecommendationsResponse": {
+        "additionalProperties": false,
+        "description": "Top-level recommendation collection envelope for a plan.",
+        "properties": {
+          "blocked_tasks_count": {
+            "title": "Blocked Tasks Count",
+            "type": "integer"
+          },
+          "completed_tasks_count": {
+            "title": "Completed Tasks Count",
+            "type": "integer"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "is_authoritative": {
+            "default": false,
+            "description": "Always False. Recommendations are strictly advisory and require human action.",
+            "title": "Is Authoritative",
+            "type": "boolean"
+          },
+          "plan_id": {
+            "format": "uuid",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "ready_tasks_count": {
+            "title": "Ready Tasks Count",
+            "type": "integer"
+          },
+          "recommendations": {
+            "items": {
+              "$ref": "#/components/schemas/TaskRecommendation"
+            },
+            "title": "Recommendations",
+            "type": "array"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "total_tasks": {
+            "title": "Total Tasks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "plan_id",
+          "tenant_id",
+          "total_tasks",
+          "ready_tasks_count",
+          "blocked_tasks_count",
+          "completed_tasks_count",
+          "recommendations"
+        ],
+        "title": "PlanRecommendationsResponse",
+        "type": "object"
+      },
       "PlanResponse": {
         "additionalProperties": false,
         "description": "Public representation of a plan version.",
@@ -2136,6 +2196,27 @@
         ],
         "title": "RecentEventItem",
         "type": "object"
+      },
+      "RecommendationAction": {
+        "description": "Actionable recommendation categories.",
+        "enum": [
+          "START_TASK",
+          "CONTINUE_EXECUTION",
+          "RESOLVE_BLOCKER",
+          "EXPEDITE_CRITICAL"
+        ],
+        "title": "RecommendationAction",
+        "type": "string"
+      },
+      "RecommendationQuality": {
+        "description": "Explicit indicator of recommendation basis quality without fabricated metrics.",
+        "enum": [
+          "HIGH",
+          "MEDIUM",
+          "DEGRADED"
+        ],
+        "title": "RecommendationQuality",
+        "type": "string"
       },
       "RepairMovementSummary": {
         "additionalProperties": false,
@@ -3976,6 +4057,99 @@
           }
         },
         "title": "TaskProgressUpdate",
+        "type": "object"
+      },
+      "TaskRecommendation": {
+        "additionalProperties": false,
+        "description": "Ranked next-best-task recommendation item.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/RecommendationAction"
+          },
+          "blocked_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blocked Reasons",
+            "type": "array"
+          },
+          "explanation": {
+            "title": "Explanation",
+            "type": "string"
+          },
+          "is_critical_path": {
+            "title": "Is Critical Path",
+            "type": "boolean"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "quality": {
+            "$ref": "#/components/schemas/RecommendationQuality"
+          },
+          "quality_basis": {
+            "title": "Quality Basis",
+            "type": "string"
+          },
+          "rank": {
+            "description": "1-based relative recommendation rank.",
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "score": {
+            "description": "Deterministic composite priority score.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          },
+          "temporary_id": {
+            "title": "Temporary Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "total_slack_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Slack Minutes"
+          }
+        },
+        "required": [
+          "task_id",
+          "temporary_id",
+          "title",
+          "rank",
+          "score",
+          "action",
+          "priority",
+          "status",
+          "is_critical_path",
+          "total_slack_minutes",
+          "explanation",
+          "quality",
+          "quality_basis"
+        ],
+        "title": "TaskRecommendation",
         "type": "object"
       },
       "TaskResponse": {
@@ -6171,6 +6345,113 @@
           }
         ],
         "summary": "Get Plan Critical Path",
+        "tags": [
+          "Planning"
+        ]
+      }
+    },
+    "/api/v1/plans/{plan_id}/recommendations": {
+      "get": {
+        "description": "Get explainable, deterministic next-best-task recommendations for a plan (FR-TI-09).",
+        "operationId": "get_plan_recommendations_api_v1_plans__plan_id__recommendations_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Max recommendations to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "description": "Max recommendations to return",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Whether to include blocked tasks with mitigation actions",
+            "in": "query",
+            "name": "include_blocked",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Whether to include blocked tasks with mitigation actions",
+              "title": "Include Blocked",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanRecommendationsResponse"
+                }
+              }
+            },
+            "description": "Deterministic actionable task recommendations."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized role."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Plan not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get Next-Best-Task Recommendations",
         "tags": [
           "Planning"
         ]

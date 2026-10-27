@@ -40,6 +40,10 @@ from app.task_intelligence.progress import (
     TaskProgressUpdate,
     assert_valid_task_progress_transition,
 )
+from app.task_intelligence.recommender import (
+    PlanRecommendationsResponse,
+    TaskRecommender,
+)
 from app.task_intelligence.schemas import (
     GoalCreate,
     GoalResponse,
@@ -982,3 +986,58 @@ class PlanService:
             await uow.commit()
 
             return updated
+
+    async def get_plan_recommendations(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        limit: int = 10,
+        include_blocked: bool = False,
+    ) -> PlanRecommendationsResponse:
+        """Compute next-best-task recommendations for a plan (FR-TI-09)."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+
+            # Compute CPM schedule metrics
+            graph = TaskDependencyGraph()
+            for t in tasks:
+                graph.add_task(
+                    task_id=t.temporary_id,
+                    duration_minutes=t.estimated_duration_minutes,
+                )
+
+            task_id_to_temp = {t.id: t.temporary_id for t in tasks}
+            for d in dependencies:
+                pred = task_id_to_temp.get(d.predecessor_id)
+                succ = task_id_to_temp.get(d.successor_id)
+                if pred and succ:
+                    graph.add_dependency(
+                        predecessor_id=pred,
+                        successor_id=succ,
+                        lag_minutes=d.lag_minutes,
+                    )
+
+            try:
+                cpm_result = CriticalPathCalculator.calculate(graph)
+            except Exception:
+                cpm_result = None
+
+            return TaskRecommender.recommend(
+                plan_id=plan_id,
+                tenant_id=tenant_id,
+                tasks=tasks,
+                dependencies=dependencies,
+                cpm_result=cpm_result,
+                limit=limit,
+                include_blocked=include_blocked,
+            )
+

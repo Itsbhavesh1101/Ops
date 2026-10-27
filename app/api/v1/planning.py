@@ -31,6 +31,7 @@ from app.task_intelligence.progress import (
     InvalidTaskProgressTransitionError,
     TaskProgressUpdate,
 )
+from app.task_intelligence.recommender import PlanRecommendationsResponse
 from app.task_intelligence.schemas import (
     GoalCreate,
     GoalResponse,
@@ -752,6 +753,59 @@ def create_planning_router(
         tenant_id = _extract_tenant_id(tenant_context)
         try:
             return await service.get_critical_path(tenant_id=tenant_id, plan_id=plan_id)
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+
+    @router.get(
+        "/plans/{plan_id}/recommendations",
+        response_model=PlanRecommendationsResponse,
+        status_code=status.HTTP_200_OK,
+        summary="Get Next-Best-Task Recommendations",
+        responses={
+            200: {
+                "model": PlanRecommendationsResponse,
+                "description": "Deterministic actionable task recommendations.",
+            },
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+        },
+    )
+    async def get_plan_recommendations(
+        plan_id: UUID = Path(...),
+        limit: int = Query(default=10, ge=1, le=50, description="Max recommendations to return"),
+        include_blocked: bool = Query(
+            default=False, description="Whether to include blocked tasks with mitigation actions"
+        ),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> PlanRecommendationsResponse:
+        """Get explainable, deterministic next-best-task recommendations for a plan (FR-TI-09)."""
+        if isinstance(principal, AuthenticatedPrincipal):
+            if not (
+                principal.has_any_role(
+                    "planner", "operator", "scheduler", "auditor", "tenant_admin", "admin"
+                )
+                or principal.has_permission("plan:read")
+                or principal.has_permission("*")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Insufficient permissions to view plan recommendations.",
+                )
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            return await service.get_plan_recommendations(
+                tenant_id=tenant_id,
+                plan_id=plan_id,
+                limit=limit,
+                include_blocked=include_blocked,
+            )
         except PlanNotFoundError as exc:
             raise ApiError(
                 status_code=404,

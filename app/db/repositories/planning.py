@@ -353,3 +353,31 @@ class TaskRepository(SqlAlchemyRepository):
             task.blocked_reason = update_data.blocked_reason
 
         return task
+
+    async def get_completed_actual_durations(
+        self,
+        tenant_id: str,
+        work_category: str | None = None,
+    ) -> list[int]:
+        """Retrieve actual durations of completed tasks for statistical recalibration.
+
+        Filters strictly by tenant_id, status='COMPLETED', non-null and positive
+        actual_duration_minutes. Optionally filters by work_category.
+        """
+        conditions = [
+            TaskRecord.tenant_id == tenant_id,
+            TaskRecord.status == "COMPLETED",
+            TaskRecord.actual_duration_minutes.is_not(None),
+            TaskRecord.actual_duration_minutes > 0,
+        ]
+        if work_category:
+            conditions.append(TaskRecord.work_category == work_category)
+
+        stmt = (
+            select(TaskRecord.actual_duration_minutes)
+            .where(*conditions)
+            .order_by(TaskRecord.actual_duration_minutes.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [int(val) for val in result.scalars().all() if val is not None]
+

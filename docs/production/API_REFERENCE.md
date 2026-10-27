@@ -102,6 +102,7 @@ The following table provides the exhaustive inventory of all 68 mounted endpoint
 | `/api/v1/plans/{plan_id}/submit-for-approval` | POST | Planning | Bearer / Service Key | No | Submit generated plan for approval |
 | `/api/v1/plans/{plan_id}/tasks` | GET | Planning | Bearer / Service Key | No | List tasks for a plan |
 | `/api/v1/plans/{plan_id}/critical-path` | GET | Planning | Bearer / Service Key | No | Compute Critical Path Method (CPM) |
+| `/api/v1/plans/{plan_id}/recommendations` | GET | Planning | Bearer / Service Key | No | Deterministic next-best-task recommendations |
 | `/api/v1/tasks/{task_id}` | PATCH | Planning | Bearer / Service Key | No | Update task status or metadata |
 | `/api/v1/schedule-jobs` | POST | Scheduling | Bearer / Service Key | **Yes (`capacity_tenant_max_queued_solves: 5`)** | Submit CP-SAT solver job |
 | `/api/v1/schedule-jobs/{job_id}` | GET | Scheduling | Bearer / Service Key | No | Poll status of solve job |
@@ -183,6 +184,11 @@ The following table provides the exhaustive inventory of all 68 mounted endpoint
 - **Summary:** Calculate Critical Path Method (CPM) for tasks in plan.
 - **Auth:** Bearer or Service Key.
 - **Response `200 OK`:** List of critical path task IDs, float duration, total plan duration.
+
+#### `GET /api/v1/plans/{plan_id}/recommendations`
+- **Summary:** Get explainable, deterministic next-best-task recommendations (FR-TI-09).
+- **Auth:** Bearer or Service Key (`role: planner`, `role: operator`, `role: scheduler`, `role: auditor`, `role: tenant_admin`, `role: admin`).
+- **Response `200 OK`:** Returns `PlanRecommendationsResponse` with ranked task recommendations, readiness evaluations, actions (`START_TASK`, `CONTINUE_EXECUTION`, `RESOLVE_BLOCKER`, `EXPEDITE_CRITICAL`), composite scores, and explicit recommendation quality indicators.
 
 #### `PATCH /api/v1/tasks/{task_id}`
 - **Summary:** Update task status, progress percentage, or completion metadata.

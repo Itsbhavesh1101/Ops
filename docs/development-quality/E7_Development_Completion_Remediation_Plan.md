@@ -33,13 +33,17 @@ Read the four immutable original PDFs in `docs/source-of-truth/`, then `docs/SOU
 
 ## Execution discipline for every DQ phase
 
+The agreed, authoritative workflow across all development-quality remediation phases is:
+**Implement → Local Tests → Commit → Push Feature Branch → GitHub CI → Fix Failures → Independent Review → Merge → Next Phase**
+
 1. Verify local `master` HEAD against remote current HEAD, stop on unexpected dirty tracked files; preserve existing unrelated files.
 2. Record exact requirements, actual code locations, reproducer, tests, risk and impact before editing.
 3. Make the **minimum coherent change** with meaningful negative/positive regression tests; never weaken test expectations or authorization for green results.
 4. Run relevant test suites, `ruff check .`, `mypy app`, frontend checks as applicable, and the source's relevant integration gates. Classify unavailable infrastructure honestly.
 5. Never mutate institution-owned MySQL, company services, non-disposable DBs, or historical frozen RC/tag.
-6. Leave each phase's changes **uncommitted** for independent review unless the user separately authorizes a local commit; never push automatically.
-7. For each phase, report files changed, old/new test results, leftover defects, source references, exact SHA, status `PASS / PARTIAL / BLOCKED`, and next phase recommendation. Do not start the next DQ phase automatically.
+6. Commit verified changes to the dedicated phase branch and push only that branch to GitHub to trigger CI verification.
+7. If remote CI jobs fail, retrieve actual failure logs, reproduce locally, apply the smallest justified fix, commit and push until all required CI checks pass.
+8. Create a pull request targeting `master`. **DO NOT MERGE THE PR AUTOMATICALLY.** Await explicit institutional review and approval before merging into `master` and transitioning to the next DQ phase.
 
 ## DQ-1 — CI and test-collection recovery **START HERE**
 
