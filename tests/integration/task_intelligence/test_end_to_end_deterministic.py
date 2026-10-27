@@ -371,3 +371,114 @@ async def test_cross_tenant_negative_isolation(
     # 5. Tenant B cannot get critical path for Tenant A's plan
     with pytest.raises(PlanNotFoundError):
         await service.get_critical_path(tenant_id=tenant_b, plan_id=plan_a.id)
+
+
+@pytest.mark.ti_integration
+@pytest.mark.asyncio
+async def test_historical_estimation_postgres_callchain(
+    uow_factory: Any,
+) -> None:
+    """PostgreSQL integration test for FR-TI-04:
+    Completed task actuals -> historical aggregation -> new task estimate -> persisted plan output.
+    Verifies tenant isolation and fallback behavior.
+    """
+    from app.task_intelligence.progress import TaskProgressStatus, TaskProgressUpdate
+
+    service = PlanService(uow_factory=uow_factory)
+    tenant_a = f"tenant-hist-a-{uuid4().hex[:8]}"
+    tenant_b = f"tenant-hist-b-{uuid4().hex[:8]}"
+
+    # Step 1: Tenant A creates initial plan with a task in PLANNING category
+    goal_a = await service.create_goal(
+        tenant_id=tenant_a,
+        goal_data=GoalCreate(objective="Semester Exam Preparation"),
+    )
+    plan_a1 = await service.persist_generated_plan(
+        tenant_id=tenant_a,
+        goal_id=goal_a.id,
+        plan_schema=PlanSchema(
+            plan_name="Exam Setup Plan 1",
+            tasks=[
+                TaskDraft(
+                    temporary_id="T1_PLAN",
+                    title="Planning session",
+                    work_category="PLANNING",
+                    estimated_duration_minutes=120,
+                )
+            ],
+        ),
+    )
+
+    # Step 2: Tenant A completes the task with actual_duration_minutes = 75
+    detail_a1 = await service.get_plan(tenant_id=tenant_a, plan_id=plan_a1.id)
+    assert detail_a1 is not None and detail_a1.tasks
+    task_a1 = detail_a1.tasks[0]
+
+    await service.update_task_progress(
+        tenant_id=tenant_a,
+        task_id=task_a1.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.COMPLETED,
+            progress_percentage=100,
+            actual_duration_minutes=75,
+        ),
+    )
+
+    # Step 3: Tenant A persists a second plan with a new task in PLANNING
+    plan_a2 = await service.persist_generated_plan(
+        tenant_id=tenant_a,
+        goal_id=goal_a.id,
+        plan_schema=PlanSchema(
+            plan_name="Exam Setup Plan 2",
+            tasks=[
+                TaskDraft(
+                    temporary_id="T2_PLAN",
+                    title="Follow-up planning session",
+                    work_category="PLANNING",
+                    estimated_duration_minutes=120,
+                )
+            ],
+        ),
+    )
+
+    detail_a2 = await service.get_plan(tenant_id=tenant_a, plan_id=plan_a2.id)
+    assert detail_a2 is not None and detail_a2.tasks
+    task_a2 = detail_a2.tasks[0]
+
+    # Verify task was calibrated to historical median (75 minutes)
+    assert task_a2.estimated_duration_minutes == 75
+    assert task_a2.effort_estimate_json is not None
+    assert task_a2.effort_estimate_json["basis"] == "historical_median"
+    assert task_a2.effort_estimate_json["confidence"] == 0.85
+
+    # Step 4: Tenant B persists a plan with a PLANNING task (has zero completed tasks)
+    goal_b = await service.create_goal(
+        tenant_id=tenant_b,
+        goal_data=GoalCreate(objective="Tenant B Examinations"),
+    )
+    plan_b = await service.persist_generated_plan(
+        tenant_id=tenant_b,
+        goal_id=goal_b.id,
+        plan_schema=PlanSchema(
+            plan_name="Tenant B Plan",
+            tasks=[
+                TaskDraft(
+                    temporary_id="TB_PLAN",
+                    title="Tenant B planning",
+                    work_category="PLANNING",
+                    estimated_duration_minutes=60,
+                )
+            ],
+        ),
+    )
+
+    detail_b = await service.get_plan(tenant_id=tenant_b, plan_id=plan_b.id)
+    assert detail_b is not None and detail_b.tasks
+    task_b = detail_b.tasks[0]
+
+    # Tenant B must NOT use Tenant A's 75m median; falls back to category heuristic (120m)
+    assert task_b.estimated_duration_minutes == 120
+    assert task_b.effort_estimate_json is not None
+    assert task_b.effort_estimate_json["basis"] == "category_heuristic:PLANNING"
+    assert task_b.effort_estimate_json["confidence"] == 0.7
+

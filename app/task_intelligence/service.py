@@ -12,6 +12,8 @@ from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.audit.repository import AuditRepository
 from app.audit.schemas import AuditEventCreate
 from app.core.capacity.quotas import TenantQuotaManager
@@ -21,6 +23,7 @@ from app.db.models.planning import (
     TaskDependencyRecord,
     TaskRecord,
 )
+from app.db.models.scheduling import ResourceRecord
 from app.db.repositories.planning import (
     GoalRepository,
     PlanRepository,
@@ -29,10 +32,15 @@ from app.db.repositories.planning import (
 from app.db.uow import SqlAlchemyUnitOfWork
 from app.events.outbox.repository import OutboxRepository
 from app.events.schemas import EventCreate, create_event_envelope
+from app.task_intelligence.estimators import (
+    DatabaseHistoricalMedianProvider,
+    HeuristicEffortEstimator,
+)
 from app.task_intelligence.graph import (
     CriticalPathCalculator,
     TaskDependencyGraph,
 )
+from app.task_intelligence.graph.exceptions import GraphCycleError
 from app.task_intelligence.graph.models import CPMScheduleResult
 from app.task_intelligence.planner.protocol import PlannerProtocol
 from app.task_intelligence.progress import (
@@ -42,9 +50,17 @@ from app.task_intelligence.progress import (
 )
 from app.task_intelligence.recommender import (
     PlanRecommendationsResponse,
+    RecommendationPolicyConfig,
     TaskRecommender,
 )
+from app.task_intelligence.risks import (
+    DeterministicRiskDetector,
+    RiskCategory,
+    RiskSeverity,
+    TaskRiskItem,
+)
 from app.task_intelligence.schemas import (
+    EffortEstimateDraft,
     GoalCreate,
     GoalResponse,
     PlanSchema,
@@ -367,6 +383,48 @@ class PlanService:
 
         return plan_record, proposed_plan, val_res
 
+    async def calibrate_plan_effort(
+        self,
+        tenant_id: str,
+        plan_schema: PlanSchema,
+        task_repo: TaskRepository,
+    ) -> PlanSchema:
+        """Calibrate plan task effort estimates using historical execution data (FR-TI-04).
+
+        Precedence Hierarchy:
+        1. Explicit human override (retains confidence 1.0, basis='human_override').
+        2. Historical median provider derived from completed PostgreSQL tasks for this tenant
+           (confidence 0.85, basis='historical_median').
+        3. Category heuristic default (confidence 0.7, basis='category_heuristic:<cat>').
+        4. Global fallback duration (confidence 0.5, basis='default_fallback').
+        """
+        historical_provider = await DatabaseHistoricalMedianProvider.load_for_tenant(
+            task_repo=task_repo,
+            tenant_id=tenant_id,
+        )
+        estimator = HeuristicEffortEstimator(historical_provider=historical_provider)
+
+        for task in plan_schema.tasks:
+            human_override = None
+            if task.effort_estimate and task.effort_estimate.is_manual_override:
+                human_override = float(task.effort_estimate.value)
+
+            estimate_res = estimator.estimate(
+                title=task.title,
+                work_category=task.work_category,
+                human_override=human_override,
+            )
+            task.estimated_duration_minutes = int(estimate_res.value)
+            task.effort_estimate = EffortEstimateDraft(
+                value=estimate_res.value,
+                unit=estimate_res.unit,
+                basis=estimate_res.basis,
+                confidence=estimate_res.confidence,
+                is_manual_override=estimate_res.is_manual_override,
+            )
+
+        return plan_schema
+
     async def persist_generated_plan(
         self,
         tenant_id: str,
@@ -392,6 +450,9 @@ class PlanService:
             goal = await goal_repo.get_by_id(goal_id, tenant_id)
             if not goal:
                 raise GoalNotFoundError(goal_id)
+
+            # Calibrate effort estimates against tenant historical execution data
+            await self.calibrate_plan_effort(tenant_id, plan_schema, task_repo)
 
             latest_version = await plan_repo.get_latest_version_number(goal_id, tenant_id)
             new_version = latest_version + 1
@@ -993,6 +1054,7 @@ class PlanService:
         plan_id: UUID,
         limit: int = 10,
         include_blocked: bool = False,
+        policy: RecommendationPolicyConfig | None = None,
     ) -> PlanRecommendationsResponse:
         """Compute next-best-task recommendations for a plan (FR-TI-09)."""
         uow = self._uow_factory()
@@ -1026,10 +1088,14 @@ class PlanService:
                         lag_minutes=d.lag_minutes,
                     )
 
+            cpm_result: CPMScheduleResult | None = None
+            cpm_diagnostic: str | None = None
             try:
                 cpm_result = CriticalPathCalculator.calculate(graph)
-            except Exception:
-                cpm_result = None
+            except GraphCycleError as exc:
+                cpm_diagnostic = f"Dependency cycle detected in graph: {exc.cycle_path}"
+            except Exception as exc:
+                cpm_diagnostic = f"CPM calculation failed: {str(exc)}"
 
             return TaskRecommender.recommend(
                 plan_id=plan_id,
@@ -1037,7 +1103,159 @@ class PlanService:
                 tasks=tasks,
                 dependencies=dependencies,
                 cpm_result=cpm_result,
+                cpm_diagnostic=cpm_diagnostic,
+                policy=policy,
                 limit=limit,
                 include_blocked=include_blocked,
             )
+
+    async def evaluate_plan_risks(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+    ) -> list[TaskRiskItem]:
+        """Evaluate deterministic operational risks for a plan (FR-TI-07).
+
+        Invariants:
+        - Pure calculation with inspectable evidence.
+        - Tenant-scoped: never leaks cross-tenant information.
+        - Evaluates:
+          1. Critical-path vs. dependency slack slippage (CPM).
+          2. Declared blockers and successor dependency propagation.
+          3. Overdue dependencies / task variance / repeated rework.
+          4. Authoritative resource capacity shortfall using PostgreSQL ResourceRecord registry.
+          5. When authoritative resource registry is unavailable or empty, returns an explicit
+             RESOURCE_CAPACITY_UNSUPPORTED item with is_evaluable=False.
+        """
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+
+            risks: list[TaskRiskItem] = []
+
+            # 1. Critical path and slack slippage
+            graph = TaskDependencyGraph()
+            for t in tasks:
+                graph.add_task(
+                    task_id=t.temporary_id,
+                    duration_minutes=t.estimated_duration_minutes,
+                )
+
+            task_id_to_temp = {t.id: t.temporary_id for t in tasks}
+            for d in dependencies:
+                pred = task_id_to_temp.get(d.predecessor_id)
+                succ = task_id_to_temp.get(d.successor_id)
+                if pred and succ:
+                    graph.add_dependency(
+                        predecessor_id=pred,
+                        successor_id=succ,
+                        lag_minutes=d.lag_minutes,
+                    )
+
+            try:
+                cpm_result = CriticalPathCalculator.calculate(graph)
+                delayed_task_ids = {
+                    t.temporary_id
+                    for t in tasks
+                    if (
+                        t.status == "BLOCKED"
+                        or (
+                            t.actual_duration_minutes is not None
+                            and t.actual_duration_minutes > t.estimated_duration_minutes
+                        )
+                    )
+                }
+                cpm_risks = DeterministicRiskDetector.detect_critical_path_slippage(
+                    cpm_result=cpm_result,
+                    delayed_task_ids=delayed_task_ids,
+                )
+                risks.extend(cpm_risks)
+            except Exception:
+                pass
+
+            # 2. Declared blockers and dependency propagation
+            blocker_risks = DeterministicRiskDetector.detect_blocked_dependencies(
+                tasks=tasks,
+                dependencies=dependencies,
+            )
+            risks.extend(blocker_risks)
+
+            # 3. Repeated rework and duration variance
+            for t in tasks:
+                if (
+                    t.actual_duration_minutes is not None
+                    and t.estimated_duration_minutes > 0
+                    and t.actual_duration_minutes > t.estimated_duration_minutes
+                ):
+                    ratio = (
+                        t.actual_duration_minutes - t.estimated_duration_minutes
+                    ) / float(t.estimated_duration_minutes)
+                    if ratio > 0.5:
+                        severity = RiskSeverity.HIGH if ratio > 1.0 else RiskSeverity.MEDIUM
+                        risks.append(
+                            TaskRiskItem(
+                                task_id=t.temporary_id,
+                                category=RiskCategory.DEPENDENCY_SLIPPAGE,
+                                severity=severity,
+                                description=(
+                                    f"Task '{t.temporary_id}' duration exceeded estimate by "
+                                    f"{ratio * 100:.1f}% ({t.actual_duration_minutes}m actual vs "
+                                    f"{t.estimated_duration_minutes}m est)."
+                                ),
+                                is_evaluable=True,
+                            )
+                        )
+
+            # 4. Authoritative Resource Capacity Evaluation
+            stmt = select(ResourceRecord).where(
+                ResourceRecord.tenant_id == tenant_id,
+                ResourceRecord.active.is_(True),
+            )
+            res_result = await uow.session.execute(stmt)
+            active_resources = list(res_result.scalars().all())
+
+            if not active_resources:
+                # Authoritative data is genuinely unavailable -> explicit unevaluable reporting
+                unsupported_item = DeterministicRiskDetector.evaluate_resource_capacity(
+                    resource_demands=None,
+                    resource_capacities=None,
+                )
+                if isinstance(unsupported_item, list):
+                    risks.extend(unsupported_item)
+                else:
+                    risks.append(unsupported_item)
+            else:
+                # Compute available capacity per type / role
+                available_capacities: dict[str, int] = {}
+                for res in active_resources:
+                    key = (res.type or "DEFAULT").strip().upper()
+                    available_capacities[key] = (
+                        available_capacities.get(key, 0) + int(res.capacity)
+                    )
+
+                # Compute demanded capacity from planned tasks
+                demanded_capacities: dict[str, int] = {}
+                for t in tasks:
+                    if t.status != "COMPLETED":
+                        role = (t.owner_role or t.work_category or "DEFAULT").strip().upper()
+                        demanded_capacities[role] = demanded_capacities.get(role, 0) + 1
+
+                capacity_risks = DeterministicRiskDetector.evaluate_resource_capacity(
+                    resource_demands=demanded_capacities,
+                    resource_capacities=available_capacities,
+                )
+                if isinstance(capacity_risks, list):
+                    risks.extend(capacity_risks)
+                elif capacity_risks:
+                    risks.append(capacity_risks)
+
+            return risks
 

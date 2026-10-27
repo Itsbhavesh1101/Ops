@@ -156,3 +156,134 @@ async def test_load_for_tenant_query_execution() -> None:
     assert provider.get_historical_median_duration("PLANNING") == 100.0
     assert provider.get_historical_median_duration("READINESS") == 50.0
     assert provider.get_historical_median_duration("OTHER") is None
+
+
+@pytest.mark.asyncio
+async def test_calibrate_plan_effort_runtime_pipeline() -> None:
+    """calibrate_plan_effort recalibrates all tasks according to approved precedence."""
+    from app.task_intelligence.schemas import EffortEstimateDraft, PlanSchema, TaskDraft
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.all.return_value = [
+        ("PLANNING", 70),
+        ("PLANNING", 80),
+        ("PLANNING", 90),
+    ]
+    mock_session.execute.return_value = mock_result
+    mock_repo = MagicMock()
+    mock_repo.session = mock_session
+
+    service = PlanService(uow_factory=MagicMock())
+
+    plan = PlanSchema(
+        plan_name="Test Calibration Plan",
+        tasks=[
+            # 1. Historical median should apply (PLANNING median = 80)
+            TaskDraft(
+                temporary_id="T1",
+                title="Planning Task",
+                work_category="PLANNING",
+                estimated_duration_minutes=120,
+            ),
+            # 2. Manual override should be preserved (confidence 1.0, basis='human_override')
+            TaskDraft(
+                temporary_id="T2",
+                title="Override Task",
+                work_category="PLANNING",
+                estimated_duration_minutes=250,
+                effort_estimate=EffortEstimateDraft(
+                    value=250.0,
+                    unit="minutes",
+                    basis="human_override",
+                    confidence=1.0,
+                    is_manual_override=True,
+                ),
+            ),
+            # 3. Category heuristic fallback (ROOM_PREPARATION default = 90)
+            TaskDraft(
+                temporary_id="T3",
+                title="Room Task",
+                work_category="ROOM_PREPARATION",
+                estimated_duration_minutes=60,
+            ),
+            # 4. Global fallback (UNKNOWN_CATEGORY default = 60)
+            TaskDraft(
+                temporary_id="T4",
+                title="Unknown Task",
+                work_category="UNKNOWN_CATEGORY",
+                estimated_duration_minutes=15,
+            ),
+        ],
+    )
+
+    calibrated = await service.calibrate_plan_effort("tenant-alpha", plan, mock_repo)
+
+    # T1: calibrated to historical median
+    t1 = calibrated.tasks[0]
+    assert t1.estimated_duration_minutes == 80
+    assert t1.effort_estimate is not None
+    assert t1.effort_estimate.basis == "historical_median"
+    assert t1.effort_estimate.confidence == 0.85
+    assert t1.effort_estimate.is_manual_override is False
+
+    # T2: preserved manual override
+    t2 = calibrated.tasks[1]
+    assert t2.estimated_duration_minutes == 250
+    assert t2.effort_estimate is not None
+    assert t2.effort_estimate.basis == "human_override"
+    assert t2.effort_estimate.confidence == 1.0
+    assert t2.effort_estimate.is_manual_override is True
+
+    # T3: category heuristic
+    t3 = calibrated.tasks[2]
+    assert t3.estimated_duration_minutes == 90
+    assert t3.effort_estimate is not None
+    assert t3.effort_estimate.basis == "category_heuristic:ROOM_PREPARATION"
+    assert t3.effort_estimate.confidence == 0.7
+
+    # T4: default fallback
+    t4 = calibrated.tasks[3]
+    assert t4.estimated_duration_minutes == 60
+    assert t4.effort_estimate is not None
+    assert t4.effort_estimate.basis == "default_fallback"
+    assert t4.effort_estimate.confidence == 0.5
+
+
+@pytest.mark.asyncio
+async def test_calibrate_plan_effort_tenant_isolation_fallback() -> None:
+    """Tenant B with no history falls back to category heuristic, ignoring Tenant A's median."""
+    from app.task_intelligence.schemas import PlanSchema, TaskDraft
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_result = MagicMock()
+    # Tenant Beta has zero completed tasks
+    mock_result.all.return_value = []
+    mock_session.execute.return_value = mock_result
+    mock_repo = MagicMock()
+    mock_repo.session = mock_session
+
+    service = PlanService(uow_factory=MagicMock())
+
+    plan = PlanSchema(
+        plan_name="Tenant B Plan",
+        tasks=[
+            TaskDraft(
+                temporary_id="T1",
+                title="Planning Task",
+                work_category="PLANNING",
+                estimated_duration_minutes=30,
+            )
+        ],
+    )
+
+    calibrated = await service.calibrate_plan_effort("tenant-beta", plan, mock_repo)
+    t1 = calibrated.tasks[0]
+    # Falls back to category heuristic (PLANNING default = 120m), not any other tenant's data
+    assert t1.estimated_duration_minutes == 120
+    assert t1.effort_estimate is not None
+    assert t1.effort_estimate.basis == "category_heuristic:PLANNING"
+    assert t1.effort_estimate.confidence == 0.7
+

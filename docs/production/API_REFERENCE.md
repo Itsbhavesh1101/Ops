@@ -4,7 +4,7 @@
 **Phase:** Phase 8F Canonical Production Documentation  
 **Base Path:** `/api/v1`  
 **OpenAPI Specification:** [`docs/production/openapi.json`](file:///f:/operations-engine/docs/production/openapi.json)  
-**Total Mounted Operations:** 68 paths  
+**Total Mounted Operations:** 70 paths  
 **Production Docs Exposure:**  
 - `STATIC_BUILD_ARTIFACT = AVAILABLE` ([`docs/production/openapi.json`](file:///f:/operations-engine/docs/production/openapi.json))  
 - `PUBLIC_INTERACTIVE_DOCS = CONFIGURABLE / DISABLED_IN_PRODUCTION` (`E7_DOCS_ENABLED=false`)  
@@ -103,6 +103,7 @@ The following table provides the exhaustive inventory of all 68 mounted endpoint
 | `/api/v1/plans/{plan_id}/tasks` | GET | Planning | Bearer / Service Key | No | List tasks for a plan |
 | `/api/v1/plans/{plan_id}/critical-path` | GET | Planning | Bearer / Service Key | No | Compute Critical Path Method (CPM) |
 | `/api/v1/plans/{plan_id}/recommendations` | GET | Planning | Bearer / Service Key | No | Deterministic next-best-task recommendations |
+| `/api/v1/plans/{plan_id}/risks` | GET | Planning | Bearer / Service Key | No | Real-time plan risk and capacity evaluation |
 | `/api/v1/tasks/{task_id}` | PATCH | Planning | Bearer / Service Key | No | Update task status or metadata |
 | `/api/v1/schedule-jobs` | POST | Scheduling | Bearer / Service Key | **Yes (`capacity_tenant_max_queued_solves: 5`)** | Submit CP-SAT solver job |
 | `/api/v1/schedule-jobs/{job_id}` | GET | Scheduling | Bearer / Service Key | No | Poll status of solve job |
@@ -189,6 +190,11 @@ The following table provides the exhaustive inventory of all 68 mounted endpoint
 - **Summary:** Get explainable, deterministic next-best-task recommendations (FR-TI-09).
 - **Auth:** Bearer or Service Key (`role: planner`, `role: operator`, `role: scheduler`, `role: auditor`, `role: tenant_admin`, `role: admin`).
 - **Response `200 OK`:** Returns `PlanRecommendationsResponse` with ranked task recommendations, readiness evaluations, actions (`START_TASK`, `CONTINUE_EXECUTION`, `RESOLVE_BLOCKER`, `EXPEDITE_CRITICAL`), composite scores, and explicit recommendation quality indicators.
+
+#### `GET /api/v1/plans/{plan_id}/risks`
+- **Summary:** Real-time plan risk and capacity shortfall evaluation (FR-TI-07).
+- **Auth:** Bearer or Service Key (`role: planner`, `role: operator`, `role: scheduler`, `role: auditor`, `role: tenant_admin`, `role: admin`).
+- **Response `200 OK`:** Returns list of `TaskRiskResponse` items detailing critical-path delays, declared blockers, downstream propagation, duration variance (>50%), and authoritative resource capacity shortfalls or explicit unevaluable indicators.
 
 #### `PATCH /api/v1/tasks/{task_id}`
 - **Summary:** Update task status, progress percentage, or completion metadata.

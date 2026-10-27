@@ -131,6 +131,19 @@ class MilestoneDetailResponse(BaseModel):
     target_date: datetime | None = None
 
 
+class TaskRiskResponse(BaseModel):
+    """Public representation of an operational risk flag."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task_id: str
+    category: str
+    severity: str
+    description: str
+    is_evaluable: bool
+    detected_at: datetime
+
+
 class RiskDetailResponse(BaseModel):
     """Detailed representation of an identified task risk."""
 
@@ -806,6 +819,64 @@ def create_planning_router(
                 limit=limit,
                 include_blocked=include_blocked,
             )
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+
+    @router.get(
+        "/plans/{plan_id}/risks",
+        response_model=list[TaskRiskResponse],
+        status_code=status.HTTP_200_OK,
+        summary="Get Plan Operational Risks",
+        responses={
+            200: {
+                "model": list[TaskRiskResponse],
+                "description": "Deterministic operational risk and blocker detection signals.",
+            },
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+        },
+    )
+    async def get_plan_risks(
+        plan_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> list[TaskRiskResponse]:
+        """Get operational risk signals and blocker detection for a plan (FR-TI-07)."""
+        if isinstance(principal, AuthenticatedPrincipal):
+            if not (
+                principal.has_any_role(
+                    "planner", "operator", "scheduler", "auditor", "tenant_admin", "admin"
+                )
+                or principal.has_permission("plan:read")
+                or principal.has_permission("*")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Insufficient permissions to view plan risks.",
+                )
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            risks = await service.evaluate_plan_risks(
+                tenant_id=tenant_id,
+                plan_id=plan_id,
+            )
+            return [
+                TaskRiskResponse(
+                    task_id=r.task_id,
+                    category=str(r.category),
+                    severity=str(r.severity),
+                    description=r.description,
+                    is_evaluable=r.is_evaluable,
+                    detected_at=r.detected_at,
+                )
+                for r in risks
+            ]
         except PlanNotFoundError as exc:
             raise ApiError(
                 status_code=404,

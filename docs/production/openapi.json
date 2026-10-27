@@ -1853,6 +1853,18 @@
             "title": "Completed Tasks Count",
             "type": "integer"
           },
+          "cpm_diagnostic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Diagnostic explanation when CPM schedule calculation is degraded or failed.",
+            "title": "Cpm Diagnostic"
+          },
           "evaluated_at": {
             "format": "date-time",
             "title": "Evaluated At",
@@ -1868,6 +1880,10 @@
             "format": "uuid",
             "title": "Plan Id",
             "type": "string"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/RecommendationPolicyConfig",
+            "description": "Validated recommendation policy weights applied."
           },
           "ready_tasks_count": {
             "title": "Ready Tasks Count",
@@ -2203,10 +2219,51 @@
           "START_TASK",
           "CONTINUE_EXECUTION",
           "RESOLVE_BLOCKER",
-          "EXPEDITE_CRITICAL"
+          "EXPEDITE_CRITICAL",
+          "REPRIORITIZE"
         ],
         "title": "RecommendationAction",
         "type": "string"
+      },
+      "RecommendationPolicyConfig": {
+        "additionalProperties": false,
+        "description": "Explicit, validated weighting configuration for multi-criteria recommendation scoring.\n\nAll weights must be non-negative, finite numbers that sum exactly to 1.0.",
+        "properties": {
+          "critical_path_weight": {
+            "default": 0.35,
+            "description": "Weight for CPM critical-path / float factor.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Critical Path Weight",
+            "type": "number"
+          },
+          "priority_weight": {
+            "default": 0.3,
+            "description": "Weight for task priority classification factor.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Priority Weight",
+            "type": "number"
+          },
+          "progress_momentum_weight": {
+            "default": 0.2,
+            "description": "Weight for in-progress completion momentum factor.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Progress Momentum Weight",
+            "type": "number"
+          },
+          "readiness_weight": {
+            "default": 0.15,
+            "description": "Weight for unblocked prerequisite readiness factor.",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Readiness Weight",
+            "type": "number"
+          }
+        },
+        "title": "RecommendationPolicyConfig",
+        "type": "object"
       },
       "RecommendationQuality": {
         "description": "Explicit indicator of recommendation basis quality without fabricated metrics.",
@@ -4220,6 +4277,47 @@
           "updated_at"
         ],
         "title": "TaskResponse",
+        "type": "object"
+      },
+      "TaskRiskResponse": {
+        "additionalProperties": false,
+        "description": "Public representation of an operational risk flag.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "detected_at": {
+            "format": "date-time",
+            "title": "Detected At",
+            "type": "string"
+          },
+          "is_evaluable": {
+            "title": "Is Evaluable",
+            "type": "boolean"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "category",
+          "severity",
+          "description",
+          "is_evaluable",
+          "detected_at"
+        ],
+        "title": "TaskRiskResponse",
         "type": "object"
       },
       "TimeWindow": {
@@ -6452,6 +6550,91 @@
           }
         ],
         "summary": "Get Next-Best-Task Recommendations",
+        "tags": [
+          "Planning"
+        ]
+      }
+    },
+    "/api/v1/plans/{plan_id}/risks": {
+      "get": {
+        "description": "Get operational risk signals and blocker detection for a plan (FR-TI-07).",
+        "operationId": "get_plan_risks_api_v1_plans__plan_id__risks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskRiskResponse"
+                  },
+                  "title": "Response 200 Get Plan Risks Api V1 Plans  Plan Id  Risks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Deterministic operational risk and blocker detection signals."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized role."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Plan not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get Plan Operational Risks",
         "tags": [
           "Planning"
         ]

@@ -11,11 +11,14 @@ Tests:
 from typing import Any
 from uuid import uuid4
 
+import pytest
+
 from app.task_intelligence.graph import CriticalPathCalculator, TaskDependencyGraph
 from app.task_intelligence.risks import (
     DeterministicRiskDetector,
     RiskCategory,
     RiskSeverity,
+    TaskRiskItem,
 )
 
 
@@ -173,3 +176,275 @@ def test_risk_recalculation_after_progress_update() -> None:
         dependencies=[dep],
     )
     assert len(updated_risks) == 0
+
+
+# --- Service and API Integration Tests for Risks (FR-TI-07) ---
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_resource_unsupported() -> None:
+    """When tenant lacks resources, evaluate_plan_risks emits unsupported status."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    # Mock PlanRepo.get_by_id_and_tenant returning a valid plan
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    # Mock TaskRecord and zero ResourceRecords
+    t1 = MagicMock()
+    t1.id = uuid4()
+    t1.temporary_id = "T1"
+    t1.estimated_duration_minutes = 60
+    t1.actual_duration_minutes = None
+    t1.status = "TODO"
+    t1.blocked_reason = None
+    t1.owner_role = "OPERATOR"
+    t1.work_category = "PLANNING"
+
+    # Setup execute returns:
+    # 1. plan query
+    # 2. tasks query
+    # 3. dependencies query
+    # 4. resources query (empty)
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1]
+
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = []
+
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    # Must contain RESOURCE_CAPACITY_UNSUPPORTED
+    unsupported = next(
+        (r for r in risks if r.category == RiskCategory.RESOURCE_CAPACITY_UNSUPPORTED),
+        None,
+    )
+    assert unsupported is not None
+    assert unsupported.is_evaluable is False
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_capacity_shortfall() -> None:
+    """When demand exceeds active resource capacity, emits RESOURCE_CAPACITY_SHORTFALL."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    # Two tasks requiring INVIGILATOR
+    t1 = MagicMock(
+        id=uuid4(),
+        temporary_id="T1",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role="INVIGILATOR",
+        work_category="EXAM_EXECUTION",
+    )
+    t2 = MagicMock(
+        id=uuid4(),
+        temporary_id="T2",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role="INVIGILATOR",
+        work_category="EXAM_EXECUTION",
+    )
+
+    # One active resource of type INVIGILATOR with capacity = 1
+    res_record = MagicMock()
+    res_record.type = "INVIGILATOR"
+    res_record.capacity = 1
+
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1, t2]
+
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = []
+
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = [res_record]
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    shortfall = next(
+        (r for r in risks if r.category == RiskCategory.RESOURCE_CAPACITY_SHORTFALL),
+        None,
+    )
+    assert shortfall is not None
+    assert shortfall.is_evaluable is True
+    assert "requires 2 units but only 1 are available" in shortfall.description
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_variance_and_blockers() -> None:
+    """Detects duration overrun > 50% and declared task blockers with propagation."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    uid_1 = uuid4()
+    uid_2 = uuid4()
+
+    # T1 is blocked and overran estimate (60m est, 100m actual)
+    t1 = MagicMock(
+        id=uid_1,
+        temporary_id="T1",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=100,
+        status="BLOCKED",
+        blocked_reason="Seal inspection failed",
+        owner_role="OPERATOR",
+        work_category="PLANNING",
+    )
+    # T2 depends on T1
+    t2 = MagicMock(
+        id=uid_2,
+        temporary_id="T2",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role="OPERATOR",
+        work_category="PLANNING",
+    )
+
+    dep = MagicMock(predecessor_id=uid_1, successor_id=uid_2, lag_minutes=0)
+
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1, t2]
+
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = [dep]
+
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    # 1. Declared blocker on T1
+    assert any(r.task_id == "T1" and r.category == RiskCategory.DECLARED_BLOCKER for r in risks)
+    # 2. Propagated blocker to T2
+    assert any(r.task_id == "T2" and r.category == RiskCategory.DEPENDENCY_SLIPPAGE for r in risks)
+    # 3. Duration overrun on T1 (>50% overrun: (100-60)/60 = 66.7%)
+    variance_risk = next(
+        r for r in risks if r.task_id == "T1" and "duration exceeded estimate" in r.description
+    )
+    assert "66.7%" in variance_risk.description
+
+
+def test_api_get_plan_risks_contract() -> None:
+    from unittest.mock import AsyncMock, MagicMock
+
+    from fastapi import FastAPI, status
+    from fastapi.testclient import TestClient
+
+    from app.api.errors import register_api_exception_handlers
+    from app.api.v1.planning import create_planning_router
+    from app.core.auth.models import (
+        AuthenticatedPrincipal,
+        AuthenticationMethod,
+        PrincipalType,
+        TenantContext,
+    )
+
+    plan_id = uuid4()
+    sample_risk = TaskRiskItem(
+        task_id="T1",
+        category=RiskCategory.DECLARED_BLOCKER,
+        severity=RiskSeverity.HIGH,
+        description="Declared blocker on T1",
+        is_evaluable=True,
+    )
+
+    mock_service = MagicMock()
+    mock_service.evaluate_plan_risks = AsyncMock(return_value=[sample_risk])
+
+    app = FastAPI()
+    register_api_exception_handlers(app)
+
+    def get_tenant() -> TenantContext:
+        return TenantContext(tenant_id="tenant-alpha")
+
+    def get_principal(role: str = "planner") -> AuthenticatedPrincipal:
+        return AuthenticatedPrincipal(
+            principal_id="user-1",
+            principal_type=PrincipalType.HUMAN,
+            authentication_method=AuthenticationMethod.OIDC,
+            tenant_id="tenant-alpha",
+            roles=frozenset({role}),
+            permissions=frozenset({"plan:read"}),
+        )
+
+    router = create_planning_router(
+        tenant_dependency=get_tenant,
+        plan_service_dependency=lambda: mock_service,
+        principal_dependency=lambda: get_principal("planner"),
+    )
+    app.include_router(router)
+    client = TestClient(app)
+
+    # 1. 200 OK
+    resp = client.get(f"/plans/{plan_id}/risks")
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["task_id"] == "T1"
+    assert data[0]["category"] == "DECLARED_BLOCKER"
+    assert data[0]["severity"] == "HIGH"
+    assert data[0]["is_evaluable"] is True
+
+    # 2. 404 Not Found when plan does not exist
+    from app.task_intelligence.service import PlanNotFoundError
+    mock_service.evaluate_plan_risks.side_effect = PlanNotFoundError(plan_id)
+    resp_404 = client.get(f"/plans/{plan_id}/risks")
+    assert resp_404.status_code == status.HTTP_404_NOT_FOUND
+

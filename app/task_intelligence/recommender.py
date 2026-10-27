@@ -7,15 +7,20 @@ non-authoritative recommendations for human planners and operators.
 
 from __future__ import annotations
 
+import math
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.task_intelligence.graph.models import CPMScheduleResult
 from app.task_intelligence.schemas import TaskPriority, TaskProgressStatus
+
+
+class InvalidTaskIdentifierError(ValueError):
+    """Raised when an operational task has a missing or unparseable UUID identifier."""
 
 
 class RecommendationAction(StrEnum):
@@ -25,6 +30,7 @@ class RecommendationAction(StrEnum):
     CONTINUE_EXECUTION = "CONTINUE_EXECUTION"
     RESOLVE_BLOCKER = "RESOLVE_BLOCKER"
     EXPEDITE_CRITICAL = "EXPEDITE_CRITICAL"
+    REPRIORITIZE = "REPRIORITIZE"
 
 
 class RecommendationQuality(StrEnum):
@@ -33,6 +39,61 @@ class RecommendationQuality(StrEnum):
     HIGH = "HIGH"  # Derived deterministically from complete DAG and CPM calculations
     MEDIUM = "MEDIUM"  # Computed with partial milestone or schedule float data
     DEGRADED = "DEGRADED"  # Incomplete dependency structure or missing graph metrics
+
+
+class RecommendationPolicyConfig(BaseModel):
+    """Explicit, validated weighting configuration for multi-criteria recommendation scoring.
+
+    All weights must be non-negative, finite numbers that sum exactly to 1.0.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    critical_path_weight: float = Field(
+        default=0.35,
+        ge=0.0,
+        le=1.0,
+        description="Weight for CPM critical-path / float factor.",
+    )
+    priority_weight: float = Field(
+        default=0.30,
+        ge=0.0,
+        le=1.0,
+        description="Weight for task priority classification factor.",
+    )
+    progress_momentum_weight: float = Field(
+        default=0.20,
+        ge=0.0,
+        le=1.0,
+        description="Weight for in-progress completion momentum factor.",
+    )
+    readiness_weight: float = Field(
+        default=0.15,
+        ge=0.0,
+        le=1.0,
+        description="Weight for unblocked prerequisite readiness factor.",
+    )
+
+    @model_validator(mode="after")
+    def validate_weights(self) -> RecommendationPolicyConfig:
+        vals = [
+            self.critical_path_weight,
+            self.priority_weight,
+            self.progress_momentum_weight,
+            self.readiness_weight,
+        ]
+        for v in vals:
+            if not math.isfinite(v):
+                raise ValueError("Recommendation policy weights must be finite numbers.")
+        total = sum(vals)
+        if total <= 0.0:
+            raise ValueError("Sum of recommendation policy weights must be greater than zero.")
+        if not math.isclose(total, 1.0, rel_tol=1e-4, abs_tol=1e-4):
+            raise ValueError(f"Sum of recommendation policy weights must equal 1.0 (got {total}).")
+        return self
+
+
+DEFAULT_RECOMMENDATION_POLICY = RecommendationPolicyConfig()
 
 
 class TaskRecommendation(BaseModel):
@@ -72,6 +133,14 @@ class PlanRecommendationsResponse(BaseModel):
     ready_tasks_count: int
     blocked_tasks_count: int
     completed_tasks_count: int
+    policy: RecommendationPolicyConfig = Field(
+        default_factory=lambda: DEFAULT_RECOMMENDATION_POLICY,
+        description="Validated recommendation policy weights applied.",
+    )
+    cpm_diagnostic: str | None = Field(
+        default=None,
+        description="Diagnostic explanation when CPM schedule calculation is degraded or failed.",
+    )
     recommendations: list[TaskRecommendation]
 
 
@@ -84,6 +153,7 @@ class TaskRecommender:
     - Deterministic: equivalent inputs always produce identical rank ordering and scores.
     - Explainable: every recommendation includes a structured explanation of why it was chosen.
     - Non-authoritative: clearly marked as advisory suggestions.
+    - Identity fidelity: refuses to generate synthetic random UUIDs for invalid persisted tasks.
     """
 
     @classmethod
@@ -95,26 +165,48 @@ class TaskRecommender:
         tasks: list[Any],
         dependencies: list[Any],
         cpm_result: CPMScheduleResult | None = None,
+        cpm_diagnostic: str | None = None,
+        policy: RecommendationPolicyConfig | None = None,
         milestones: list[Any] | None = None,
         limit: int = 10,
         include_blocked: bool = False,
     ) -> PlanRecommendationsResponse:
         """Generate ranked recommendations for a plan's tasks."""
         now = datetime.now(UTC)
+        active_policy = policy or DEFAULT_RECOMMENDATION_POLICY
 
-        # 1. Build lookup tables
+        # 1. Build lookup tables and validate task identities strictly
         task_by_id: dict[Any, Any] = {}
         task_by_temp_id: dict[str, Any] = {}
         uuid_to_temp: dict[Any, str] = {}
+        validated_uuids: dict[str, UUID] = {}
 
         for t in tasks:
             t_uid = getattr(t, "id", None)
-            t_temp = getattr(t, "temporary_id", None) or str(t_uid)
-            if t_uid:
-                task_by_id[t_uid] = t
-                task_by_id[str(t_uid)] = t
-                uuid_to_temp[t_uid] = t_temp
-                uuid_to_temp[str(t_uid)] = t_temp
+            t_temp = getattr(t, "temporary_id", None) or "UNKNOWN_TASK"
+
+            if t_uid is None:
+                raise InvalidTaskIdentifierError(
+                    f"Task '{t_temp}' has no persisted UUID identifier. "
+                    "Refusing to fabricate random identity."
+                )
+
+            if isinstance(t_uid, UUID):
+                parsed_uid = t_uid
+            else:
+                try:
+                    parsed_uid = UUID(str(t_uid))
+                except Exception as exc:
+                    raise InvalidTaskIdentifierError(
+                        f"Task '{t_temp}' has invalid UUID identifier '{t_uid}': {exc}. "
+                        "Refusing to fabricate random identity."
+                    ) from exc
+
+            validated_uuids[t_temp] = parsed_uid
+            task_by_id[parsed_uid] = t
+            task_by_id[str(parsed_uid)] = t
+            uuid_to_temp[parsed_uid] = t_temp
+            uuid_to_temp[str(parsed_uid)] = t_temp
             task_by_temp_id[t_temp] = t
 
         # 2. Build dependency predecessor map: child_temp_id -> list[pred_temp_id]
@@ -237,12 +329,12 @@ class TaskRecommender:
             # Readiness modifier
             readiness_factor = 1.0 if is_ready else 0.3
 
-            # Composite score bounded in [0.0, 1.0]
+            # Composite score bounded in [0.0, 1.0] using explicit validated policy
             raw_score = (
-                0.40 * crit_factor
-                + 0.30 * priority_factor
-                + 0.15 * min(1.0, progress_factor)
-                + 0.15 * readiness_factor
+                active_policy.critical_path_weight * crit_factor
+                + active_policy.priority_weight * priority_factor
+                + active_policy.progress_momentum_weight * min(1.0, progress_factor)
+                + active_policy.readiness_weight * readiness_factor
             )
             score = round(max(0.0, min(1.0, raw_score)), 4)
 
@@ -251,6 +343,8 @@ class TaskRecommender:
                 action = RecommendationAction.RESOLVE_BLOCKER
             elif st == TaskProgressStatus.IN_PROGRESS:
                 action = RecommendationAction.CONTINUE_EXECUTION
+            elif is_critical and prio_str in (TaskPriority.LOW,):
+                action = RecommendationAction.REPRIORITIZE
             elif is_critical:
                 action = RecommendationAction.EXPEDITE_CRITICAL
             else:
@@ -277,29 +371,35 @@ class TaskRecommender:
                 if st == TaskProgressStatus.IN_PROGRESS:
                     explanation_parts.append(f"Currently in progress ({progress_pct}% done).")
 
-                explanation_parts.append(f"Assigned priority: {prio_str}.")
+                if action == RecommendationAction.REPRIORITIZE:
+                    explanation_parts.append(
+                        f"Critical-path task has {prio_str} priority; reprioritization recommended."
+                    )
+                else:
+                    explanation_parts.append(f"Assigned priority: {prio_str}.")
             else:
                 reasons = task_block_reasons.get(t_temp, [])
                 explanation_parts.append(
                     f"Blocked or pending prerequisite execution: {'; '.join(reasons)}"
                 )
 
+            m_ref = getattr(t, "milestone_reference", None) or getattr(t, "milestone_id", None)
+            if m_ref:
+                explanation_parts.append(f"Associated with milestone '{m_ref}'.")
+
             explanation = " ".join(explanation_parts)
 
-            quality = RecommendationQuality.HIGH if has_cpm else RecommendationQuality.MEDIUM
-            quality_basis = (
-                "deterministic_cpm_and_dependency_evaluation"
-                if has_cpm
-                else "dependency_and_heuristic_priority_evaluation"
-            )
+            if cpm_diagnostic:
+                quality = RecommendationQuality.DEGRADED
+                quality_basis = f"cpm_unavailable: {cpm_diagnostic}"
+            elif has_cpm:
+                quality = RecommendationQuality.HIGH
+                quality_basis = "deterministic_cpm_and_dependency_evaluation"
+            else:
+                quality = RecommendationQuality.MEDIUM
+                quality_basis = "dependency_and_heuristic_priority_evaluation"
 
-            t_uid = getattr(t, "id", None)
-            if not isinstance(t_uid, UUID):
-                try:
-                    t_uid = UUID(str(t_uid))
-                except Exception:
-                    from uuid import uuid4
-                    t_uid = uuid4()
+            t_uid = validated_uuids[t_temp]
 
             candidates.append(
                 {
@@ -367,5 +467,7 @@ class TaskRecommender:
             ready_tasks_count=ready_count,
             blocked_tasks_count=blocked_count,
             completed_tasks_count=completed_count,
+            policy=active_policy,
+            cpm_diagnostic=cpm_diagnostic,
             recommendations=recommendations,
         )

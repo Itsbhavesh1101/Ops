@@ -29,7 +29,7 @@ class TestApiReferenceCoverage:
             schema = json.load(f)
 
         openapi_paths = set(schema.get("paths", {}).keys())
-        assert len(openapi_paths) == 69, f"Expected 69 paths, found {len(openapi_paths)}"
+        assert len(openapi_paths) == 70, f"Expected 70 paths, found {len(openapi_paths)}"
 
         ref_text = API_REFERENCE_PATH.read_text(encoding="utf-8")
 

@@ -15,6 +15,7 @@ from uuid import UUID, uuid4
 
 from fastapi import FastAPI, status
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.api.errors import register_api_exception_handlers
 from app.api.v1.planning import create_planning_router
@@ -26,8 +27,10 @@ from app.core.auth.models import (
 )
 from app.task_intelligence.graph.models import CPMScheduleNode, CPMScheduleResult
 from app.task_intelligence.recommender import (
+    InvalidTaskIdentifierError,
     PlanRecommendationsResponse,
     RecommendationAction,
+    RecommendationPolicyConfig,
     RecommendationQuality,
     TaskRecommendation,
     TaskRecommender,
@@ -416,4 +419,207 @@ def test_api_recommendations_unauthorized_role() -> None:
     resp = client.get(f"/plans/{service.plan_id}/recommendations")
     assert resp.status_code == status.HTTP_403_FORBIDDEN
     assert resp.json()["error"]["code"] == "plan.unauthorized"
+
+
+def test_recommendation_policy_validation() -> None:
+    """Policy weights must be finite, non-negative, and sum exactly to 1.0."""
+    # Valid custom policy
+    custom_policy = RecommendationPolicyConfig(
+        critical_path_weight=0.50,
+        priority_weight=0.30,
+        progress_momentum_weight=0.10,
+        readiness_weight=0.10,
+    )
+    assert custom_policy.critical_path_weight == 0.50
+
+    # Negative weight rejected
+    import pytest
+    with pytest.raises(ValidationError):
+        RecommendationPolicyConfig(
+            critical_path_weight=-0.1,
+            priority_weight=0.5,
+            progress_momentum_weight=0.3,
+            readiness_weight=0.3,
+        )
+
+    # Sum != 1.0 rejected
+    with pytest.raises(ValidationError):
+        RecommendationPolicyConfig(
+            critical_path_weight=0.2,
+            priority_weight=0.2,
+            progress_momentum_weight=0.2,
+            readiness_weight=0.2,
+        )
+
+
+def test_custom_policy_changes_recommendation_scoring() -> None:
+    """Applying custom policy shifts weights deterministically."""
+    plan_id = uuid4()
+    t_crit = DummyTask("T_CRIT", "Critical Task", priority="LOW")
+    t_prio = DummyTask("T_PRIO", "High Priority Task", priority="CRITICAL")
+
+    cpm = CPMScheduleResult(
+        critical_path=["T_CRIT"],
+        project_duration_minutes=60,
+        schedule={
+            "T_CRIT": CPMScheduleNode(
+                task_id="T_CRIT",
+                duration_minutes=60,
+                early_start=0,
+                early_finish=60,
+                late_start=0,
+                late_finish=60,
+                total_slack=0,
+                free_slack=0,
+                is_critical=True,
+            ),
+            "T_PRIO": CPMScheduleNode(
+                task_id="T_PRIO",
+                duration_minutes=30,
+                early_start=0,
+                early_finish=30,
+                late_start=30,
+                late_finish=60,
+                total_slack=30,
+                free_slack=30,
+                is_critical=False,
+            ),
+        },
+    )
+
+    # 1. Under Critical-Path Heavy policy (critical_path=0.70, priority=0.10)
+    crit_policy = RecommendationPolicyConfig(
+        critical_path_weight=0.70,
+        priority_weight=0.10,
+        progress_momentum_weight=0.10,
+        readiness_weight=0.10,
+    )
+    res_crit = TaskRecommender.recommend(
+        plan_id=plan_id,
+        tenant_id="tenant-alpha",
+        tasks=[t_crit, t_prio],
+        dependencies=[],
+        cpm_result=cpm,
+        policy=crit_policy,
+    )
+    assert res_crit.recommendations[0].temporary_id == "T_CRIT"
+
+    # 2. Under Priority Heavy policy (critical_path=0.10, priority=0.70)
+    prio_policy = RecommendationPolicyConfig(
+        critical_path_weight=0.10,
+        priority_weight=0.70,
+        progress_momentum_weight=0.10,
+        readiness_weight=0.10,
+    )
+    res_prio = TaskRecommender.recommend(
+        plan_id=plan_id,
+        tenant_id="tenant-alpha",
+        tasks=[t_crit, t_prio],
+        dependencies=[],
+        cpm_result=cpm,
+        policy=prio_policy,
+    )
+    assert res_prio.recommendations[0].temporary_id == "T_PRIO"
+
+
+def test_invalid_task_identifier_raises_typed_error() -> None:
+    """Missing or unparseable UUID identifiers fail with InvalidTaskIdentifierError."""
+    import pytest
+    plan_id = uuid4()
+
+    # Missing ID
+    bad_task_none = DummyTask("T_BAD", "Bad Task")
+    bad_task_none.id = None  # type: ignore[assignment]
+
+    with pytest.raises(InvalidTaskIdentifierError, match="has no persisted UUID identifier"):
+        TaskRecommender.recommend(
+            plan_id=plan_id,
+            tenant_id="tenant-alpha",
+            tasks=[bad_task_none],
+            dependencies=[],
+        )
+
+    # Unparseable string ID
+    bad_task_str = DummyTask("T_BAD2", "Bad Task 2")
+    bad_task_str.id = "not-a-valid-uuid"  # type: ignore[assignment]
+
+    with pytest.raises(InvalidTaskIdentifierError, match="has invalid UUID identifier"):
+        TaskRecommender.recommend(
+            plan_id=plan_id,
+            tenant_id="tenant-alpha",
+            tasks=[bad_task_str],
+            dependencies=[],
+        )
+
+
+def test_cpm_diagnostic_surfaced_as_degraded_quality() -> None:
+    """CPM failure/cycle diagnostics surface as DEGRADED quality without silent suppression."""
+    plan_id = uuid4()
+    t1 = DummyTask("T1", "Initial Task")
+
+    res = TaskRecommender.recommend(
+        plan_id=plan_id,
+        tenant_id="tenant-alpha",
+        tasks=[t1],
+        dependencies=[],
+        cpm_result=None,
+        cpm_diagnostic="Dependency cycle detected in graph: ['T1', 'T2', 'T1']",
+    )
+    assert res.cpm_diagnostic == "Dependency cycle detected in graph: ['T1', 'T2', 'T1']"
+    assert len(res.recommendations) == 1
+    rec = res.recommendations[0]
+    assert rec.quality == RecommendationQuality.DEGRADED
+    assert "Dependency cycle detected in graph" in rec.quality_basis
+
+
+def test_critical_path_low_priority_suggests_reprioritization() -> None:
+    """Critical-path tasks marked LOW priority produce REPRIORITIZE action."""
+    plan_id = uuid4()
+    t_crit = DummyTask("T_CRIT", "Critical Low Priority Task", priority="LOW")
+
+    cpm = CPMScheduleResult(
+        critical_path=["T_CRIT"],
+        project_duration_minutes=60,
+        schedule={
+            "T_CRIT": CPMScheduleNode(
+                task_id="T_CRIT",
+                duration_minutes=60,
+                early_start=0,
+                early_finish=60,
+                late_start=0,
+                late_finish=60,
+                total_slack=0,
+                free_slack=0,
+                is_critical=True,
+            )
+        },
+    )
+
+    res = TaskRecommender.recommend(
+        plan_id=plan_id,
+        tenant_id="tenant-alpha",
+        tasks=[t_crit],
+        dependencies=[],
+        cpm_result=cpm,
+    )
+    rec = res.recommendations[0]
+    assert rec.action == RecommendationAction.REPRIORITIZE
+    assert "reprioritization recommended" in rec.explanation
+
+
+def test_recommendation_includes_milestone_reference() -> None:
+    """Tasks associated with a milestone have that milestone cited in their explanation."""
+    plan_id = uuid4()
+    t1 = DummyTask("T1", "Task with milestone")
+    t1.milestone_reference = "M1_READINESS"
+
+    res = TaskRecommender.recommend(
+        plan_id=plan_id,
+        tenant_id="tenant-alpha",
+        tasks=[t1],
+        dependencies=[],
+    )
+    rec = res.recommendations[0]
+    assert "Associated with milestone 'M1_READINESS'" in rec.explanation
+
 
