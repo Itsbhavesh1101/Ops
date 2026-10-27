@@ -174,7 +174,7 @@ async def test_representative_end_to_end_deterministic_flow(
     assert len(validation_res.topological_order or []) == 7
     assert validation_res.critical_path is not None
     # Verify critical path calculation: T1 -> T2 -> T3 -> T6 -> T7
-    # Durations: 120 + 180 + 90 + 240 + 120 = 750 minutes
+    # Calibrated Category Durations: 120 + 180 + 60 + 180 + 60 = 600 minutes
     assert validation_res.critical_path == [
         "T1_PLANNING",
         "T2_QP_DRAFT",
@@ -190,7 +190,7 @@ async def test_representative_end_to_end_deterministic_flow(
 
     # Step 5: Critical Path Query
     cpm_res = await service.get_critical_path(tenant_id=tenant_id, plan_id=plan_record.id)
-    assert cpm_res.project_duration_minutes == 750
+    assert cpm_res.project_duration_minutes == 600
     assert cpm_res.critical_path == validation_res.critical_path
 
     # Step 6: Submit for Approval
