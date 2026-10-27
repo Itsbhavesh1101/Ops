@@ -64,8 +64,16 @@ class TestDocumentationLinks:
                 if clean_path.startswith("file:///"):
                     # Extract local path from file:/// URI
                     raw_path = clean_path.replace("file:///", "")
-                    # On Windows, e.g. f:/operations-engine/...
                     resolved_file = Path(raw_path)
+                    if not resolved_file.exists():
+                        # On Linux runners without drive letters, resolve relative to REPO_ROOT
+                        rel_path = re.sub(
+                            r"^[a-zA-Z]:[/\\\\]operations-engine[/\\\\]",
+                            "",
+                            raw_path,
+                            flags=re.IGNORECASE,
+                        )
+                        resolved_file = (REPO_ROOT / rel_path).resolve()
                 elif clean_path.startswith("/"):
                     resolved_file = REPO_ROOT / clean_path.lstrip("/")
                 else:

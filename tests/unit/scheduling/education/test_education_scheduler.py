@@ -516,6 +516,22 @@ def test_ortools_native_solve_repair() -> None:
 # ============================================================================
 
 
+def _is_unitime_available() -> bool:
+    """Return True if UniTime CPSolver JARs and Java runtime are available."""
+    import glob
+    import shutil
+
+    cfg = build_benchmark_unitime_config()
+    if not shutil.which(cfg.java_executable):
+        return False
+    jars = glob.glob(cfg.classpath)
+    return any("cpsolver" in j for j in jars)
+
+
+@pytest.mark.skipif(
+    not _is_unitime_available(),
+    reason="UniTime CPSolver jar is not available in .cache/unitime",
+)
 def test_unitime_live_solve_feasible() -> None:
     dataset, resources = load_education_dataset("FEASIBLE")
     adapter = UniTimeSchedulerAdapter(config=build_benchmark_unitime_config())
@@ -545,6 +561,10 @@ def test_unitime_live_solve_infeasible() -> None:
     )
 
 
+@pytest.mark.skipif(
+    not _is_unitime_available(),
+    reason="UniTime CPSolver jar is not available in .cache/unitime",
+)
 def test_unitime_live_solve_repair() -> None:
     dataset, resources = load_education_dataset("REPAIR")
     adapter = UniTimeSchedulerAdapter(config=build_benchmark_unitime_config())

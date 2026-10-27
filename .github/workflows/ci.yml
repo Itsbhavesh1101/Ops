@@ -25,13 +25,17 @@ jobs:
           --health-retries 5
 
     env:
-      E7_ENVIRONMENT: test
       E7_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine
       E7_JWT_SECRET_KEY: test_jwt_secret_key_for_ci_minimum_32_chars_long
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Prepare environment configuration
+        run: |
+          cp .env.example .env
+          sed -i 's/55432/5432/g' .env
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
