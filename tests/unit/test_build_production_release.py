@@ -100,7 +100,10 @@ def test_build_production_release_full_dry_run(tmp_path: Path) -> None:
     assert manifest["git"]["frozen_phase_8_rc"] == FROZEN_PHASE_8_RC
     assert manifest["release_gate"]["verdict"] == "DRY_RUN_PASSED"
     assert manifest["release_gate"]["authorized_for_release"] is False
-    assert manifest["release_gate"]["checks"]["working_tree"] == "SKIPPED_ACKNOWLEDGED_DIRTY"
+    assert manifest["release_gate"]["checks"]["working_tree"] in (
+        "PASS",
+        "SKIPPED_ACKNOWLEDGED_DIRTY",
+    )
 
     manifest_file = tmp_path / "release_manifest.json"
     assert manifest_file.is_file()

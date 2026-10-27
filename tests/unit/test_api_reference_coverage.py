@@ -21,7 +21,7 @@ class TestApiReferenceCoverage:
     """Deterministic validation that API_REFERENCE.md covers all mounted operations."""
 
     def test_all_openapi_paths_documented_in_api_reference(self) -> None:
-        """Verify all 59 paths from openapi.json are documented in API_REFERENCE.md."""
+        """Verify all 68 paths from openapi.json are documented in API_REFERENCE.md."""
         assert OPENAPI_JSON_PATH.exists(), f"Missing {OPENAPI_JSON_PATH}"
         assert API_REFERENCE_PATH.exists(), f"Missing {API_REFERENCE_PATH}"
 
@@ -29,7 +29,7 @@ class TestApiReferenceCoverage:
             schema = json.load(f)
 
         openapi_paths = set(schema.get("paths", {}).keys())
-        assert len(openapi_paths) == 59, f"Expected 59 paths, found {len(openapi_paths)}"
+        assert len(openapi_paths) == 68, f"Expected 68 paths, found {len(openapi_paths)}"
 
         ref_text = API_REFERENCE_PATH.read_text(encoding="utf-8")
 

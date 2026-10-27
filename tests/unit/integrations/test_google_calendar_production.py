@@ -664,6 +664,7 @@ async def test_webhook_durable_replay_protection_after_restart(
 @pytest.mark.asyncio
 async def test_webhook_triggers_incremental_sync_and_availability(
     db_session: AsyncSession,
+    auth_settings: GoogleCalendarSettings,
 ) -> None:
     """Verify valid webhook push triggers incremental sync and creates
     ResourceAvailabilityRecord.
@@ -717,7 +718,7 @@ async def test_webhook_triggers_incremental_sync_and_availability(
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
-    adapter = GoogleCalendarAdapter(http_client=client)
+    adapter = GoogleCalendarAdapter(settings=auth_settings, http_client=client)
 
     handler = GoogleCalendarWebhookHandler()
     headers = {
@@ -809,6 +810,7 @@ async def test_fastapi_mounted_webhook_route(
 @pytest.mark.asyncio
 async def test_periodic_inbound_reconciliation(
     db_session: AsyncSession,
+    auth_settings: GoogleCalendarSettings,
 ) -> None:
     """Verify CalendarReconciliationService.reconcile_inbound_calendar reuses incremental sync."""
     tenant_id = f"tenant-{uuid4().hex[:6]}"
@@ -845,7 +847,7 @@ async def test_periodic_inbound_reconciliation(
         )
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
-    adapter = GoogleCalendarAdapter(http_client=client)
+    adapter = GoogleCalendarAdapter(settings=auth_settings, http_client=client)
     reconciliation_service = CalendarReconciliationService(adapter=adapter)
 
     sync_result = await reconciliation_service.reconcile_inbound_calendar(

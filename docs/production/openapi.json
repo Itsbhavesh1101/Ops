@@ -317,6 +317,133 @@
         "title": "AuditEventResponse",
         "type": "object"
       },
+      "AuthMeResponse": {
+        "additionalProperties": false,
+        "description": "Safe public representation of the authenticated principal's identity.",
+        "properties": {
+          "authentication_method": {
+            "title": "Authentication Method",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "principal_id": {
+            "title": "Principal Id",
+            "type": "string"
+          },
+          "principal_type": {
+            "title": "Principal Type",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "principal_id",
+          "tenant_id",
+          "roles",
+          "permissions",
+          "principal_type",
+          "authentication_method"
+        ],
+        "title": "AuthMeResponse",
+        "type": "object"
+      },
+      "AvailabilityIntervalCreate": {
+        "additionalProperties": false,
+        "description": "Payload to record an availability or blackout interval.",
+        "properties": {
+          "end_at": {
+            "description": "Interval end timestamp (timezone-aware)",
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "interval_type": {
+            "$ref": "#/components/schemas/IntervalType",
+            "default": "UNAVAILABLE",
+            "description": "Whether this represents an available window or blackout window"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional explanation for blackout/shift",
+            "title": "Reason"
+          },
+          "resource_id": {
+            "description": "Canonical resource UUID",
+            "format": "uuid",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "start_at": {
+            "description": "Interval start timestamp (timezone-aware)",
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start_at",
+          "end_at",
+          "resource_id"
+        ],
+        "title": "AvailabilityIntervalCreate",
+        "type": "object"
+      },
       "BlockerItem": {
         "additionalProperties": false,
         "description": "Item representing a blocked work breakdown item.",
@@ -570,6 +697,44 @@
         ],
         "title": "ConstraintType",
         "type": "string"
+      },
+      "DependencyDetailResponse": {
+        "additionalProperties": false,
+        "description": "Detailed representation of a task dependency.",
+        "properties": {
+          "dependency_type": {
+            "title": "Dependency Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lag_minutes": {
+            "title": "Lag Minutes",
+            "type": "integer"
+          },
+          "predecessor_id": {
+            "format": "uuid",
+            "title": "Predecessor Id",
+            "type": "string"
+          },
+          "successor_id": {
+            "format": "uuid",
+            "title": "Successor Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "predecessor_id",
+          "successor_id",
+          "dependency_type",
+          "lag_minutes"
+        ],
+        "title": "DependencyDetailResponse",
+        "type": "object"
       },
       "DependencyDraft": {
         "description": "Predecessor-successor relationship between tasks within a plan.",
@@ -1003,6 +1168,15 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "IntervalType": {
+        "description": "Availability interval semantics.",
+        "enum": [
+          "AVAILABLE",
+          "UNAVAILABLE"
+        ],
+        "title": "IntervalType",
+        "type": "string"
+      },
       "LockConstraint": {
         "additionalProperties": false,
         "description": "Locks an activity's time window, assigned resources, or both.",
@@ -1142,6 +1316,55 @@
           }
         },
         "title": "LockedAssignment",
+        "type": "object"
+      },
+      "MilestoneDetailResponse": {
+        "additionalProperties": false,
+        "description": "Detailed representation of a plan milestone.",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "target_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Date"
+          },
+          "temporary_id": {
+            "title": "Temporary Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "temporary_id",
+          "name"
+        ],
+        "title": "MilestoneDetailResponse",
         "type": "object"
       },
       "MilestoneDraft": {
@@ -1404,6 +1627,151 @@
           "recent_events"
         ],
         "title": "OperationsDashboardSummary",
+        "type": "object"
+      },
+      "PlanApprovalState": {
+        "additionalProperties": false,
+        "description": "Structured representation of plan approval state.",
+        "properties": {
+          "baseline_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Hash"
+          },
+          "is_baseline": {
+            "title": "Is Baseline",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "is_baseline"
+        ],
+        "title": "PlanApprovalState",
+        "type": "object"
+      },
+      "PlanDetailResponse": {
+        "additionalProperties": false,
+        "description": "Full detail of a plan version with tasks, milestones, dependencies, and risks.",
+        "properties": {
+          "approval_state": {
+            "$ref": "#/components/schemas/PlanApprovalState"
+          },
+          "baseline_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Hash"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/DependencyDetailResponse"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "goal_id": {
+            "format": "uuid",
+            "title": "Goal Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_baseline": {
+            "title": "Is Baseline",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "milestones": {
+            "items": {
+              "$ref": "#/components/schemas/MilestoneDetailResponse"
+            },
+            "title": "Milestones",
+            "type": "array"
+          },
+          "plan_name": {
+            "title": "Plan Name",
+            "type": "string"
+          },
+          "risks": {
+            "items": {
+              "$ref": "#/components/schemas/RiskDetailResponse"
+            },
+            "title": "Risks",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "superseded_by_plan_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded By Plan Id"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/TaskDetailResponse"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "goal_id",
+          "version_number",
+          "plan_name",
+          "status",
+          "is_baseline",
+          "approval_state",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PlanDetailResponse",
         "type": "object"
       },
       "PlanProgressSummary": {
@@ -1876,6 +2244,129 @@
         "title": "ResourceAvailabilityItem",
         "type": "object"
       },
+      "ResourceCatalogItem": {
+        "additionalProperties": false,
+        "description": "Public representation of a resource in the tenant catalog.",
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "capacity": {
+            "title": "Capacity",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_label": {
+            "title": "Display Label",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "resource_key": {
+            "title": "Resource Key",
+            "type": "string"
+          },
+          "skills": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "resource_key",
+          "type",
+          "display_label",
+          "capacity",
+          "active",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ResourceCatalogItem",
+        "type": "object"
+      },
+      "ResourceCreate": {
+        "additionalProperties": false,
+        "description": "Payload to register a new canonical resource.",
+        "properties": {
+          "active": {
+            "default": true,
+            "description": "Whether resource is active for scheduling",
+            "title": "Active",
+            "type": "boolean"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "description": "Structured attributes (metadata only)",
+            "title": "Attributes",
+            "type": "object"
+          },
+          "capacity": {
+            "default": 1,
+            "description": "Available capacity (e.g. seats, units)",
+            "minimum": 0.0,
+            "title": "Capacity",
+            "type": "integer"
+          },
+          "display_label": {
+            "description": "Human-readable name",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Display Label",
+            "type": "string"
+          },
+          "resource_key": {
+            "description": "Stable resource key",
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Resource Key",
+            "type": "string"
+          },
+          "skills": {
+            "description": "Capability tags or skill certifications",
+            "items": {
+              "type": "string"
+            },
+            "title": "Skills",
+            "type": "array"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ResourceType",
+            "description": "Resource category"
+          }
+        },
+        "required": [
+          "resource_key",
+          "type",
+          "display_label"
+        ],
+        "title": "ResourceCreate",
+        "type": "object"
+      },
       "ResourceType": {
         "description": "Generic E-7 resource categories.",
         "enum": [
@@ -1886,6 +2377,54 @@
         ],
         "title": "ResourceType",
         "type": "string"
+      },
+      "RiskDetailResponse": {
+        "additionalProperties": false,
+        "description": "Detailed representation of an identified task risk.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "detected_at": {
+            "format": "date-time",
+            "title": "Detected At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_evaluable": {
+            "title": "Is Evaluable",
+            "type": "boolean"
+          },
+          "severity": {
+            "title": "Severity",
+            "type": "string"
+          },
+          "task_id": {
+            "format": "uuid",
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "task_id",
+          "category",
+          "severity",
+          "description",
+          "is_evaluable",
+          "detected_at"
+        ],
+        "title": "RiskDetailResponse",
+        "type": "object"
       },
       "RiskSummary": {
         "additionalProperties": false,
@@ -1918,6 +2457,199 @@
           }
         },
         "title": "RiskSummary",
+        "type": "object"
+      },
+      "ScheduleAssignmentItem": {
+        "additionalProperties": false,
+        "description": "Public representation of an activity assignment in a schedule.",
+        "properties": {
+          "activity_id": {
+            "title": "Activity Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "end_at": {
+            "format": "date-time",
+            "title": "End At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_locked": {
+            "title": "Is Locked",
+            "type": "boolean"
+          },
+          "metadata_json": {
+            "additionalProperties": true,
+            "title": "Metadata Json",
+            "type": "object"
+          },
+          "resource_id": {
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "start_at": {
+            "format": "date-time",
+            "title": "Start At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "schedule_id",
+          "activity_id",
+          "resource_id",
+          "start_at",
+          "end_at",
+          "is_locked",
+          "created_at"
+        ],
+        "title": "ScheduleAssignmentItem",
+        "type": "object"
+      },
+      "ScheduleDetailResponse": {
+        "additionalProperties": false,
+        "description": "Full detail of a schedule with timetable assignments.",
+        "properties": {
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/ScheduleAssignmentItem"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_snapshot_hash": {
+            "title": "Input Snapshot Hash",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          },
+          "repair_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repair Reason"
+          },
+          "repair_scope": {
+            "additionalProperties": true,
+            "title": "Repair Scope",
+            "type": "object"
+          },
+          "schedule_key": {
+            "title": "Schedule Key",
+            "type": "string"
+          },
+          "score_components": {
+            "additionalProperties": true,
+            "title": "Score Components",
+            "type": "object"
+          },
+          "solver_metadata": {
+            "additionalProperties": true,
+            "title": "Solver Metadata",
+            "type": "object"
+          },
+          "solver_profile_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Solver Profile Version"
+          },
+          "source_job_id": {
+            "format": "uuid",
+            "title": "Source Job Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "schedule_key",
+          "version",
+          "status",
+          "source_job_id",
+          "input_snapshot_hash",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ScheduleDetailResponse",
         "type": "object"
       },
       "ScheduleHealthSummary": {
@@ -2069,6 +2801,117 @@
           "request"
         ],
         "title": "ScheduleJobSubmitRequest",
+        "type": "object"
+      },
+      "ScheduleListItem": {
+        "additionalProperties": false,
+        "description": "Public summary representation of a schedule.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_snapshot_hash": {
+            "title": "Input Snapshot Hash",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By"
+          },
+          "repair_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repair Reason"
+          },
+          "schedule_key": {
+            "title": "Schedule Key",
+            "type": "string"
+          },
+          "solver_profile_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Solver Profile Version"
+          },
+          "source_job_id": {
+            "format": "uuid",
+            "title": "Source Job Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "schedule_key",
+          "version",
+          "status",
+          "source_job_id",
+          "input_snapshot_hash",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ScheduleListItem",
         "type": "object"
       },
       "SchedulePublishRequest": {
@@ -2748,6 +3591,178 @@
           }
         },
         "title": "TargetWindow",
+        "type": "object"
+      },
+      "TaskDetailResponse": {
+        "additionalProperties": false,
+        "description": "Detailed public representation of an operational task.",
+        "properties": {
+          "acceptance_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Acceptance Criteria",
+            "type": "array"
+          },
+          "actual_duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual Duration Minutes"
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "estimated_duration_minutes": {
+            "title": "Estimated Duration Minutes",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "milestone_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Milestone Id"
+          },
+          "owner_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Reference"
+          },
+          "owner_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Role"
+          },
+          "parent_task_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Task Id"
+          },
+          "plan_id": {
+            "format": "uuid",
+            "title": "Plan Id",
+            "type": "string"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "progress_percentage": {
+            "title": "Progress Percentage",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "temporary_id": {
+            "title": "Temporary Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "wbs_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wbs Code"
+          },
+          "work_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Category"
+          }
+        },
+        "required": [
+          "id",
+          "plan_id",
+          "temporary_id",
+          "title",
+          "estimated_duration_minutes",
+          "status",
+          "progress_percentage",
+          "priority",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "TaskDetailResponse",
         "type": "object"
       },
       "TaskDraft": {
@@ -4350,7 +5365,136 @@
         ]
       }
     },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "get_current_user_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthMeResponse"
+                }
+              }
+            },
+            "description": "Safe authenticated identity."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthenticated request."
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "422": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get Current Authenticated Principal Identity",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/api/v1/goals": {
+      "get": {
+        "operationId": "list_goals_api_v1_goals_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GoalResponse"
+                  },
+                  "title": "Response 200 List Goals Api V1 Goals Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Goals retrieved."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List Operational Goals",
+        "tags": [
+          "Planning"
+        ]
+      },
       "post": {
         "operationId": "create_goal_api_v1_goals_post",
         "parameters": [
@@ -4436,6 +5580,79 @@
         ]
       }
     },
+    "/api/v1/goals/{goal_id}": {
+      "get": {
+        "operationId": "get_goal_api_v1_goals__goal_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "goal_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Goal Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GoalResponse"
+                }
+              }
+            },
+            "description": "Goal detail."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Goal not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get Operational Goal Detail",
+        "tags": [
+          "Planning"
+        ]
+      }
+    },
     "/api/v1/goals/{goal_id}/generate-plan": {
       "post": {
         "operationId": "generate_plan_api_v1_goals__goal_id__generate_plan_post",
@@ -4476,6 +5693,10 @@
                     "$ref": "#/components/schemas/PlanSchema"
                   },
                   {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
                     "type": "null"
                   }
                 ],
@@ -4502,7 +5723,14 @@
             "$ref": "#/components/responses/UnauthorizedError"
           },
           "403": {
-            "$ref": "#/components/responses/ForbiddenError"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized role."
           },
           "404": {
             "content": {
@@ -4606,6 +5834,176 @@
         "summary": "Google Calendar Push Notification Callback",
         "tags": [
           "Calendar"
+        ]
+      }
+    },
+    "/api/v1/plans": {
+      "get": {
+        "operationId": "list_plans_api_v1_plans_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "goal_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Goal Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlanResponse"
+                  },
+                  "title": "Response 200 List Plans Api V1 Plans Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Plans retrieved."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List Plans for Tenant",
+        "tags": [
+          "Planning"
+        ]
+      }
+    },
+    "/api/v1/plans/{plan_id}": {
+      "get": {
+        "operationId": "get_plan_detail_api_v1_plans__plan_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanDetailResponse"
+                }
+              }
+            },
+            "description": "Plan detail."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Plan not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get Plan Detail with Tasks, Milestones, and Dependencies",
+        "tags": [
+          "Planning"
         ]
       }
     },
@@ -4778,6 +6176,179 @@
         ]
       }
     },
+    "/api/v1/plans/{plan_id}/submit-for-approval": {
+      "post": {
+        "operationId": "submit_plan_for_approval_api_v1_plans__plan_id__submit_for_approval_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Correlation-ID",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Correlation-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            },
+            "description": "Plan submitted for approval."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized role."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Plan not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Illegal state transition or unvalidated plan."
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Submit Validated Plan for Approval",
+        "tags": [
+          "Planning"
+        ]
+      }
+    },
+    "/api/v1/plans/{plan_id}/tasks": {
+      "get": {
+        "operationId": "get_plan_tasks_api_v1_plans__plan_id__tasks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "plan_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Plan Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TaskDetailResponse"
+                  },
+                  "title": "Response 200 Get Plan Tasks Api V1 Plans  Plan Id  Tasks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Tasks for plan."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Plan not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get Tasks for Plan",
+        "tags": [
+          "Planning"
+        ]
+      }
+    },
     "/api/v1/plans/{plan_id}/validate": {
       "post": {
         "operationId": "validate_plan_api_v1_plans__plan_id__validate_post",
@@ -4889,6 +6460,213 @@
         ]
       }
     },
+    "/api/v1/resources": {
+      "get": {
+        "operationId": "list_resources_api_v1_resources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active_only",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Active Only",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceCatalogItem"
+                  },
+                  "title": "Response 200 List Resources Api V1 Resources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Tenant resource catalog entries."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List Resource Catalog for Tenant",
+        "tags": [
+          "Scheduling"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_api_v1_resources_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceCatalogItem"
+                }
+              }
+            },
+            "description": "Resource created."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error or invalid resource type."
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized to create resources."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Duplicate resource key or idempotency conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Create Local Operator-Managed Resource",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
     "/api/v1/resources/availability": {
       "get": {
         "operationId": "get_resource_availabilities_api_v1_resources_availability_get",
@@ -4958,6 +6736,89 @@
           }
         ],
         "summary": "Query Resource Availability Intervals",
+        "tags": [
+          "Scheduling"
+        ]
+      },
+      "post": {
+        "operationId": "create_resource_availability_api_v1_resources_availability_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvailabilityIntervalCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceAvailabilityItem"
+                }
+              }
+            },
+            "description": "Interval recorded."
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid time interval or parameters."
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Unauthorized."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Record Resource Availability or Blackout Interval",
         "tags": [
           "Scheduling"
         ]
@@ -5259,6 +7120,175 @@
           }
         ],
         "summary": "Authorize and Publish Candidate Schedule from Solve Job",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/v1/schedules": {
+      "get": {
+        "operationId": "list_schedules_api_v1_schedules_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScheduleListItem"
+                  },
+                  "title": "Response 200 List Schedules Api V1 Schedules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Tenant schedules."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "List Schedules for Tenant",
+        "tags": [
+          "Scheduling"
+        ]
+      }
+    },
+    "/api/v1/schedules/{schedule_id}": {
+      "get": {
+        "operationId": "get_schedule_detail_api_v1_schedules__schedule_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "schedule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Schedule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScheduleDetailResponse"
+                }
+              }
+            },
+            "description": "Schedule detail and assignments."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequestError"
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Schedule not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        },
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "Get Schedule Detail with Timetable Assignments",
         "tags": [
           "Scheduling"
         ]

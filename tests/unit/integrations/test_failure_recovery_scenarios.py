@@ -187,6 +187,7 @@ async def test_erp_outage_transitions_freshness_to_degraded_without_credential_l
         password=SecretStr("SuperSecretPassword123!"),
         database="iredu_db",
         timeout_seconds=0.1,
+        single_tenant_id="synthetic-scope-org-42",
         approved_tenant_scopes_json='{"synthetic-scope-org-42": "school-org-42"}',
     )
 
