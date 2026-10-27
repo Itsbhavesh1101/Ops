@@ -79,6 +79,7 @@ jobs:
           POSTGRES_HOST: "localhost"
           POSTGRES_USER: "postgres"
           POSTGRES_PASSWORD: "postgres"
+          PYTHONPATH: "."
         run: |
           pytest tests/integration/task_intelligence/ -v --tb=short
 
