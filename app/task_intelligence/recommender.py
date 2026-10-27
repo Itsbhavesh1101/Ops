@@ -113,6 +113,13 @@ class TaskRecommendation(BaseModel):
     explanation: str
     quality: RecommendationQuality
     quality_basis: str
+    confidence: RecommendationQuality = Field(
+        default=RecommendationQuality.HIGH,
+        description=(
+            "Qualitative confidence assessment (HIGH, MEDIUM, DEGRADED) "
+            "satisfying FR-TI-09 based on DAG completeness and CPM evaluability."
+        ),
+    )
     blocked_reasons: list[str] = Field(default_factory=list)
 
 
@@ -519,6 +526,7 @@ class TaskRecommender:
                     explanation=item["explanation"],
                     quality=item["quality"],
                     quality_basis=item["quality_basis"],
+                    confidence=item["quality"],
                     blocked_reasons=item["blocked_reasons"],
                 )
             )

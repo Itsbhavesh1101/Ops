@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.models.planning import (
     GoalRecord,
@@ -366,6 +367,9 @@ class TaskRepository(SqlAlchemyRepository):
             task.actual_duration_minutes = update_data.actual_duration_minutes
         if update_data.blocked_reason is not None:
             task.blocked_reason = update_data.blocked_reason
+        if update_data.completion_evidence is not None:
+            task.completion_evidence = update_data.completion_evidence
+            flag_modified(task, "effort_estimate_json")
 
         return task
 

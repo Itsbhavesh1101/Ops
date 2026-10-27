@@ -409,6 +409,34 @@ class TaskRecord(Base):
         onupdate=func.now(),
     )
 
+    @property
+    def variance_minutes(self) -> int | None:
+        """Variance between actual execution effort and estimated duration in minutes."""
+        if self.actual_duration_minutes is None:
+            return None
+        return self.actual_duration_minutes - self.estimated_duration_minutes
+
+    @property
+    def completion_evidence(self) -> str | None:
+        """Completion evidence, stored persistently in JSONB effort_estimate_json."""
+        if self.effort_estimate_json and isinstance(self.effort_estimate_json, dict):
+            val = self.effort_estimate_json.get("completion_evidence")
+            return str(val) if val is not None else None
+        return None
+
+    @completion_evidence.setter
+    def completion_evidence(self, val: str | None) -> None:
+        data = (
+            dict(self.effort_estimate_json)
+            if isinstance(self.effort_estimate_json, dict)
+            else {}
+        )
+        if val is not None:
+            data["completion_evidence"] = val
+        else:
+            data.pop("completion_evidence", None)
+        self.effort_estimate_json = data
+
     plan: Mapped["PlanRecord"] = relationship("PlanRecord", back_populates="tasks")
     milestone: Mapped["MilestoneRecord | None"] = relationship(
         "MilestoneRecord", back_populates="tasks"

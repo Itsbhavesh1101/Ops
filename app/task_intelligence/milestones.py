@@ -65,7 +65,8 @@ class MilestoneHealthCalculator:
         2. All member tasks COMPLETED (100%) -> COMPLETED
         3. Any member task BLOCKED -> AT_RISK
         4. Target date passed with incomplete tasks -> AT_RISK (is_overdue=True)
-        5. In-progress or TODO tasks without blockers or deadline breach -> ON_TRACK
+        5. In-progress tasks or progress > 0% without blockers or deadline breach -> ON_TRACK
+        6. All member tasks unstarted (TODO with 0% progress) -> PENDING
         """
         ref_now = now or datetime.now(UTC)
         total = len(member_tasks)
@@ -97,6 +98,7 @@ class MilestoneHealthCalculator:
             for t in member_tasks
             if getattr(t, "status", "") == "BLOCKED" or bool(getattr(t, "blocked_reason", None))
         )
+        in_progress = sum(1 for t in member_tasks if getattr(t, "status", "") == "IN_PROGRESS")
         total_progress = sum(int(getattr(t, "progress_percentage", 0) or 0) for t in member_tasks)
         avg_progress = round(total_progress / float(total), 2)
 
@@ -108,8 +110,10 @@ class MilestoneHealthCalculator:
             health = MilestoneHealth.COMPLETED
         elif blocked > 0 or is_overdue:
             health = MilestoneHealth.AT_RISK
-        else:
+        elif in_progress > 0 or total_progress > 0:
             health = MilestoneHealth.ON_TRACK
+        else:
+            health = MilestoneHealth.PENDING
 
         return MilestoneHealthResponse(
             id=milestone.id,

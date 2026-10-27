@@ -80,6 +80,8 @@ class TaskResponse(BaseModel):
     status: str
     progress_percentage: int
     actual_duration_minutes: int | None = None
+    variance_minutes: int | None = None
+    completion_evidence: str | None = None
     blocked_reason: str | None = None
     updated_at: datetime
 
@@ -99,6 +101,8 @@ class TaskDetailResponse(BaseModel):
     owner_reference: str | None = None
     estimated_duration_minutes: int
     actual_duration_minutes: int | None = None
+    variance_minutes: int | None = None
+    completion_evidence: str | None = None
     status: str
     progress_percentage: int
     blocked_reason: str | None = None
@@ -207,6 +211,8 @@ def _map_task(task: Any) -> TaskDetailResponse:
         owner_reference=task.owner_reference,
         estimated_duration_minutes=task.estimated_duration_minutes,
         actual_duration_minutes=task.actual_duration_minutes,
+        variance_minutes=task.variance_minutes,
+        completion_evidence=task.completion_evidence,
         status=task.status,
         progress_percentage=task.progress_percentage,
         blocked_reason=task.blocked_reason,
@@ -1031,8 +1037,10 @@ def create_planning_router(
                 title=task.title,
                 status=task.status,
                 progress_percentage=task.progress_percentage,
-                actual_duration_minutes=task.actual_duration_minutes,
-                blocked_reason=task.blocked_reason,
+                actual_duration_minutes=getattr(task, "actual_duration_minutes", None),
+                variance_minutes=getattr(task, "variance_minutes", None),
+                completion_evidence=getattr(task, "completion_evidence", None),
+                blocked_reason=getattr(task, "blocked_reason", None),
                 updated_at=task.updated_at,
             )
         except TaskNotFoundError as exc:

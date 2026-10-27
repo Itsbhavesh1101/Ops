@@ -233,11 +233,68 @@ def test_milestone_health_rollup_evaluation() -> None:
         tenant_id="tenant-alpha",
         plan_id=plan_id,
         temporary_id="M5",
-        name="Pending Milestone",
+        name="Pending Milestone No Tasks",
     )
     res5 = MilestoneHealthCalculator.evaluate_milestone_health(m5, [], now=now)
     assert res5.health == MilestoneHealth.PENDING
     assert res5.total_tasks == 0
+
+    # 6. All member tasks are TODO with 0% progress -> PENDING (not ON_TRACK)
+    m6 = MilestoneRecord(
+        id=uuid4(),
+        tenant_id="tenant-alpha",
+        plan_id=plan_id,
+        temporary_id="M6",
+        name="Pending Milestone Unstarted Tasks",
+        target_date=now + timedelta(days=10),
+    )
+    t_todo1 = TaskRecord(
+        id=uuid4(),
+        tenant_id="tenant-alpha",
+        plan_id=plan_id,
+        temporary_id="T_TODO1",
+        title="Todo 1",
+        status="TODO",
+        progress_percentage=0,
+        milestone_id=m6.id,
+    )
+    t_todo2 = TaskRecord(
+        id=uuid4(),
+        tenant_id="tenant-alpha",
+        plan_id=plan_id,
+        temporary_id="T_TODO2",
+        title="Todo 2",
+        status="TODO",
+        progress_percentage=0,
+        milestone_id=m6.id,
+    )
+    res6 = MilestoneHealthCalculator.evaluate_milestone_health(m6, [t_todo1, t_todo2], now=now)
+    assert res6.health == MilestoneHealth.PENDING
+    assert res6.progress_percentage == 0.0
+    assert res6.total_tasks == 2
+    assert res6.completed_tasks == 0
+    assert res6.blocked_tasks == 0
+
+    # 7. Mixed states: TODO + IN_PROGRESS -> ON_TRACK
+    t_in_prog = TaskRecord(
+        id=uuid4(),
+        tenant_id="tenant-alpha",
+        plan_id=plan_id,
+        temporary_id="T_INP",
+        title="In Progress",
+        status="IN_PROGRESS",
+        progress_percentage=25,
+        milestone_id=m6.id,
+    )
+    res7 = MilestoneHealthCalculator.evaluate_milestone_health(m6, [t_todo1, t_in_prog], now=now)
+    assert res7.health == MilestoneHealth.ON_TRACK
+    assert res7.progress_percentage == 12.5
+
+    # 8. Mixed states: TODO + COMPLETED (not all completed) -> ON_TRACK
+    res8 = MilestoneHealthCalculator.evaluate_milestone_health(m6, [t_todo1, t1], now=now)
+    assert res8.health == MilestoneHealth.ON_TRACK
+    assert res8.progress_percentage == 50.0
+    assert res8.completed_tasks == 1
 
 
 def test_milestone_record_model_attributes() -> None:

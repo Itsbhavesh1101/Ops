@@ -61,6 +61,10 @@ class TaskProgressUpdate(BaseModel):
         default=None,
         description="Reason if status is BLOCKED.",
     )
+    completion_evidence: str | None = Field(
+        default=None,
+        description="Verifiable completion evidence or artifact reference.",
+    )
 
     @model_validator(mode="after")
     def validate_status_and_progress(self) -> "TaskProgressUpdate":

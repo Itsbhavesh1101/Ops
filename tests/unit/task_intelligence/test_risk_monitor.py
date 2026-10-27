@@ -662,3 +662,106 @@ def test_api_get_plan_risks_contract() -> None:
     resp_404 = client.get(f"/plans/{plan_id}/risks")
     assert resp_404.status_code == status.HTTP_404_NOT_FOUND
 
+
+def test_detect_repeated_rework_deterministic() -> None:
+    """Repeated rework requires >= 2 reopenings; single reopening is not repeated rework."""
+    # 1. Single reopening: below threshold
+    single_reopen = {"T_ONCE": 1}
+    risks_single = DeterministicRiskDetector.detect_repeated_rework(single_reopen)
+    assert len(risks_single) == 0
+
+    # 2. Repeated reopening (2 times): HIGH severity
+    twice_reopen = {"T_TWICE": 2}
+    risks_twice = DeterministicRiskDetector.detect_repeated_rework(twice_reopen)
+    assert len(risks_twice) == 1
+    assert risks_twice[0].category == RiskCategory.REPEATED_REWORK
+    assert risks_twice[0].severity == RiskSeverity.HIGH
+    assert risks_twice[0].task_id == "T_TWICE"
+    assert "2 reopenings detected" in risks_twice[0].description
+
+    # 3. Severe repeated rework (3+ times): CRITICAL severity
+    thrice_reopen = {"T_THRICE": 3}
+    risks_thrice = DeterministicRiskDetector.detect_repeated_rework(thrice_reopen)
+    assert len(risks_thrice) == 1
+    assert risks_thrice[0].category == RiskCategory.REPEATED_REWORK
+    assert risks_thrice[0].severity == RiskSeverity.CRITICAL
+
+
+def test_detect_duration_overrun_separate_from_repeated_rework() -> None:
+    """Duration overrun (>50%) is classified as DURATION_OVERRUN, never REPEATED_REWORK."""
+    t_normal = DummyTask("T_NORM")
+    t_normal.estimated_duration_minutes = 60
+    t_normal.actual_duration_minutes = 70  # ~16.7% overrun, <= 50%
+
+    t_overrun = DummyTask("T_OVER")
+    t_overrun.estimated_duration_minutes = 60
+    t_overrun.actual_duration_minutes = 120  # 100% overrun, > 50%
+
+    risks = DeterministicRiskDetector.detect_duration_overruns([t_normal, t_overrun])
+    assert len(risks) == 1
+    r = risks[0]
+    assert r.task_id == "T_OVER"
+    assert r.category == RiskCategory.DURATION_OVERRUN
+    assert r.category != RiskCategory.REPEATED_REWORK
+    assert r.severity == RiskSeverity.MEDIUM
+    assert "100.0%" in r.description
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_repeated_rework_from_audit() -> None:
+    """PlanService detects repeated rework when audit events demonstrate >= 2 reopenings."""
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    uid_1 = uuid4()
+    t1 = MagicMock(
+        id=uid_1,
+        temporary_id="T_REWORK",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=60,
+        status="IN_PROGRESS",
+        blocked_reason=None,
+        owner_role=None,
+        owner_reference=None,
+        work_category="DEVELOPMENT",
+    )
+
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1]
+
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = []
+
+    # Mock audit query returning reopen_count = 2 for uid_1
+    audit_row = MagicMock()
+    audit_row.resource_id = str(uid_1)
+    audit_row.reopen_count = 2
+    res_audit = [audit_row]
+
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources, res_audit]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    rework_risk = next((r for r in risks if r.category == RiskCategory.REPEATED_REWORK), None)
+    assert rework_risk is not None
+    assert rework_risk.task_id == "T_REWORK"
+    assert rework_risk.severity == RiskSeverity.HIGH
+    assert "2 reopenings detected" in rework_risk.description
+

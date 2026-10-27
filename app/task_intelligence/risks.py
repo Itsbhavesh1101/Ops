@@ -30,6 +30,8 @@ class RiskCategory(StrEnum):
     CRITICAL_PATH_SLIPPAGE = "CRITICAL_PATH_SLIPPAGE"
     RESOURCE_CAPACITY_UNSUPPORTED = "RESOURCE_CAPACITY_UNSUPPORTED"
     RESOURCE_CAPACITY_SHORTFALL = "RESOURCE_CAPACITY_SHORTFALL"
+    REPEATED_REWORK = "REPEATED_REWORK"
+    DURATION_OVERRUN = "DURATION_OVERRUN"
 
 
 class TaskRiskItem(BaseModel):
@@ -221,4 +223,66 @@ class DeterministicRiskDetector:
             ),
             is_evaluable=False,
         )
+
+    @staticmethod
+    def detect_repeated_rework(
+        reopen_counts: dict[str, int],
+        threshold: int = 2,
+    ) -> list[TaskRiskItem]:
+        """Detect repeated rework when tasks have been reopened multiple times.
+
+        A single duration overrun or initial reopening is not classified as repeated rework.
+        Requires >= 2 reopenings from verified audit history.
+        """
+        risks: list[TaskRiskItem] = []
+        for task_id, count in sorted(reopen_counts.items()):
+            if count >= threshold:
+                severity = RiskSeverity.CRITICAL if count >= 3 else RiskSeverity.HIGH
+                risks.append(
+                    TaskRiskItem(
+                        task_id=task_id,
+                        category=RiskCategory.REPEATED_REWORK,
+                        severity=severity,
+                        description=(
+                            f"Task '{task_id}' has undergone repeated rework "
+                            f"({count} reopenings detected). "
+                            "Indicates recurring defects or unstable specifications."
+                        ),
+                        is_evaluable=True,
+                    )
+                )
+        return risks
+
+    @staticmethod
+    def detect_duration_overruns(
+        tasks: list[Any],
+        threshold_ratio: float = 0.5,
+    ) -> list[TaskRiskItem]:
+        """Detect execution duration exceeding estimate by threshold ratio (FR-TI-08 variance).
+
+        Classified strictly as DURATION_OVERRUN, separate from repeated rework.
+        """
+        risks: list[TaskRiskItem] = []
+        for t in tasks:
+            actual = getattr(t, "actual_duration_minutes", None)
+            estimated = getattr(t, "estimated_duration_minutes", None) or 0
+            tid = getattr(t, "temporary_id", None) or str(getattr(t, "id", ""))
+            if actual is not None and estimated > 0 and actual > estimated:
+                ratio = (actual - estimated) / float(estimated)
+                if ratio > threshold_ratio:
+                    severity = RiskSeverity.HIGH if ratio > 1.0 else RiskSeverity.MEDIUM
+                    risks.append(
+                        TaskRiskItem(
+                            task_id=tid,
+                            category=RiskCategory.DURATION_OVERRUN,
+                            severity=severity,
+                            description=(
+                                f"Task '{tid}' duration exceeded estimate by "
+                                f"{ratio * 100:.1f}% ({actual}m actual vs "
+                                f"{estimated}m est)."
+                            ),
+                            is_evaluable=True,
+                        )
+                    )
+        return risks
 

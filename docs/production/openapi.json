@@ -3897,6 +3897,17 @@
             ],
             "title": "Blocked Reason"
           },
+          "completion_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Evidence"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -3997,6 +4008,17 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "variance_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variance Minutes"
           },
           "wbs_code": {
             "anyOf": [
@@ -4220,6 +4242,18 @@
             "description": "Reason if status is BLOCKED.",
             "title": "Blocked Reason"
           },
+          "completion_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Verifiable completion evidence or artifact reference.",
+            "title": "Completion Evidence"
+          },
           "progress_percentage": {
             "anyOf": [
               {
@@ -4262,6 +4296,11 @@
             },
             "title": "Blocked Reasons",
             "type": "array"
+          },
+          "confidence": {
+            "$ref": "#/components/schemas/RecommendationQuality",
+            "default": "HIGH",
+            "description": "Qualitative confidence assessment (HIGH, MEDIUM, DEGRADED) satisfying FR-TI-09 based on DAG completeness and CPM evaluability."
           },
           "explanation": {
             "title": "Explanation",
@@ -4368,6 +4407,17 @@
             ],
             "title": "Blocked Reason"
           },
+          "completion_evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completion Evidence"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -4398,6 +4448,17 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "variance_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Variance Minutes"
           }
         },
         "required": [
