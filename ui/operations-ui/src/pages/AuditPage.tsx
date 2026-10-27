@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { apiClient } from "../api/client";
 import { formatDateTime, formatShortId } from "../utils/formatters";
+import { redactSensitiveForDisplay } from "../utils/redact";
 import type { AuditEventResponse, AuditQueryParams } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -55,9 +56,27 @@ export const AuditPage: React.FC = () => {
 
   const tenantId = user?.tenant_id;
 
+  const canReadAudit =
+    Boolean(user) &&
+    Boolean(tenantId) &&
+    (user?.roles?.some((r) => ["auditor", "tenant_admin", "admin"].includes(r)) ||
+     user?.permissions?.some((p) => ["audit:read", "*"].includes(p)));
+
   const fetchAuditEvents = useCallback(async () => {
+    if (!user) {
+      setError("Authentication session required. Please sign in to inspect audit logs.");
+      setLoading(false);
+      return;
+    }
+
     if (!tenantId) {
       setError("Active authenticated tenant context is required to inspect audit logs.");
+      setLoading(false);
+      return;
+    }
+
+    if (!canReadAudit) {
+      setError("Insufficient permissions to inspect audit trail. The 'audit:read' permission or 'auditor' role is required.");
       setLoading(false);
       return;
     }
@@ -421,13 +440,13 @@ export const AuditPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Sanitized Details JSON */}
+            {/* Sanitized & Redacted Details JSON */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-slate-400" /> Immutable Event Payload (Sanitized Details)
+                <Lock className="w-3.5 h-3.5 text-slate-400" /> Immutable Event Payload (Display Redacted)
               </label>
               <pre className="p-4 bg-slate-900 text-indigo-200 text-xs font-mono rounded-lg overflow-x-auto max-h-72 shadow-inner">
-                {JSON.stringify(selectedEvent.details, null, 2)}
+                {JSON.stringify(redactSensitiveForDisplay(selectedEvent.details), null, 2)}
               </pre>
             </div>
 

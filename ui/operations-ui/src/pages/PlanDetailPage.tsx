@@ -105,20 +105,20 @@ export const PlanDetailPage: React.FC = () => {
   const [risksLoading, setRisksLoading] = useState<boolean>(false);
   const [risksError, setRisksError] = useState<string | null>(null);
 
-  const tenantId = user?.tenant_id || "tenant-engineering";
+  const tenantId = user?.tenant_id;
 
   const canSubmit =
-    user === null ||
-    user.roles?.some((r) => ["planner", "operator", "tenant_admin", "admin"].includes(r)) ||
-    user.permissions?.some((p) => ["plan:submit", "plan:edit", "*"].includes(p));
+    Boolean(user && tenantId) &&
+    (Boolean(user?.roles?.some((r) => ["planner", "operator", "tenant_admin", "admin"].includes(r))) ||
+      Boolean(user?.permissions?.some((p) => ["plan:submit", "plan:edit", "*"].includes(p))));
 
   const canApprove =
-    user === null ||
-    user.roles?.some((r) => ["approver", "tenant_admin", "admin"].includes(r)) ||
-    user.permissions?.some((p) => ["plan:approve", "*"].includes(p));
+    Boolean(user && tenantId) &&
+    (Boolean(user?.roles?.some((r) => ["approver", "tenant_admin", "admin"].includes(r))) ||
+      Boolean(user?.permissions?.some((p) => ["plan:approve", "*"].includes(p))));
 
   const fetchPlanDetail = useCallback(async () => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setLoading(true);
     setError(null);
     try {
@@ -133,7 +133,7 @@ export const PlanDetailPage: React.FC = () => {
   }, [planId, tenantId]);
 
   const fetchCriticalPath = useCallback(async () => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setCpmLoading(true);
     setCpmError(null);
     try {
@@ -148,7 +148,7 @@ export const PlanDetailPage: React.FC = () => {
   }, [planId, tenantId]);
 
   const fetchRecommendations = useCallback(async () => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setRecLoading(true);
     setRecError(null);
     try {
@@ -170,7 +170,7 @@ export const PlanDetailPage: React.FC = () => {
   }, [planId, recLimit, recIncludeBlocked, tenantId]);
 
   const fetchMilestones = useCallback(async () => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setMilestonesLoading(true);
     setMilestonesError(null);
     try {
@@ -185,7 +185,7 @@ export const PlanDetailPage: React.FC = () => {
   }, [planId, tenantId]);
 
   const fetchRisks = useCallback(async () => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setRisksLoading(true);
     setRisksError(null);
     try {
@@ -200,10 +200,16 @@ export const PlanDetailPage: React.FC = () => {
   }, [planId, tenantId]);
 
   useEffect(() => {
+    if (!user || !tenantId) {
+      setLoading(false);
+      setError("Session or tenant context missing. Verified tenant identity is required to access plan resources.");
+      return;
+    }
     fetchPlanDetail();
-  }, [fetchPlanDetail]);
+  }, [fetchPlanDetail, user, tenantId]);
 
   useEffect(() => {
+    if (!tenantId) return;
     if (activeTab === "critical-path" && !cpmData) {
       fetchCriticalPath();
     } else if (activeTab === "recommendations") {
@@ -213,11 +219,11 @@ export const PlanDetailPage: React.FC = () => {
     } else if (activeTab === "risks") {
       fetchRisks();
     }
-  }, [activeTab, cpmData, fetchCriticalPath, fetchRecommendations, fetchMilestones, fetchRisks]);
+  }, [activeTab, cpmData, fetchCriticalPath, fetchRecommendations, fetchMilestones, fetchRisks, tenantId]);
 
   // Validation Action
   const handleValidatePlan = async () => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setIsValidating(true);
     try {
       const result = await apiClient.validatePlan(planId, tenantId);
@@ -247,7 +253,10 @@ export const PlanDetailPage: React.FC = () => {
 
   // Submit for Approval Action
   const handleSubmitForApproval = async () => {
-    if (!planId) return;
+    if (!planId || !tenantId || !canSubmit) {
+      setSubmitError("Unauthorized: Missing required submission role or tenant context");
+      return;
+    }
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -276,7 +285,10 @@ export const PlanDetailPage: React.FC = () => {
 
   // Approval Action
   const handleApprovePlan = async () => {
-    if (!planId) return;
+    if (!planId || !tenantId || !canApprove) {
+      setApprovalError("Unauthorized: Missing required approval role or tenant context");
+      return;
+    }
     setIsApproving(true);
     setApprovalError(null);
     try {
@@ -319,7 +331,7 @@ export const PlanDetailPage: React.FC = () => {
   // Handle Task Progress Update Submit
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTask) return;
+    if (!selectedTask || !tenantId) return;
 
     setIsUpdatingTask(true);
     setTaskUpdateError(null);
@@ -353,6 +365,18 @@ export const PlanDetailPage: React.FC = () => {
       setIsUpdatingTask(false);
     }
   };
+
+  if (!user || !tenantId) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Plan Details" description="Execution plan, WBS, critical path, and intelligence" />
+        <ErrorState
+          title="Session or Tenant Context Missing"
+          message="Verified tenant identity is required to access plan resources. Please sign in with an authorized tenant account."
+        />
+      </div>
+    );
+  }
 
   if (loading) {
     return <LoadingState message="Loading plan Work Breakdown Structure (WBS)..." />;
@@ -900,16 +924,30 @@ export const PlanDetailPage: React.FC = () => {
 
                             <span
                               className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
-                                rec.action === "START_NOW"
+                                rec.action === "START_TASK"
                                   ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : rec.action === "CONTINUE"
+                                  : rec.action === "CONTINUE_EXECUTION"
                                   ? "bg-blue-50 text-blue-700 border-blue-200"
-                                  : rec.action === "UNBLOCK_DEPENDENCY"
+                                  : rec.action === "RESOLVE_BLOCKER"
                                   ? "bg-amber-50 text-amber-700 border-amber-200"
-                                  : "bg-purple-50 text-purple-700 border-purple-200"
+                                  : rec.action === "EXPEDITE_CRITICAL"
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : rec.action === "REPRIORITIZE"
+                                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                                  : "bg-slate-50 text-slate-700 border-slate-200"
                               }`}
                             >
-                              {(rec.action || "RECOMMENDED").replace(/_/g, " ")}
+                              {rec.action === "START_TASK"
+                                ? "Start Task"
+                                : rec.action === "CONTINUE_EXECUTION"
+                                ? "Continue Execution"
+                                : rec.action === "RESOLVE_BLOCKER"
+                                ? "Resolve Blocker"
+                                : rec.action === "EXPEDITE_CRITICAL"
+                                ? "Expedite Critical"
+                                : rec.action === "REPRIORITIZE"
+                                ? "Reprioritize"
+                                : String(rec.action || "Recommended").replace(/_/g, " ")}
                             </span>
 
                             <span className="font-mono text-xs text-slate-500 font-medium">

@@ -609,10 +609,10 @@ export interface TaskRiskResponse {
 
 export type RecommendationQuality = "HIGH" | "MEDIUM" | "DEGRADED";
 export type RecommendationAction =
-  | "START_NOW"
-  | "CONTINUE"
-  | "UNBLOCK_DEPENDENCY"
-  | "RESOLVE_RESOURCE_BOTTLENECK"
+  | "START_TASK"
+  | "CONTINUE_EXECUTION"
+  | "RESOLVE_BLOCKER"
+  | "EXPEDITE_CRITICAL"
   | "REPRIORITIZE";
 
 export interface TaskRecommendation {
@@ -653,8 +653,7 @@ export interface RecommendationQueryParams {
   include_blocked?: boolean;
   critical_path_weight?: number;
   priority_weight?: number;
-  urgency_weight?: number;
-  momentum_weight?: number;
+  progress_momentum_weight?: number;
   readiness_weight?: number;
 }
 

@@ -15,10 +15,12 @@ import {
   Inbox,
   FileCode,
   Activity,
+  ShieldAlert,
 } from "lucide-react";
-import { apiClient } from "../api/client";
+import { apiClient, ApiError } from "../api/client";
 import type { WorkflowTask } from "../api/client";
 import { formatDateTime, formatShortId } from "../utils/formatters";
+import { redactSensitiveForDisplay } from "../utils/redact";
 import type {
   WorkflowInstanceResponse,
   WorkflowHistoryEntry,
@@ -47,18 +49,97 @@ export const WorkflowInstancePage: React.FC = () => {
   const [instance, setInstance] = useState<WorkflowInstanceResponse | null>(null);
   const [history, setHistory] = useState<WorkflowHistoryEntry[]>([]);
   const [tasks, setTasks] = useState<WorkflowTask[]>([]);
+  
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<number | undefined>(undefined);
+
+  // Partial failure states for secondary data streams
+  const [historyLoading, setHistoryLoading] = useState<boolean>(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyErrorCode, setHistoryErrorCode] = useState<number | undefined>(undefined);
+
+  const [tasksLoading, setTasksLoading] = useState<boolean>(false);
+  const [tasksError, setTasksError] = useState<string | null>(null);
+  const [tasksErrorCode, setTasksErrorCode] = useState<number | undefined>(undefined);
 
   const [activeTab, setActiveTab] = useState<"history" | "tasks" | "variables">("history");
 
   const tenantId = user?.tenant_id;
 
+  const classifyError = (err: unknown, entityName: string) => {
+    let msg = `Failed to load ${entityName}`;
+    let code: number | undefined;
+
+    if (err instanceof ApiError) {
+      code = err.status;
+      if (err.status === 403) {
+        msg = `Forbidden (HTTP 403): You do not have permission to view ${entityName} for this workflow instance.`;
+      } else if (err.status === 404) {
+        msg = `Not Found (HTTP 404): The requested ${entityName} was not found.`;
+      } else if (err.status >= 500) {
+        msg = `Server Error (HTTP ${err.status}): The workflow engine encountered an internal error while retrieving ${entityName}.`;
+      } else {
+        msg = err.message || `API Error (HTTP ${err.status}): Failed to retrieve ${entityName}.`;
+      }
+    } else if (err instanceof Error) {
+      if (err.message.toLowerCase().includes("failed to fetch") || err.message.toLowerCase().includes("network")) {
+        msg = `Network Error: Unable to communicate with the workflow API to retrieve ${entityName}. Please verify your connectivity.`;
+      } else {
+        msg = err.message;
+      }
+    }
+    return { msg, code };
+  };
+
+  const fetchHistory = useCallback(async () => {
+    if (!instanceId || !tenantId) return;
+    setHistoryLoading(true);
+    setHistoryError(null);
+    setHistoryErrorCode(undefined);
+    try {
+      const histData = await apiClient.getWorkflowHistory(instanceId, tenantId);
+      const normalizedHistory: WorkflowHistoryEntry[] = Array.isArray(histData)
+        ? histData
+        : histData && Array.isArray((histData as { activities?: WorkflowHistoryEntry[] }).activities)
+        ? (histData as { activities: WorkflowHistoryEntry[] }).activities
+        : [];
+      setHistory(normalizedHistory);
+    } catch (err: unknown) {
+      const { msg, code } = classifyError(err, "activity execution history");
+      setHistoryError(msg);
+      setHistoryErrorCode(code);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [instanceId, tenantId]);
+
+  const fetchTasks = useCallback(async () => {
+    if (!instanceId || !tenantId) return;
+    setTasksLoading(true);
+    setTasksError(null);
+    setTasksErrorCode(undefined);
+    try {
+      const taskData = await apiClient.listWorkflowTasks(tenantId, { instance_id: instanceId });
+      setTasks(taskData);
+    } catch (err: unknown) {
+      const { msg, code } = classifyError(err, "workflow human tasks");
+      setTasksError(msg);
+      setTasksErrorCode(code);
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [instanceId, tenantId]);
+
   const fetchInstanceData = useCallback(async () => {
     if (!instanceId) return;
+    if (!user) {
+      setError("Authentication session required. Please sign in to inspect workflow instances.");
+      setLoading(false);
+      return;
+    }
     if (!tenantId) {
-      setError("Active tenant context is required to inspect workflow instances.");
+      setError("Active authenticated tenant context is required to inspect workflow instances.");
       setLoading(false);
       return;
     }
@@ -68,29 +149,20 @@ export const WorkflowInstancePage: React.FC = () => {
     setErrorCode(undefined);
 
     try {
-      const [instData, histData, taskData] = await Promise.all([
-        apiClient.getWorkflowInstance(instanceId, tenantId),
-        apiClient.getWorkflowHistory(instanceId, tenantId).catch(() => [] as WorkflowHistoryEntry[]),
-        apiClient.listWorkflowTasks(tenantId, { instance_id: instanceId }).catch(() => [] as WorkflowTask[]),
-      ]);
+      const instData = await apiClient.getWorkflowInstance(instanceId, tenantId);
       setInstance(instData);
-      const normalizedHistory: WorkflowHistoryEntry[] = Array.isArray(histData)
-        ? histData
-        : histData && Array.isArray((histData as { activities?: WorkflowHistoryEntry[] }).activities)
-        ? (histData as { activities: WorkflowHistoryEntry[] }).activities
-        : [];
-      setHistory(normalizedHistory);
-      setTasks(taskData);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to load workflow instance";
+      const { msg, code } = classifyError(err, "workflow instance");
       setError(msg);
-      if (typeof err === "object" && err !== null && "status" in err) {
-        setErrorCode((err as { status: number }).status);
-      }
+      setErrorCode(code);
     } finally {
       setLoading(false);
     }
-  }, [instanceId, tenantId]);
+
+    // Trigger secondary data streams without converting failures to empty lists
+    fetchHistory();
+    fetchTasks();
+  }, [instanceId, user, tenantId, fetchHistory, fetchTasks]);
 
   useEffect(() => {
     fetchInstanceData();
@@ -261,6 +333,22 @@ export const WorkflowInstancePage: React.FC = () => {
         }
       />
 
+      {/* Partial Data Degradation Alert */}
+      {(historyError || tasksError) && (
+        <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Partial Data Warning:</strong> One or more secondary data streams failed to load (
+              {historyError && "Activity History"}
+              {historyError && tasksError && ", "}
+              {tasksError && "Human Tasks"}
+              ). Instance metadata is safely displayed below. Select the respective tab to retry.
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Metadata Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="p-4 border-slate-200 shadow-sm bg-white">
@@ -325,6 +413,9 @@ export const WorkflowInstancePage: React.FC = () => {
           }`}
         >
           <Activity className="w-4 h-4" /> Activity History ({history.length})
+          {historyError && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" title="Error loading history" />
+          )}
         </button>
         <button
           onClick={() => setActiveTab("tasks")}
@@ -335,6 +426,9 @@ export const WorkflowInstancePage: React.FC = () => {
           }`}
         >
           <Inbox className="w-4 h-4" /> Human Tasks ({tasks.length})
+          {tasksError && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" title="Error loading tasks" />
+          )}
         </button>
         <button
           onClick={() => setActiveTab("variables")}
@@ -361,9 +455,30 @@ export const WorkflowInstancePage: React.FC = () => {
             </span>
           </CardHeader>
           <CardContent className="p-0">
-            {history.length === 0 ? (
+            {historyLoading ? (
+              <div className="p-6">
+                <LoadingState message="Loading activity execution history..." />
+              </div>
+            ) : historyError ? (
+              <div className="p-8 text-center space-y-3">
+                <ShieldAlert className="w-8 h-8 text-rose-500 mx-auto" />
+                <div className="text-sm font-semibold text-slate-900">
+                  Activity Execution History Unavailable {historyErrorCode ? `(HTTP ${historyErrorCode})` : ""}
+                </div>
+                <p className="text-xs text-rose-600 max-w-md mx-auto">{historyError}</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={fetchHistory}
+                  disabled={historyLoading}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${historyLoading ? "animate-spin" : ""}`} /> Retry History
+                </Button>
+              </div>
+            ) : history.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-sm">
-                No activity execution records captured for this instance yet.
+                Zero activity execution records captured for this instance yet.
               </div>
             ) : (
               <Table>
@@ -446,9 +561,30 @@ export const WorkflowInstancePage: React.FC = () => {
             </Link>
           </CardHeader>
           <CardContent className="p-0">
-            {tasks.length === 0 ? (
+            {tasksLoading ? (
+              <div className="p-6">
+                <LoadingState message="Loading workflow human tasks..." />
+              </div>
+            ) : tasksError ? (
+              <div className="p-8 text-center space-y-3">
+                <ShieldAlert className="w-8 h-8 text-rose-500 mx-auto" />
+                <div className="text-sm font-semibold text-slate-900">
+                  Workflow Human Tasks Unavailable {tasksErrorCode ? `(HTTP ${tasksErrorCode})` : ""}
+                </div>
+                <p className="text-xs text-rose-600 max-w-md mx-auto">{tasksError}</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={fetchTasks}
+                  disabled={tasksLoading}
+                  className="gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${tasksLoading ? "animate-spin" : ""}`} /> Retry Tasks
+                </Button>
+              </div>
+            ) : tasks.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-sm">
-                No human tasks currently bound to this process instance.
+                Zero active human tasks assigned to this workflow instance.
               </div>
             ) : (
               <Table>
@@ -516,7 +652,7 @@ export const WorkflowInstancePage: React.FC = () => {
         <Card className="border-slate-200 shadow-sm bg-white">
           <CardHeader className="pb-3 border-b border-slate-100">
             <CardTitle className="text-base font-semibold text-slate-900 flex items-center gap-2">
-              <FileCode className="w-4 h-4 text-indigo-600" /> Sanitized Process Input Variables
+              <FileCode className="w-4 h-4 text-indigo-600" /> Process Variables (Display Redacted)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4">
@@ -526,7 +662,7 @@ export const WorkflowInstancePage: React.FC = () => {
               </div>
             ) : (
               <pre className="p-4 bg-slate-900 text-indigo-200 text-xs font-mono rounded-lg overflow-x-auto shadow-inner">
-                {JSON.stringify(instance.input_variables, null, 2)}
+                {JSON.stringify(redactSensitiveForDisplay(instance.input_variables), null, 2)}
               </pre>
             )}
           </CardContent>

@@ -42,9 +42,14 @@ export const TasksPage: React.FC = () => {
   const [isUpdatingTask, setIsUpdatingTask] = useState<boolean>(false);
   const [taskUpdateError, setTaskUpdateError] = useState<string | null>(null);
 
-  const tenantId = user?.tenant_id || "tenant-engineering";
+  const tenantId = user?.tenant_id;
 
   const fetchPlans = useCallback(async () => {
+    if (!tenantId) {
+      setLoadingPlans(false);
+      setError("Session or tenant context missing. Verified tenant identity is required to view tasks.");
+      return;
+    }
     setLoadingPlans(true);
     setError(null);
     try {
@@ -62,7 +67,7 @@ export const TasksPage: React.FC = () => {
   }, [tenantId, selectedPlanId]);
 
   const fetchTasks = useCallback(async (planId: string) => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setLoadingTasks(true);
     try {
       const data = await apiClient.getPlanTasks(planId, tenantId);
@@ -76,14 +81,19 @@ export const TasksPage: React.FC = () => {
   }, [tenantId]);
 
   useEffect(() => {
-    fetchPlans();
-  }, [fetchPlans]);
+    if (tenantId) {
+      fetchPlans();
+    } else {
+      setLoadingPlans(false);
+      setError("Session or tenant context missing. Verified tenant identity is required to view tasks.");
+    }
+  }, [fetchPlans, tenantId]);
 
   useEffect(() => {
-    if (selectedPlanId) {
+    if (selectedPlanId && tenantId) {
       fetchTasks(selectedPlanId);
     }
-  }, [selectedPlanId, fetchTasks]);
+  }, [selectedPlanId, fetchTasks, tenantId]);
 
   const openTaskModal = (task: TaskDetailResponse) => {
     setSelectedTask(task);
@@ -98,7 +108,10 @@ export const TasksPage: React.FC = () => {
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTask) return;
+    if (!selectedTask || !tenantId) {
+      setTaskUpdateError("Session or tenant context missing. Verified tenant identity is required to update tasks.");
+      return;
+    }
 
     setIsUpdatingTask(true);
     setTaskUpdateError(null);
@@ -136,6 +149,21 @@ export const TasksPage: React.FC = () => {
     if (statusFilter === "ALL") return true;
     return t.status === statusFilter;
   });
+
+  if (!user || !tenantId) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Tasks (WBS)"
+          description="Operational task tracking, status execution, and duration recording across active plans."
+        />
+        <ErrorState
+          title="Session or Tenant Context Missing"
+          message="Verified tenant identity is required to view or update tasks. Please sign in with an authorized tenant account."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

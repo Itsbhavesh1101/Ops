@@ -821,11 +821,8 @@ export class WorkflowApiClient {
     if (params?.priority_weight !== undefined) {
       q.set("priority_weight", String(params.priority_weight));
     }
-    if (params?.urgency_weight !== undefined) {
-      q.set("urgency_weight", String(params.urgency_weight));
-    }
-    if (params?.momentum_weight !== undefined) {
-      q.set("momentum_weight", String(params.momentum_weight));
+    if (params?.progress_momentum_weight !== undefined) {
+      q.set("progress_momentum_weight", String(params.progress_momentum_weight));
     }
     if (params?.readiness_weight !== undefined) {
       q.set("readiness_weight", String(params.readiness_weight));

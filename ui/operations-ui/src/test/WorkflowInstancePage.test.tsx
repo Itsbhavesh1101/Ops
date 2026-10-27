@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { WorkflowInstancePage } from "../pages/WorkflowInstancePage";
 import { AuthContextType } from "../context/AuthContext";
-import { apiClient } from "../api/client";
+import { apiClient, ApiError } from "../api/client";
 import type { WorkflowInstanceResponse, WorkflowHistoryEntry, WorkflowTask } from "../api/types";
 import { OIDC_CONFIG } from "../api/config";
 
@@ -41,6 +41,15 @@ vi.mock("../context/AuthContext", () => ({
 describe("WorkflowInstancePage Integration", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockAuthValue.user = {
+      principal_id: "ops-user-1",
+      tenant_id: "tenant-engineering",
+      roles: ["operator"],
+      permissions: ["read", "write"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Jane Operator",
+    };
   });
 
   const mockInstance: WorkflowInstanceResponse = {
@@ -196,5 +205,207 @@ describe("WorkflowInstancePage Integration", () => {
     await waitFor(() => {
       expect(screen.getByText(/Forbidden: tenant mismatch/i)).toBeInTheDocument();
     });
+  });
+
+  it("handles partial failure: instance succeeds but history fails with 403 Forbidden", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockResolvedValue(mockInstance);
+    const historySpy = vi.spyOn(apiClient, "getWorkflowHistory").mockRejectedValue(
+      new ApiError(403, "Forbidden: Insufficient privileges to view execution trail")
+    );
+    vi.spyOn(apiClient, "listWorkflowTasks").mockResolvedValue(mockTasks);
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-101"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("exam-scheduling-flow").length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Verify top degradation alert is displayed
+    expect(screen.getByText(/Partial Data Warning/i)).toBeInTheDocument();
+    expect(screen.getByText(/One or more secondary data streams failed to load/i)).toHaveTextContent("Activity History");
+
+    // Verify history tab displays explicit error card with code and retry action
+    expect(screen.getByText(/Activity Execution History Unavailable \(HTTP 403\)/i)).toBeInTheDocument();
+    const retryHistoryBtn = screen.getByRole("button", { name: /Retry History/i });
+    expect(retryHistoryBtn).toBeInTheDocument();
+
+    // Verify retry button re-invokes API
+    historySpy.mockResolvedValueOnce(mockHistoryEntries);
+    fireEvent.click(retryHistoryBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Normalized Activity Execution Trail")).toBeInTheDocument();
+    });
+  });
+
+  it("handles partial failure: instance succeeds but human tasks fail with network error", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockResolvedValue(mockInstance);
+    vi.spyOn(apiClient, "getWorkflowHistory").mockResolvedValue(mockHistoryEntries);
+    const tasksSpy = vi.spyOn(apiClient, "listWorkflowTasks").mockRejectedValue(
+      new Error("Network Error: Failed to reach workflow gateway")
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-101"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("exam-scheduling-flow").length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Verify degradation alert mentions Human Tasks
+    expect(screen.getByText(/Partial Data Warning/i)).toBeInTheDocument();
+    expect(screen.getByText(/One or more secondary data streams failed to load/i)).toHaveTextContent("Human Tasks");
+
+    // Switch to Tasks tab
+    const tasksTab = screen.getByRole("button", { name: /Human Tasks/i });
+    fireEvent.click(tasksTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Workflow Human Tasks Unavailable/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/Network Error: Unable to communicate with the workflow API/i)).toBeInTheDocument();
+
+    const retryTasksBtn = screen.getByRole("button", { name: /Retry Tasks/i });
+    expect(retryTasksBtn).toBeInTheDocument();
+
+    // Verify retry button re-invokes tasks API
+    tasksSpy.mockResolvedValueOnce(mockTasks);
+    fireEvent.click(retryTasksBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText("Approve Faculty Allocation")).toBeInTheDocument();
+    });
+  });
+
+  it("distinguishes genuine empty history from error states", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockResolvedValue(mockInstance);
+    vi.spyOn(apiClient, "getWorkflowHistory").mockResolvedValue([]);
+    vi.spyOn(apiClient, "listWorkflowTasks").mockResolvedValue(mockTasks);
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-101"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("exam-scheduling-flow").length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Should NOT show partial degradation warning
+    expect(screen.queryByText(/Partial Data Warning/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Zero activity execution records captured for this instance yet\./i)).toBeInTheDocument();
+  });
+
+  it("distinguishes genuine absence of tasks from error states", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockResolvedValue(mockInstance);
+    vi.spyOn(apiClient, "getWorkflowHistory").mockResolvedValue(mockHistoryEntries);
+    vi.spyOn(apiClient, "listWorkflowTasks").mockResolvedValue([]);
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-101"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("exam-scheduling-flow").length).toBeGreaterThanOrEqual(1);
+    });
+
+    const tasksTab = screen.getByRole("button", { name: /Human Tasks/i });
+    fireEvent.click(tasksTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Zero active human tasks assigned to this workflow instance\./i)).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/Workflow Human Tasks Unavailable/i)).not.toBeInTheDocument();
+  });
+
+  it("display-redacts nested sensitive variables in process variables tab", async () => {
+    const sensitiveInstance: WorkflowInstanceResponse = {
+      ...mockInstance,
+      input_variables: {
+        plan_id: "plan-101",
+        operational_target: "fall-2026",
+        db_connection: {
+          client_secret: "super-secret-key-12345",
+          password: "mysecretpassword",
+          api_key: "key-999-unredacted",
+          nested_tokens: {
+            access_token: "jwt.access.token",
+          },
+        },
+      },
+    };
+
+    vi.spyOn(apiClient, "getWorkflowInstance").mockResolvedValue(sensitiveInstance);
+    vi.spyOn(apiClient, "getWorkflowHistory").mockResolvedValue(mockHistoryEntries);
+    vi.spyOn(apiClient, "listWorkflowTasks").mockResolvedValue(mockTasks);
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-101"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("exam-scheduling-flow").length).toBeGreaterThanOrEqual(1);
+    });
+
+    const varsTab = screen.getByRole("button", { name: /Process Variables/i });
+    fireEvent.click(varsTab);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Process Variables \(Display Redacted\)/i)).toBeInTheDocument();
+    });
+
+    // Sensitive values must NOT appear
+    expect(screen.queryByText(/super-secret-key-12345/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/mysecretpassword/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/key-999-unredacted/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/jwt\.access\.token/i)).not.toBeInTheDocument();
+
+    // Permitted operational variables must appear
+    expect(screen.getByText(/"plan_id": "plan-101"/i)).toBeInTheDocument();
+    expect(screen.getByText(/"operational_target": "fall-2026"/i)).toBeInTheDocument();
+  });
+
+  it("fails closed when tenant identity is missing", async () => {
+    mockAuthValue.user = {
+      ...mockAuthValue.user!,
+      tenant_id: "",
+    };
+    const instSpy = vi.spyOn(apiClient, "getWorkflowInstance");
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-101"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Active authenticated tenant context is required/i)).toBeInTheDocument();
+    });
+
+    expect(instSpy).not.toHaveBeenCalled();
   });
 });

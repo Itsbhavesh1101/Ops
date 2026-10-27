@@ -36,22 +36,45 @@ import { BpmnDesigner } from "./components/BpmnDesigner";
 import { DmnEditor } from "./components/DmnEditor";
 import { FormEditor } from "./components/FormEditor";
 
+import { ErrorState } from "./components/ui/ErrorState";
+
 const WorkflowInboxView: React.FC = () => {
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "tenant-engineering";
-  return <TaskInbox apiClient={apiClient} tenantId={tenantId} />;
+  if (!user?.tenant_id) {
+    return (
+      <ErrorState
+        title="Session or Tenant Context Missing"
+        message="Verified tenant identity is required to access workflow task resources. Please sign in with an authorized tenant account."
+      />
+    );
+  }
+  return <TaskInbox apiClient={apiClient} tenantId={user.tenant_id} />;
 };
 
 const WorkflowBpmnView: React.FC = () => {
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "tenant-engineering";
-  return <BpmnDesigner apiClient={apiClient} tenantId={tenantId} />;
+  if (!user?.tenant_id) {
+    return (
+      <ErrorState
+        title="Session or Tenant Context Missing"
+        message="Verified tenant identity is required to access workflow model resources. Please sign in with an authorized tenant account."
+      />
+    );
+  }
+  return <BpmnDesigner apiClient={apiClient} tenantId={user.tenant_id} />;
 };
 
 const WorkflowDmnView: React.FC = () => {
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "tenant-engineering";
-  return <DmnEditor apiClient={apiClient} tenantId={tenantId} />;
+  if (!user?.tenant_id) {
+    return (
+      <ErrorState
+        title="Session or Tenant Context Missing"
+        message="Verified tenant identity is required to access decision model resources. Please sign in with an authorized tenant account."
+      />
+    );
+  }
+  return <DmnEditor apiClient={apiClient} tenantId={user.tenant_id} />;
 };
 
 const WorkflowFormsView: React.FC = () => {

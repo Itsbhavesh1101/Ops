@@ -50,6 +50,15 @@ vi.mock("../context/AuthContext", () => ({
 describe("DQ-2 Task Intelligence Frontend Integration", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockAuthValue.user = {
+      principal_id: "lead-planner-1",
+      tenant_id: "tenant-engineering",
+      roles: ["planner", "operator"],
+      permissions: ["read", "write"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Patricia Planner",
+    };
   });
 
   const mockPlanDetail: PlanDetailResponse = {
@@ -122,7 +131,7 @@ describe("DQ-2 Task Intelligence Frontend Integration", () => {
         title: "Hardware Telemetry Integration",
         rank: 1,
         score: 0.95,
-        action: "CONTINUE",
+        action: "CONTINUE_EXECUTION",
         priority: "HIGH",
         status: "IN_PROGRESS",
         is_critical_path: true,
@@ -137,7 +146,7 @@ describe("DQ-2 Task Intelligence Frontend Integration", () => {
         title: "Database Index Tuning",
         rank: 2,
         score: 0.72,
-        action: "START_NOW",
+        action: "START_TASK",
         priority: "MEDIUM",
         status: "TODO",
         is_critical_path: true,
@@ -211,8 +220,8 @@ describe("DQ-2 Task Intelligence Frontend Integration", () => {
 
     // Verify recommendations content
     expect(screen.getAllByText("Hardware Telemetry Integration").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("CONTINUE")).toBeInTheDocument();
-    expect(screen.getByText("START NOW")).toBeInTheDocument();
+    expect(screen.getByText("Continue Execution")).toBeInTheDocument();
+    expect(screen.getByText("Start Task")).toBeInTheDocument();
     expect(screen.getAllByText("Critical Path").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("HIGH Confidence")).toBeInTheDocument();
     expect(screen.getByText("Score: 0.950")).toBeInTheDocument();
@@ -349,5 +358,202 @@ describe("DQ-2 Task Intelligence Frontend Integration", () => {
     });
 
     expect(screen.getByLabelText(/Completion Evidence/i)).toBeInTheDocument();
+  });
+
+  it("fails closed on TasksPage when tenant identity is missing", async () => {
+    mockAuthValue.user = {
+      ...mockAuthValue.user!,
+      tenant_id: "",
+    };
+    const listSpy = vi.spyOn(apiClient, "listPlans");
+
+    render(
+      <ToastProvider>
+        <MemoryRouter>
+          <TasksPage />
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Session or Tenant Context Missing")).toBeInTheDocument();
+    });
+
+    expect(listSpy).not.toHaveBeenCalled();
+  });
+
+  it("fails closed on TasksPage when user session is missing", async () => {
+    mockAuthValue.user = null;
+    const listSpy = vi.spyOn(apiClient, "listPlans");
+
+    render(
+      <ToastProvider>
+        <MemoryRouter>
+          <TasksPage />
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Session or Tenant Context Missing")).toBeInTheDocument();
+    });
+
+    expect(listSpy).not.toHaveBeenCalled();
+  });
+
+  it("renders all five canonical backend recommendation actions with appropriate badges and labels", async () => {
+    const allActionsResponse: PlanRecommendationsResponse = {
+      plan_id: "plan-dq2-1",
+      tenant_id: "tenant-engineering",
+      total_tasks: 5,
+      ready_tasks_count: 3,
+      blocked_tasks_count: 1,
+      completed_tasks_count: 1,
+      is_authoritative: false,
+      policy_applied: true,
+      recommendations: [
+        {
+          task_id: "task-001",
+          temporary_id: "T-101",
+          title: "Task 1",
+          rank: 1,
+          score: 0.9,
+          action: "START_TASK",
+          priority: "HIGH",
+          status: "TODO",
+          is_critical_path: true,
+          quality: "HIGH",
+          quality_basis: "CPM",
+          explanation: "Start this task",
+        },
+        {
+          task_id: "task-002",
+          temporary_id: "T-102",
+          title: "Task 2",
+          rank: 2,
+          score: 0.8,
+          action: "CONTINUE_EXECUTION",
+          priority: "HIGH",
+          status: "IN_PROGRESS",
+          is_critical_path: false,
+          quality: "HIGH",
+          quality_basis: "CPM",
+          explanation: "Continue execution",
+        },
+        {
+          task_id: "task-003",
+          temporary_id: "T-103",
+          title: "Task 3",
+          rank: 3,
+          score: 0.7,
+          action: "RESOLVE_BLOCKER",
+          priority: "CRITICAL",
+          status: "BLOCKED",
+          is_critical_path: true,
+          quality: "HIGH",
+          quality_basis: "CPM",
+          explanation: "Resolve blocker",
+        },
+        {
+          task_id: "task-004",
+          temporary_id: "T-104",
+          title: "Task 4",
+          rank: 4,
+          score: 0.6,
+          action: "EXPEDITE_CRITICAL",
+          priority: "CRITICAL",
+          status: "IN_PROGRESS",
+          is_critical_path: true,
+          quality: "HIGH",
+          quality_basis: "CPM",
+          explanation: "Expedite critical",
+        },
+        {
+          task_id: "task-005",
+          temporary_id: "T-105",
+          title: "Task 5",
+          rank: 5,
+          score: 0.5,
+          action: "REPRIORITIZE",
+          priority: "LOW",
+          status: "TODO",
+          is_critical_path: false,
+          quality: "MEDIUM",
+          quality_basis: "Float",
+          explanation: "Reprioritize task",
+        },
+      ],
+    };
+
+    vi.spyOn(apiClient, "getPlan").mockResolvedValue(mockPlanDetail);
+    vi.spyOn(apiClient, "getPlanRecommendations").mockResolvedValue(allActionsResponse);
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/plans/plan-dq2-1"]}>
+          <Routes>
+            <Route path="/plans/:planId" element={<PlanDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Autonomous Campus Operations Rollout")).toBeInTheDocument();
+    });
+
+    const recoTab = screen.getByRole("button", { name: /Recommendations/i });
+    fireEvent.click(recoTab);
+
+    await waitFor(() => {
+      expect(screen.getByText("Start Task")).toBeInTheDocument();
+      expect(screen.getByText("Continue Execution")).toBeInTheDocument();
+      expect(screen.getByText("Resolve Blocker")).toBeInTheDocument();
+      expect(screen.getByText("Expedite Critical")).toBeInTheDocument();
+      expect(screen.getByText("Reprioritize")).toBeInTheDocument();
+    });
+  });
+
+  it("verifies recommendation query parameters send progress_momentum_weight matching backend contract", async () => {
+    let capturedUrl = "";
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      capturedUrl = String(input);
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            plan_id: "plan-dq2-1",
+            tenant_id: "tenant-engineering",
+            total_tasks: 0,
+            ready_tasks_count: 0,
+            blocked_tasks_count: 0,
+            completed_tasks_count: 0,
+            is_authoritative: false,
+            policy_applied: true,
+            recommendations: [],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+    });
+
+    await apiClient.getPlanRecommendations(
+      "plan-dq2-1",
+      {
+        limit: 15,
+        include_blocked: true,
+        critical_path_weight: 0.35,
+        priority_weight: 0.25,
+        progress_momentum_weight: 0.2,
+        readiness_weight: 0.2,
+      },
+      "tenant-engineering"
+    );
+
+    expect(capturedUrl).toContain("progress_momentum_weight=0.2");
+    expect(capturedUrl).toContain("critical_path_weight=0.35");
+    expect(capturedUrl).toContain("priority_weight=0.25");
+    expect(capturedUrl).toContain("readiness_weight=0.2");
+    expect(capturedUrl).not.toMatch(/[?&]urgency_weight=/);
+    expect(capturedUrl).not.toMatch(/[?&]momentum_weight=/);
   });
 });

@@ -12,8 +12,8 @@ const mockAuthValue: AuthContextType = {
   user: {
     principal_id: "auditor-01",
     tenant_id: "tenant-engineering",
-    roles: ["compliance_auditor"],
-    permissions: ["read:audit"],
+    roles: ["auditor"],
+    permissions: ["audit:read"],
     principal_type: "HUMAN",
     authentication_method: "OIDC",
     display_name: "Alex Auditor",
@@ -41,6 +41,15 @@ vi.mock("../context/AuthContext", () => ({
 describe("AuditPage Enterprise Audit Explorer Integration", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockAuthValue.user = {
+      principal_id: "auditor-01",
+      tenant_id: "tenant-engineering",
+      roles: ["auditor"],
+      permissions: ["audit:read"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Alex Auditor",
+    };
   });
 
   const mockAuditRecords: AuditEventResponse[] = [
@@ -196,5 +205,138 @@ describe("AuditPage Enterprise Audit Explorer Integration", () => {
 
     const retryBtn = screen.getByRole("button", { name: /Retry/i });
     expect(retryBtn).toBeInTheDocument();
+  });
+
+  it("blocks unauthorized user lacking audit:read permission or auditor role", async () => {
+    mockAuthValue.user = {
+      principal_id: "viewer-01",
+      tenant_id: "tenant-engineering",
+      roles: ["viewer"],
+      permissions: ["plan:read"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Viewer Only",
+    };
+
+    const spy = vi.spyOn(apiClient, "searchAudit");
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Insufficient permissions to inspect audit trail/i)
+      ).toBeInTheDocument();
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("blocks inspection when tenant identity is missing", async () => {
+    mockAuthValue.user = {
+      principal_id: "auditor-01",
+      tenant_id: "",
+      roles: ["auditor"],
+      permissions: ["audit:read"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Auditor Without Tenant",
+    };
+
+    const spy = vi.spyOn(apiClient, "searchAudit");
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Active authenticated tenant context is required/i)
+      ).toBeInTheDocument();
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("blocks inspection when user session is missing", async () => {
+    mockAuthValue.user = null;
+
+    const spy = vi.spyOn(apiClient, "searchAudit");
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Authentication session required/i)
+      ).toBeInTheDocument();
+    });
+
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("display-redacts sensitive credentials, tokens, and secrets in event modal while preserving operational data", async () => {
+    const sensitiveRecord: AuditEventResponse = {
+      audit_event_id: "audit-sec-001",
+      schema_version: 1,
+      tenant_id: "tenant-engineering",
+      actor_principal_id: "admin-01",
+      actor_principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      event_type: "SYSTEM_CONFIG_UPDATED",
+      resource_type: "CONFIG",
+      resource_id: "cfg-999",
+      correlation_id: "corr-sec-999",
+      recorded_at: "2026-10-25T13:00:00Z",
+      outcome: "SUCCESS",
+      details: {
+        environment: "production",
+        operational_metrics: { throughput: 450, error_rate: 0.001 },
+        connection_details: {
+          client_secret: "super-secret-passphrase",
+          apiKey: "sk-live-99999-secret",
+          nested_auth: {
+            auth_token: "jwt.token.string",
+            password: "mypassword123",
+          },
+        },
+      },
+    };
+
+    vi.spyOn(apiClient, "searchAudit").mockResolvedValue([sensitiveRecord]);
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("SYSTEM_CONFIG_UPDATED")).toBeInTheDocument();
+    });
+
+    const inspectBtn = screen.getByRole("button", { name: /Inspect/i });
+    fireEvent.click(inspectBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Immutable Event Payload \(Display Redacted\)/i)).toBeInTheDocument();
+    });
+
+    // Verify sensitive values are redacted
+    expect(screen.queryByText(/super-secret-passphrase/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/sk-live-99999-secret/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/mypassword123/i)).not.toBeInTheDocument();
+
+    // Verify permitted operational details remain intact
+    expect(screen.getByText(/"environment": "production"/i)).toBeInTheDocument();
+    expect(screen.getByText(/"throughput": 450/i)).toBeInTheDocument();
   });
 });
