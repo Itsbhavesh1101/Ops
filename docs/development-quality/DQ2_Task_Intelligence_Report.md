@@ -157,6 +157,24 @@ The following table reflects the authoritative definitions from `docs/REQUIREMEN
    ```
    **Result:** **2,248 tests collected across 194 test files** (zero collection errors).
 
+### 4.2 GitHub Actions CI Verification
+
+The continuous integration pipeline in GitHub Actions executes on every push and pull request against branch `quality/dq2-task-intelligence-completion`. The pipeline compiles all Python source files, runs Ruff linting and formatting, executes Mypy strict type checking, applies database migrations, runs the complete unit and contract suite, and executes the Task Intelligence live PostgreSQL integration tests against `postgres:16-alpine`:
+
+- **GitHub Actions PR Run #2:** [Run 40548382463](https://github.com/Itsbhavesh1101/Ops/actions/runs/40548382463) — **SUCCESS (GREEN)** (3m 6s)
+- **GitHub Actions Push Run:** [Run 40548373685](https://github.com/Itsbhavesh1101/Ops/actions/runs/40548373685) — **SUCCESS (GREEN)** (3m 13s)
+- **Task Intelligence PostgreSQL Integration Test Results:**
+  - `test_ai_planner_integration.py::test_end_to_end_ai_generation_flow`: **PASSED**
+  - `test_end_to_end_deterministic.py::test_representative_end_to_end_deterministic_flow`: **PASSED**
+  - `test_end_to_end_deterministic.py::test_cycle_negative_flow`: **PASSED**
+  - `test_end_to_end_deterministic.py::test_cross_tenant_negative_isolation`: **PASSED**
+  - `test_end_to_end_deterministic.py::test_historical_estimation_postgres_callchain`: **PASSED**
+  - `test_plan_service_atomicity.py::test_plan_generation_atomicity_commit`: **PASSED**
+  - `test_plan_service_atomicity.py::test_plan_generation_atomicity_rollback_on_failure`: **PASSED**
+  - `test_plan_service_atomicity.py::test_plan_approval_freezes_baseline_and_emits_event`: **PASSED**
+  - `test_plan_service_atomicity.py::test_goal_creation_atomicity_commit`: **PASSED**
+  - **Summary:** **9 passed in 3.06s** under live PostgreSQL 16.
+
 ---
 
 ## 5. Frozen Release Candidate Verification
@@ -175,7 +193,8 @@ The following files were created or modified as part of Phase DQ-2:
 
 | File Path | Change Type | Description |
 |---|---|---|
-| `.github/workflows/ci.yml` | Modified | Added PostgreSQL integration test step for Task Intelligence in CI workflow gate. |
+| `.github/workflows/ci.yml` | Modified | Added PostgreSQL integration test step for Task Intelligence in CI workflow gate with `PYTHONPATH: "."`. |
+| `pyproject.toml` | Modified | Configured `pythonpath = ["."]` under `[tool.pytest.ini_options]` for uniform package discovery. |
 | `app/task_intelligence/milestones.py` | Created | Runtime `MilestoneHealthCalculator` and schemas for FR-TI-06. |
 | `app/task_intelligence/recommender.py` | Created / Modified | Implemented `TaskRecommender`, `RecommendationPolicyConfig`, structural fallback when policy is None, milestone proximity, and degraded CPM surfacing. |
 | `app/task_intelligence/estimators/historical.py` | Created | Implemented `DatabaseHistoricalMedianProvider` querying real completed task durations for FR-TI-04. |
@@ -193,7 +212,7 @@ The following files were created or modified as part of Phase DQ-2:
 | `tests/unit/task_intelligence/test_risk_monitor.py` | Created / Modified | 12 unit tests for capacity shortfall, canonical resource matching, concurrency intervals, cycle diagnostics, and API contract. |
 | `tests/unit/task_intelligence/test_priority.py` | Created | 6 unit tests for multi-criteria priority calculation, policy validation, and human override bypass. |
 | `tests/unit/task_intelligence/test_milestones.py` | Created / Modified | 8 unit tests for runtime `MilestoneHealthCalculator`, CPM target dates, overdue states, and API endpoint. |
-| `tests/integration/task_intelligence/test_end_to_end_deterministic.py` | Modified | Added PostgreSQL integration test for historical estimation call chain and tenant isolation. |
+| `tests/integration/task_intelligence/test_end_to_end_deterministic.py` | Modified | Added PostgreSQL integration test for historical estimation call chain, calibrated heuristics, and outbox event assertions. |
 | `docs/development-quality/DQ2_Task_Intelligence_Report.md` | Modified | Authoritative Phase DQ-2 completion report reflecting all review corrections and verified test evidence. |
 
 ---
@@ -210,3 +229,4 @@ All independent technical review and final correctness concerns for Phase DQ-2 h
 - Canonical OpenAPI documentation and reference coverage are synchronized with zero drift.
 
 **Final Verdict:** `DQ2_FINAL_REVIEW_PASSED`
+
