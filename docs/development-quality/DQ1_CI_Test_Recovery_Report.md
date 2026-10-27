@@ -30,6 +30,8 @@ All tasks for DQ-1 have been completed and verified with empirical evidence.
 | **ISS-DQ1-05** | OpenAPI Contract | `test_openapi_drift.py` failed with `KeyError: '/api/v1/auth/me'` and missing operations | Nine runtime-mounted routes (including `/api/v1/auth/me`, `/api/v1/goals`, `/api/v1/plans`, `/api/v1/schedules`, `/api/v1/resources`) were mounted in FastAPI routers but were missing from the static `docs/production/openapi.json` artifact. | **API_CONTRACT_DRIFT** |
 | **ISS-DQ1-06** | API Reference Coverage | `test_api_reference_coverage.py` failed on path count assertion (59 vs 68) | `docs/production/API_REFERENCE.md` documented 59 paths, omitting `/api/v1/auth/me`, `/api/v1/plans/{plan_id}/submit-for-approval`, and `/api/v1/plans/{plan_id}/tasks`. | **DOCUMENTATION_DEFECT** |
 | **ISS-DQ1-07** | Unit Test (Calendar) | 15 tests in `test_google_calendar_production.py` failed with `ConnectionRefusedError: [WinError 1225]` | Fixture `db_session` connects over TCP to PostgreSQL on `localhost:5432`. Docker Desktop was inactive on the host machine, preventing local database connectivity. | **BLOCKED_LOCAL_INFRASTRUCTURE** |
+| **ISS-DQ1-08** | CI Discovery / Deps | `ModuleNotFoundError: No module named 'psutil'` in `tests/performance/resource_sampler.py` during global pytest discovery | `psutil` was only defined in `[project.optional-dependencies.eval]`. Running `pip install -e ".[dev]"` in CI did not install it. | **CI_ENVIRONMENT_DEFECT** |
+| **ISS-DQ1-09** | CI Healthcheck | `FATAL: role "root" does not exist` in GitHub Actions PostgreSQL 16 container log | Alpine container defaults to `root` user when running bare `pg_isready`. | **CI_CONFIG_DEFECT** |
 
 ---
 
@@ -58,11 +60,16 @@ All tasks for DQ-1 have been completed and verified with empirical evidence.
 ### 3.5 CI Workflow Execution Strategy
 - **File:** `.github/workflows/ci.yml`
 - **Change:** 
-  1. Configured container service `postgres:16-alpine` on port 5432 with synthetic test credentials.
+  1. Configured container service `postgres:16-alpine` on port 5432 with synthetic test credentials and healthcheck command `pg_isready -U postgres -d operations_engine`.
   2. Injected environment variables `E7_ENVIRONMENT: test`, `E7_DATABASE_URL`, `E7_JWT_SECRET_KEY`.
   3. Added explicit step `Verify Global Pytest Collection (all 2,192 tests)` with `pytest --collect-only -q`.
   4. Added migration step `alembic upgrade head` to provision schema in the disposable container.
   5. Scoped unit-test execution to `pytest tests/unit/ -q --tb=short` to guarantee deterministic passes for all 1,814 unit tests in CI.
+
+### 3.6 Performance Resource Sampler & Dev Dependencies
+- **Files:** `pyproject.toml`, `tests/performance/resource_sampler.py`
+- **Change:** Added `psutil>=5.9.0` to `dev` optional dependencies in `pyproject.toml` so CI runner installs it. Added defensive `try...except ImportError` fallback in `resource_sampler.py` to prevent test collection failure if optional telemetry dependency is absent.
+- **Verification:** `pytest --collect-only -q` cleanly discovers all 2,192 tests without error.
 
 ---
 
@@ -117,7 +124,9 @@ The following 15 tests require an active PostgreSQL instance via `db_session`:
 
 | File Path | Nature of Modification |
 |---|---|
-| `.github/workflows/ci.yml` | Configured PostgreSQL 16 container service, global test collection check, and targeted unit test run. |
+| `.github/workflows/ci.yml` | Configured PostgreSQL 16 container service with user healthcheck, global test collection check, and targeted unit test run. |
+| `pyproject.toml` | Added `psutil>=5.9.0` to `dev` optional dependencies. |
+| `tests/performance/resource_sampler.py` | Added defensive import fallback for `psutil` during test collection. |
 | `tests/performance/test_real_http_load.py` | Fixed broken dataset import and sorted import block. |
 | `tests/unit/capacity/test_capacity_controls.py` | Aligned test mock with SQLAlchemy 2.0 `.tuples().all()` return signature. |
 | `tests/unit/integrations/test_failure_recovery_scenarios.py` | Bound `single_tenant_id` in settings to match test tenant scope. |

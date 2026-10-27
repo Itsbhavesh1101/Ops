@@ -12,7 +12,10 @@ import subprocess
 import time
 from typing import Any
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +41,10 @@ class ResourceSampler:
         self._docker_task: asyncio.Task[None] | None = None
         self._cached_container_data: dict[str, Any] = {}
 
-    def _get_or_create_process(self, pid: int) -> psutil.Process | None:
+    def _get_or_create_process(self, pid: int) -> Any:
         """Retrieve persistent Process instance or instantiate and prime a new one."""
+        if psutil is None:
+            return None
         p = self._proc_cache.get(pid)
         if p is not None:
             try:
@@ -174,10 +179,13 @@ class ResourceSampler:
                     pass
 
         # Prime runner process
-        try:
-            self._runner_proc = psutil.Process()
-            self._runner_proc.cpu_percent(interval=None)
-        except Exception:
+        if psutil is not None:
+            try:
+                self._runner_proc = psutil.Process()
+                self._runner_proc.cpu_percent(interval=None)
+            except Exception:
+                self._runner_proc = None
+        else:
             self._runner_proc = None
 
         self._task = asyncio.create_task(self._sample_loop())
