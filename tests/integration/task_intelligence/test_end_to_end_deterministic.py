@@ -430,7 +430,7 @@ async def test_historical_estimation_postgres_callchain(
     assert detail_a1_updated is not None
     assert detail_a1_updated.tasks[0].completion_evidence == "https://audit.internal/evidence/task_a1_done.pdf"
     assert detail_a1_updated.tasks[0].actual_duration_minutes == 75
-    assert detail_a1_updated.tasks[0].variance_minutes == 15  # 75 actual - 60 estimated
+    assert detail_a1_updated.tasks[0].variance_minutes == -45  # 75 actual - 120 estimated
 
     # Step 3: Tenant A persists a second plan with a new task in PLANNING
     plan_a2 = await service.persist_generated_plan(
