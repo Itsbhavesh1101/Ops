@@ -31,6 +31,7 @@ from app.task_intelligence.schemas import (
     GoalCreate,
     MilestoneDraft,
     TaskDraft,
+    TaskProgressStatus,
 )
 
 
@@ -361,8 +362,18 @@ class TaskRepository(SqlAlchemyRepository):
 
         if update_data.status is not None:
             task.status = str(update_data.status)
+            if update_data.status == TaskProgressStatus.COMPLETED:
+                task.progress_percentage = 100
+
         if update_data.progress_percentage is not None:
+            if (
+                task.status == TaskProgressStatus.COMPLETED.value
+                and update_data.progress_percentage != 100
+            ):
+                raise ValueError("Completed tasks must have 100% progress_percentage.")
             task.progress_percentage = update_data.progress_percentage
+        elif task.status == TaskProgressStatus.COMPLETED.value:
+            task.progress_percentage = 100
         if update_data.actual_duration_minutes is not None:
             task.actual_duration_minutes = update_data.actual_duration_minutes
         if update_data.blocked_reason is not None:

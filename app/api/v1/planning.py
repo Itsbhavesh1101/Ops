@@ -1055,5 +1055,11 @@ def create_planning_router(
                 code="task.illegal_progress_transition",
                 message=str(exc),
             ) from exc
+        except ValueError as exc:
+            raise ApiError(
+                status_code=422,
+                code="task.invalid_progress_update",
+                message=str(exc),
+            ) from exc
 
     return router

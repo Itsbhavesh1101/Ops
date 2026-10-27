@@ -1007,6 +1007,16 @@ class PlanService:
             if not task:
                 raise TaskNotFoundError(task_id)
 
+            original_status: str | None = str(task.status) if task.status is not None else None
+
+            if original_status == TaskProgressStatus.COMPLETED.value:
+                if update_data.status is None and update_data.progress_percentage is not None:
+                    if update_data.progress_percentage != 100:
+                        raise ValueError(
+                            "Cannot set progress_percentage < 100 on a COMPLETED "
+                            "task without reopening."
+                        )
+
             is_reopen = False
             if update_data.status is not None:
                 current_st = TaskProgressStatus(task.status)
@@ -1022,10 +1032,16 @@ class PlanService:
 
             var_min = getattr(updated, "variance_minutes", None)
             variance_val = int(var_min) if isinstance(var_min, (int, float)) else None
-            actual_dur = update_data.actual_duration_minutes
+            actual_dur = getattr(updated, "actual_duration_minutes", None)
             actual_dur_val = int(actual_dur) if isinstance(actual_dur, (int, float)) else None
             comp_ev = getattr(updated, "completion_evidence", None)
             completion_ev_val = str(comp_ev) if isinstance(comp_ev, str) else None
+            prog_pct = getattr(updated, "progress_percentage", None)
+            prog_pct_val = int(prog_pct) if isinstance(prog_pct, (int, float)) else None
+            blk_rsn = getattr(updated, "blocked_reason", None)
+            blk_rsn_val = str(blk_rsn) if isinstance(blk_rsn, str) else None
+
+            new_status_str = str(updated.status) if updated.status is not None else original_status
 
             # Audit progress transition
             await audit_repo.append(
@@ -1040,13 +1056,13 @@ class PlanService:
                     outcome="SUCCESS",
                     correlation_id=correlation_id,
                     details={
-                        "previous_status": str(task.status) if task.status is not None else None,
-                        "new_status": str(update_data.status) if update_data.status else None,
-                        "progress_percentage": update_data.progress_percentage,
+                        "previous_status": original_status,
+                        "new_status": new_status_str,
+                        "progress_percentage": prog_pct_val,
                         "actual_duration_minutes": actual_dur_val,
                         "variance_minutes": variance_val,
-                        "completion_evidence": update_data.completion_evidence,
-                        "blocked_reason": update_data.blocked_reason,
+                        "completion_evidence": completion_ev_val,
+                        "blocked_reason": blk_rsn_val,
                         "is_reopen": is_reopen,
                     },
                 )
@@ -1470,9 +1486,19 @@ class PlanService:
                                     is_evaluable=True,
                                 )
                             )
-                except (Exception, BaseException):
-                    # In unit tests with mock sessions that do not supply audit results
-                    pass
+                except Exception as exc:
+                    risks.append(
+                        TaskRiskItem(
+                            task_id="GLOBAL",
+                            category=RiskCategory.REPEATED_REWORK,
+                            severity=RiskSeverity.MEDIUM,
+                            description=(
+                                f"Repeated rework evaluation degraded ({type(exc).__name__}): "
+                                "audit trail history query could not be completed."
+                            ),
+                            is_evaluable=False,
+                        )
+                    )
 
             return risks
 

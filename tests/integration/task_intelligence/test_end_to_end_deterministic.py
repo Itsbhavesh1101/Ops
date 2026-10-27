@@ -490,3 +490,136 @@ async def test_historical_estimation_postgres_callchain(
     assert task_b.effort_estimate_json["basis"] == "category_heuristic:PLANNING"
     assert task_b.effort_estimate_json["confidence"] == 0.7
 
+
+@pytest.mark.asyncio
+async def test_task_progress_audit_status_transitions_postgres(
+    uow_factory: Any,
+    session_factory: Any,
+) -> None:
+    """PostgreSQL integration test for Task 2 and Task 3:
+    Demonstrates correct audit status tracking with SQLAlchemy's identity map:
+    TODO -> IN_PROGRESS -> COMPLETED -> IN_PROGRESS -> BLOCKED.
+    Verifies that audit event details capture true previous_status and new_status
+    at each transition, and that completion consistency is enforced.
+    """
+    from app.task_intelligence.progress import TaskProgressStatus, TaskProgressUpdate
+
+    service = PlanService(uow_factory=uow_factory)
+    tenant_id = f"tenant-status-{uuid4().hex[:8]}"
+
+    # Step 0: Create goal and plan with single task starting in TODO
+    goal = await service.create_goal(
+        tenant_id=tenant_id,
+        goal_data=GoalCreate(objective="Status Transition Lifecycle Test"),
+    )
+    plan = await service.persist_generated_plan(
+        tenant_id=tenant_id,
+        goal_id=goal.id,
+        plan_schema=PlanSchema(
+            plan_name="Lifecycle Plan",
+            tasks=[
+                TaskDraft(
+                    temporary_id="T1_LIFE",
+                    title="Lifecycle Task",
+                    work_category="OPERATIONS",
+                    estimated_duration_minutes=60,
+                )
+            ],
+        ),
+    )
+
+    detail = await service.get_plan(tenant_id=tenant_id, plan_id=plan.id)
+    assert detail is not None and detail.tasks
+    task = detail.tasks[0]
+    assert task.status == "TODO"
+
+    # Transition 1: TODO -> IN_PROGRESS
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.IN_PROGRESS,
+            progress_percentage=25,
+            actual_duration_minutes=15,
+        ),
+    )
+
+    # Transition 2: IN_PROGRESS -> COMPLETED (omitting percentage normalizes to 100)
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.COMPLETED,
+            actual_duration_minutes=50,
+            completion_evidence="https://audit.internal/evidence/done.pdf",
+        ),
+    )
+
+    # Transition 3: COMPLETED -> IN_PROGRESS (reopening)
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.IN_PROGRESS,
+            progress_percentage=50,
+            actual_duration_minutes=70,
+        ),
+    )
+
+    # Transition 4: IN_PROGRESS -> BLOCKED
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.BLOCKED,
+            blocked_reason="Upstream dependency failed verification",
+        ),
+    )
+
+    # Query all audit events for this task from real PostgreSQL
+    async with session_factory() as session:
+        stmt = (
+            select(AuditEventRecord)
+            .where(
+                AuditEventRecord.tenant_id == tenant_id,
+                AuditEventRecord.resource_type == "task",
+                AuditEventRecord.resource_id == str(task.id),
+                AuditEventRecord.event_type == "task.progress_updated",
+            )
+            .order_by(AuditEventRecord.created_at.asc())
+        )
+        res = await session.execute(stmt)
+        events = list(res.scalars().all())
+
+    assert len(events) == 4
+
+    # Event 1: TODO -> IN_PROGRESS
+    ev1 = events[0].details
+    assert ev1["previous_status"] == "TODO"
+    assert ev1["new_status"] == "IN_PROGRESS"
+    assert ev1["progress_percentage"] == 25
+    assert ev1["is_reopen"] is False
+
+    # Event 2: IN_PROGRESS -> COMPLETED
+    ev2 = events[1].details
+    assert ev2["previous_status"] == "IN_PROGRESS"
+    assert ev2["new_status"] == "COMPLETED"
+    assert ev2["progress_percentage"] == 100
+    assert ev2["completion_evidence"] == "https://audit.internal/evidence/done.pdf"
+    assert ev2["is_reopen"] is False
+
+    # Event 3: COMPLETED -> IN_PROGRESS (reopen)
+    ev3 = events[2].details
+    assert ev3["previous_status"] == "COMPLETED"
+    assert ev3["new_status"] == "IN_PROGRESS"
+    assert ev3["progress_percentage"] == 50
+    assert ev3["is_reopen"] is True
+
+    # Event 4: IN_PROGRESS -> BLOCKED
+    ev4 = events[3].details
+    assert ev4["previous_status"] == "IN_PROGRESS"
+    assert ev4["new_status"] == "BLOCKED"
+    assert ev4["blocked_reason"] == "Upstream dependency failed verification"
+    assert ev4["is_reopen"] is False
+
+

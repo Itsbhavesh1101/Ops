@@ -226,7 +226,10 @@ async def test_plan_service_evaluate_plan_risks_resource_unsupported() -> None:
     res_resources = MagicMock()
     res_resources.scalars.return_value.all.return_value = []
 
-    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+    res_audit = MagicMock()
+    res_audit.__iter__.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources, res_audit]
 
     service = PlanService(uow_factory=lambda: mock_uow)
     risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
@@ -303,7 +306,10 @@ async def test_plan_service_evaluate_plan_risks_capacity_shortfall() -> None:
     res_resources = MagicMock()
     res_resources.scalars.return_value.all.return_value = [res_record]
 
-    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+    res_audit = MagicMock()
+    res_audit.__iter__.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources, res_audit]
 
     service = PlanService(uow_factory=lambda: mock_uow)
     risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
@@ -381,7 +387,10 @@ async def test_plan_service_evaluate_plan_risks_non_overlapping_no_shortfall() -
     res_resources = MagicMock()
     res_resources.scalars.return_value.all.return_value = [res_record]
 
-    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+    res_audit = MagicMock()
+    res_audit.__iter__.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources, res_audit]
 
     service = PlanService(uow_factory=lambda: mock_uow)
     risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
@@ -438,7 +447,10 @@ async def test_plan_service_evaluate_plan_risks_incorrect_skill_matching() -> No
     res_resources = MagicMock()
     res_resources.scalars.return_value.all.return_value = [res_record]
 
-    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+    res_audit = MagicMock()
+    res_audit.__iter__.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources, res_audit]
 
     service = PlanService(uow_factory=lambda: mock_uow)
     risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
@@ -508,7 +520,10 @@ async def test_plan_service_evaluate_plan_risks_cpm_cycle_degraded_diagnostic() 
     res_resources = MagicMock()
     res_resources.scalars.return_value.all.return_value = []
 
-    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+    res_audit = MagicMock()
+    res_audit.__iter__.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources, res_audit]
 
     service = PlanService(uow_factory=lambda: mock_uow)
     risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
@@ -579,7 +594,10 @@ async def test_plan_service_evaluate_plan_risks_variance_and_blockers() -> None:
     res_resources = MagicMock()
     res_resources.scalars.return_value.all.return_value = []
 
-    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+    res_audit = MagicMock()
+    res_audit.__iter__.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources, res_audit]
 
     service = PlanService(uow_factory=lambda: mock_uow)
     risks = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
@@ -764,4 +782,71 @@ async def test_plan_service_evaluate_plan_risks_repeated_rework_from_audit() -> 
     assert rework_risk.task_id == "T_REWORK"
     assert rework_risk.severity == RiskSeverity.HIGH
     assert "2 reopenings detected" in rework_risk.description
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_audit_query_failure() -> None:
+    """When audit query raises an exception, evaluate_plan_risks emits a degraded
+    unevaluable REPEATED_REWORK risk item without exposing internal secrets and preserves
+    other independently evaluated risks.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    t1 = MagicMock(
+        id=uuid4(),
+        temporary_id="T1",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role="OPERATOR",
+        work_category="PLANNING",
+    )
+
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1]
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = []
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = []
+
+    # Audit query raises an OperationalError / RuntimeError
+    mock_session.execute.side_effect = [
+        res_plan,
+        res_tasks,
+        res_deps,
+        res_resources,
+        RuntimeError("DB query timeout"),
+    ]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    # 1. Independent resource risk is preserved
+    assert any(r.category == RiskCategory.RESOURCE_CAPACITY_UNSUPPORTED for r in risks)
+
+    # 2. Rework risk is explicitly marked degraded and unevaluable
+    rework_risk = next(
+        (r for r in risks if r.category == RiskCategory.REPEATED_REWORK),
+        None,
+    )
+    assert rework_risk is not None
+    assert rework_risk.is_evaluable is False
+    assert rework_risk.severity == RiskSeverity.MEDIUM
+    assert "Repeated rework evaluation degraded (RuntimeError)" in rework_risk.description
+    assert "DB query timeout" not in rework_risk.description
+
 

@@ -6,10 +6,10 @@
 **GitHub Remote:** `https://github.com/Itsbhavesh1101/Ops`  
 **Working Feature Branch:** `quality/dq2-task-intelligence-completion`  
 **Base Commit (master HEAD):** `73cba5d47e8fcbe60e64f783ee896ae184db475c` (contains merged DQ-1 PR #1)  
-**Reviewed Baseline Commit:** `b3899f834b806eafe231d53c5063209263867bb2`  
+**Reviewed Baseline Commit:** `8e79995190c01fd16a66cf7f44e80710028a9457`  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — intact and unaltered.  
 **Open Pull Request:** PR #2 (`https://github.com/Itsbhavesh1101/Ops/pull/2`) targeting `master`  
-**Final Exit Gate Verdict:** `DQ2_ACCEPTANCE_VERIFIED`
+**Final Exit Gate Verdict:** `DQ2_READY_FOR_MERGE`
 
 ---
 
@@ -17,14 +17,17 @@
 
 Phase DQ-2 is the second phase of the Development Quality remediation track for the IR Infotech E-7 Operations Engine. The objective of this phase is the final requirements acceptance closure of all nine original Task Intelligence functional requirements (FR-TI-01 through FR-TI-09) according to their authoritative definitions in `docs/REQUIREMENTS_TRACEABILITY_MATRIX.md`, `docs/SOURCE_OF_TRUTH.md`, `docs/IMPLEMENTATION_GUARDRAILS.md`, and accepted architectural decisions (`ADR-002`).
 
-Following the final requirements acceptance review of commit `b3899f834b806eafe231d53c5063209263867bb2`, all identified original-requirement acceptance gaps have been resolved:
+Following the final requirements acceptance review and the targeted correctness verification pass on commit `8e79995190c01fd16a66cf7f44e80710028a9457`, all identified gaps and correctness findings have been resolved:
 
 1. **Milestone Health PENDING State (Task 1):** In `app/task_intelligence/milestones.py`, fixed the evaluation where a milestone has member tasks, but all tasks are unstarted (`TODO` with 0% progress, unblocked, not overdue). The health now deterministically evaluates to `MilestoneHealth.PENDING` rather than `ON_TRACK`. Tested across all 7 state combinations.
 2. **Repeated Rework Detection (Task 2):** In `app/task_intelligence/risks.py` and `service.py`, separated repeated rework (`RiskCategory.REPEATED_REWORK`) from single duration overruns (`RiskCategory.DURATION_OVERRUN`). Rework is deterministically tracked using immutable PostgreSQL `audit_events` recording task reopenings (`is_reopen == True` when transitioning from `COMPLETED` back to `IN_PROGRESS`). Zero fabricated rework counts.
 3. **Complete FR-TI-08 Progress Tracking (Task 3):** Fully traced and implemented all five mandatory capabilities: Task Status (`status`), Completion Percentage (`progress_percentage`), Actual Effort (`actual_duration_minutes`), Completion Evidence (`completion_evidence`), and Variance to Plan (`variance_minutes` property = `actual - estimated`). Persisted to PostgreSQL using JSONB column `tasks.effort_estimate_json` with `@property` and setter on `TaskRecord`, strictly preserving frozen Alembic migration head `"0014"`. Propagated to audit events, outbox domain events, OpenAPI schemas, and frontend TypeScript contracts.
 4. **Resource-Capacity Accuracy (Task 4):** Clarified the distinction between tentative CPM intervals and approved published schedules. When concurrent demand exceeds active registry capacity across tentative CPM execution intervals, the engine emits a provisional planning warning (`CONCURRENT_RESOURCE_BOTTLENECK`) distinguishing unconfirmed CPM intervals from published schedule assignments. Missing skills emit `MISSING_RESOURCE_SKILL_SHORTFALL`. Indeterminate registry state emits `RESOURCE_CAPACITY_UNSUPPORTED` (`is_evaluable=False`).
 5. **FR-TI-09 Qualitative Confidence Contract (Task 5):** Added explicit qualitative uncertainty assessment `confidence: RecommendationQuality` (`HIGH`, `MEDIUM`, `DEGRADED`) to `TaskRecommendation`, satisfying the authoritative requirement for confidence without fabricating statistical probabilities.
-6. **Verification & Regression Suite:** All 137 Task Intelligence unit tests, 8 planning API contract tests, 17 OpenAPI drift & API reference coverage tests, 14 frontend Vitest suites (84 tests), and full pytest test discovery (2,254 tests) pass with zero errors.
+6. **Targeted Correctness Fix 1 — Silent Rework Audit Failure:** Replaced swallowed exception handling in `PlanService.evaluate_plan_risks` with degraded `TaskRiskItem` (`category=RiskCategory.REPEATED_REWORK`, `is_evaluable=False`, sanitized error name in description), preserving independent risk results while preventing confidential exception leakage and tenant isolation bypass.
+7. **Targeted Correctness Fix 2 — Audit Previous Status Capture:** Fixed SQLAlchemy identity map in-place entity mutation defect in `PlanService.update_task_progress` by capturing `original_status` before repository mutation, ensuring audit events record true previous and new statuses across all transitions (`TODO -> IN_PROGRESS`, `IN_PROGRESS -> COMPLETED`, `COMPLETED -> IN_PROGRESS`, `IN_PROGRESS -> BLOCKED`). Verified with dedicated PostgreSQL integration test.
+8. **Targeted Correctness Fix 3 — Completion Consistency Enforcement:** Normalized omitted progress percentage to 100 on `COMPLETED`, rejected `progress_percentage != 100` with `COMPLETED`, prohibited partial progress reductions on completed tasks without explicit reopening (`IN_PROGRESS`), and handled validation errors cleanly as HTTP 422.
+9. **Verification & Regression Suite:** All 146 Task Intelligence unit tests, 8 planning API contract tests, 17 OpenAPI drift & API reference coverage tests, 14 frontend Vitest suites (84 tests), and full pytest test discovery (2,264 tests) pass with zero errors.
 
 ---
 
@@ -107,6 +110,20 @@ The table below documents the complete acceptance status for all nine Task Intel
     - `RecommendationQuality.DEGRADED`: Schedule calculation failed or dependency cycle detected; degraded fallback ranking applied with diagnostic surfaced.
   - Fully documented in OpenAPI specification and verified in unit tests.
 
+### 3.6 Targeted Final Correctness Fixes
+
+Following independent review of commit `8e79995190c01fd16a66cf7f44e80710028a9457`, three specific correctness issues were identified and resolved:
+
+1. **Task 1 — Fix Silent Rework Audit Failure (`app/task_intelligence/service.py`):**
+   - **Defect:** `evaluate_plan_risks` swallowed repeated rework audit query errors with `except (Exception, BaseException): pass`.
+   - **Correction:** Removed swallowed-exception behavior. If audit evaluation fails, the service appends a degraded `TaskRiskItem(task_id="GLOBAL", category=RiskCategory.REPEATED_REWORK, severity=RiskSeverity.MEDIUM, is_evaluable=False)` explicitly noting that audit evaluation failed (`type(exc).__name__`), preserving independently verified risks without exposing confidential DB connection or query details. Never catches `BaseException` directly. Updated unit test mocks in `test_risk_monitor.py` to supply `res_audit` and added regression test `test_plan_service_evaluate_plan_risks_audit_query_failure`.
+2. **Task 2 — Correct Audit Previous Status (`PlanService.update_task_progress`):**
+   - **Defect:** `update_task_progress` retrieved the task ORM entity and recorded `task.status` in audit details *after* `TaskRepository.update_task_progress` had already mutated the entity in place in SQLAlchemy's identity map, causing `previous_status` to incorrectly equal `new_status`.
+   - **Correction:** Captured `original_status: str | None = str(task.status) if task.status is not None else None` *before* the repository update method executes. Verified all four transitions (`TODO -> IN_PROGRESS`, `IN_PROGRESS -> COMPLETED`, `COMPLETED -> IN_PROGRESS`, `IN_PROGRESS -> BLOCKED`). Added unit regression test simulating identity map in-place mutation, and real PostgreSQL integration test `test_task_progress_audit_status_transitions_postgres` in `test_end_to_end_deterministic.py`.
+3. **Task 3 — Enforce Completion Consistency (`progress.py`, `repositories/planning.py`, `service.py`, `api/v1/planning.py`):**
+   - **Defect:** Persisted tasks could reach or remain in status `COMPLETED` with inconsistent completion percentages (< 100%).
+   - **Correction:** In `TaskProgressUpdate`, omitting `progress_percentage` on `COMPLETED` normalizes to 100%; providing `progress_percentage != 100` with `COMPLETED` raises `ValueError`. In `TaskRepository` and `PlanService`, updating progress to `< 100%` on an existing `COMPLETED` task without reopening (`IN_PROGRESS`) is rejected with `ValueError`. In API router, `ValueError` is caught and translated to HTTP 422 `task.invalid_progress_update`. Added unit tests for normalization, 100% validation, incompatible percentage rejection, reopening semantics, and milestone health.
+
 ---
 
 ## 4. Test Evidence & Local Verification
@@ -121,7 +138,7 @@ The table below documents the complete acceptance status for all nine Task Intel
 
 2. **Mypy Static Type Analysis:**
    ```bash
-   .venv\Scripts\python.exe -m mypy app
+   .venv\Scripts\mypy.exe app
    ```
    **Result:** `Success: no issues found in 265 source files`.
 
@@ -129,10 +146,10 @@ The table below documents the complete acceptance status for all nine Task Intel
    ```bash
    .venv\Scripts\python.exe -m pytest tests/unit/task_intelligence/ -v
    ```
-   **Result:** **137 passed, 1 warning in 11.67s** (100% pass rate).
+   **Result:** **146 passed, 1 warning in 11.98s** (100% pass rate).
    - `test_milestones.py`: 8 passed (includes all milestone health states and PENDING regression)
-   - `test_risk_monitor.py`: 16 passed (includes repeated rework, duration overrun, canonical resources, provisional capacity warnings)
-   - `test_task_update_regression.py`: 5 passed (includes completion evidence, variance to plan, audit details, outbox payload, and reopening detection)
+   - `test_risk_monitor.py`: 17 passed (includes repeated rework, duration overrun, canonical resources, provisional capacity warnings, and audit query failure regression)
+   - `test_task_update_regression.py`: 12 passed (includes completion evidence, variance to plan, audit details, outbox payload, reopening detection, identity map in-place mutation audit test, completion normalization, 100% progress validation, rejection of incompatible completion percentage, reduction rejection on completed tasks, reopening allowing partial progress, and milestone health after completion)
    - `test_recommendations.py`: 20 passed (includes qualitative confidence contract, policy governance, structural fallback)
    - `test_historical_estimation.py`: 8 passed
    - `test_priority.py`: 6 passed
@@ -150,13 +167,13 @@ The table below documents the complete acceptance status for all nine Task Intel
    ```bash
    .venv\Scripts\python.exe -m pytest tests/contract/test_planning_api.py -v
    ```
-   **Result:** **8 passed, 1 warning in 10.66s** (includes `test_update_task_progress_contract`).
+   **Result:** **8 passed, 1 warning in 10.14s** (includes `test_update_task_progress_contract`).
 
 5. **OpenAPI Drift & Coverage Tests:**
    ```bash
    .venv\Scripts\python.exe -m pytest tests/unit/test_openapi_drift.py tests/unit/test_api_reference_coverage.py -v
    ```
-   **Result:** **17 passed in 77.24s** (71 canonical paths, 72 protected operations).
+   **Result:** **17 passed in 73.53s** (71 canonical paths, 72 protected operations).
 
 6. **Frontend Test Suite & Typecheck:**
    ```bash
@@ -177,7 +194,7 @@ The table below documents the complete acceptance status for all nine Task Intel
    ```bash
    .venv\Scripts\python.exe -m pytest --collect-only -q
    ```
-   **Result:** **2,254 tests collected across 194 test files** (zero collection errors).
+   **Result:** **2,264 tests collected across 194 test files** (zero collection errors).
 
 ---
 
@@ -185,7 +202,7 @@ The table below documents the complete acceptance status for all nine Task Intel
 
 - **Target Tag:** `phase8-rc-38d080fadab8`
 - **Expected Commit SHA:** `03e6305256db3d838b472aaac50893ddb513414e`
-- **Verification Command:** `git rev-parse phase8-rc-38d080fadab8`
+- **Verification Command:** `git rev-parse phase8-rc-38d080fadab8^{commit}`
 - **Resolved Commit SHA:** `03e6305256db3d838b472aaac50893ddb513414e`
 - **Integrity Status:** **UNALTERED & INTACT**.
 
@@ -198,31 +215,33 @@ The table below documents the complete acceptance status for all nine Task Intel
 | `app/task_intelligence/milestones.py` | Modified | Corrected milestone health evaluation so milestones with unstarted member tasks evaluate strictly to `MilestoneHealth.PENDING`. |
 | `app/task_intelligence/risks.py` | Modified | Added `RiskCategory.REPEATED_REWORK` and `RiskCategory.DURATION_OVERRUN`. Added `detect_repeated_rework` and `detect_duration_overruns`. Updated provisional planning warning for concurrent resource demand. |
 | `app/task_intelligence/recommender.py` | Modified | Added qualitative `confidence: RecommendationQuality` to `TaskRecommendation`. |
-| `app/task_intelligence/progress.py` | Modified | Added `completion_evidence` field to `TaskProgressUpdate`. |
+| `app/task_intelligence/progress.py` | Modified | Added `completion_evidence` field to `TaskProgressUpdate`. Normalizes omitted `progress_percentage` to 100 on `COMPLETED`; validates `progress_percentage == 100` on `COMPLETED`. |
 | `app/db/models/planning.py` | Modified | Added `completion_evidence` property and setter to `TaskRecord` backed persistently by `effort_estimate_json`. Retained `variance_minutes` property. |
-| `app/db/repositories/planning.py` | Modified | In `update_task_progress`, assigns `completion_evidence` and flags `effort_estimate_json` as modified for PostgreSQL persistence. |
-| `app/api/v1/planning.py` | Modified | Added `completion_evidence` and `variance_minutes` to `TaskResponse` and `TaskDetailResponse`. Updated progress patch handler. |
-| `app/task_intelligence/service.py` | Modified | Records `is_reopen`, `variance_minutes`, `completion_evidence` in audit and outbox events. Queries audit log for task reopenings (>=2) to emit `RiskCategory.REPEATED_REWORK`. Emits `DURATION_OVERRUN` for >50% variance. Labels concurrent CPM resource demand as provisional warning. |
+| `app/db/repositories/planning.py` | Modified | In `update_task_progress`, assigns `completion_evidence` and flags `effort_estimate_json` as modified for PostgreSQL persistence. Enforces `progress_percentage = 100` on `COMPLETED` and rejects `< 100` on existing completed tasks. |
+| `app/api/v1/planning.py` | Modified | Added `completion_evidence` and `variance_minutes` to `TaskResponse` and `TaskDetailResponse`. Updated progress patch handler to catch `ValueError` as HTTP 422. |
+| `app/task_intelligence/service.py` | Modified | Captures `original_status` before repository mutation for accurate audit trails. Normalizes and validates completion status transitions. Surfaces degraded unevaluable `REPEATED_REWORK` risk item on audit query failure without leaking secrets. Queries audit log for task reopenings (>=2) to emit `RiskCategory.REPEATED_REWORK`. Emits `DURATION_OVERRUN` for >50% variance. Labels concurrent CPM resource demand as provisional warning. |
 | `docs/production/openapi.json` | Modified | Re-exported canonical OpenAPI specification with synchronized task schemas and recommendations confidence contract. |
 | `ui/operations-ui/src/api/types.ts` | Modified | Added `completion_evidence` and `variance_minutes` to `TaskResponse` and `TaskProgressUpdate`. |
 | `tests/unit/task_intelligence/test_milestones.py` | Modified | Added regression tests verifying `MilestoneHealth.PENDING` when member tasks are TODO with 0% progress, and mixed states. |
-| `tests/unit/task_intelligence/test_risk_monitor.py` | Modified | Added tests for repeated rework detection from audit logs, duration overruns, and provisional capacity warning. |
-| `tests/unit/task_intelligence/test_task_update_regression.py` | Modified | Added tests verifying `completion_evidence`, `variance_minutes`, audit details, outbox payload, reopening detection, and `TaskRecord.completion_evidence` property. |
+| `tests/unit/task_intelligence/test_risk_monitor.py` | Modified | Added tests for repeated rework detection from audit logs, duration overruns, provisional capacity warning, and audit query failure regression. |
+| `tests/unit/task_intelligence/test_task_update_regression.py` | Modified | Added tests verifying `completion_evidence`, `variance_minutes`, audit details, outbox payload, reopening detection, identity map in-place mutation audit test, completion normalization, 100% progress validation, rejection of incompatible completion percentage, reduction rejection on completed tasks, reopening allowing partial progress, and milestone health after completion. |
 | `tests/contract/test_planning_api.py` | Modified | Added `test_update_task_progress_contract` verifying HTTP PATCH `/api/v1/tasks/{task_id}` contract. |
-| `tests/integration/task_intelligence/test_end_to_end_deterministic.py` | Modified | Added PostgreSQL assertions verifying persistence of `completion_evidence` and `variance_minutes`. |
+| `tests/integration/task_intelligence/test_end_to_end_deterministic.py` | Modified | Added PostgreSQL assertions verifying persistence of `completion_evidence` and `variance_minutes`, and `test_task_progress_audit_status_transitions_postgres` verifying full audit status lifecycle with SQLAlchemy identity map. |
 | `docs/development-quality/DQ2_Task_Intelligence_Report.md` | Modified | Complete authoritative Phase DQ-2 acceptance closure report. |
 
 ---
 
 ## 7. Exit Gate Conclusion
 
-All original-requirement acceptance gaps identified during independent technical review have been resolved and verified with comprehensive automated test evidence:
+All original-requirement acceptance gaps and targeted final correctness issues identified during independent technical review have been resolved and verified with comprehensive automated test evidence:
 - Milestone health correctly evaluates unstarted milestones to `PENDING`.
-- Repeated rework is deterministically detected from immutable audit events without fabricating counts.
+- Repeated rework is deterministically detected from immutable audit events without fabricating counts; query failures surface cleanly as degraded diagnostic items without masking errors or leaking secrets.
+- True previous status is preserved in immutable audit events by capturing status before in-place ORM mutation in SQLAlchemy's identity map.
+- Task completion consistency is strictly enforced: `COMPLETED` requires and normalizes to 100%, and partial progress reductions cannot be applied to completed tasks without explicit reopening.
 - FR-TI-08 is completely verified across all 5 capabilities through schemas, services, repositories, PostgreSQL persistence, audit events, outbox domain events, and frontend types.
 - Resource-capacity evaluations accurately distinguish provisional planning warnings from missing skills or published schedule assignments.
 - Recommendation confidence is fulfilled via a formal qualitative uncertainty contract without fabricating statistical probabilities.
 - Zero destructive schema changes; Alembic migration head remains strictly frozen at `"0014"`.
-- Frozen Phase-8 RC tag `phase8-rc-38d080fadab8` is intact.
+- Frozen Phase-8 RC tag `phase8-rc-38d080fadab8` is intact (`03e6305256db3d838b472aaac50893ddb513414e`).
 
-**Final Exit Gate Verdict:** `DQ2_ACCEPTANCE_VERIFIED`
+**Final Exit Gate Verdict:** `DQ2_READY_FOR_MERGE`

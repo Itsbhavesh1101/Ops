@@ -68,9 +68,11 @@ class TaskProgressUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_status_and_progress(self) -> "TaskProgressUpdate":
-        if self.status == TaskProgressStatus.COMPLETED and self.progress_percentage is not None:
-            if self.progress_percentage != 100:
+        if self.status == TaskProgressStatus.COMPLETED:
+            if self.progress_percentage is not None and self.progress_percentage != 100:
                 raise ValueError("Completed tasks must have 100% progress_percentage.")
+            if self.progress_percentage is None:
+                self.progress_percentage = 100
         if self.status == TaskProgressStatus.BLOCKED and not self.blocked_reason:
             raise ValueError("Blocked tasks must include a non-empty blocked_reason.")
         return self
