@@ -214,7 +214,7 @@ async def test_representative_end_to_end_deterministic_flow(
 
     # Step 8: Verify database state, outbox events, and audit logs
     async with test_engine.connect() as conn:
-        # 1. Outbox events: plan.generated and plan.approved
+        # 1. Outbox events: goal.created, plan.generated, and plan.approved
         outbox_rows = (
             await conn.execute(
                 select(OutboxEventRecord.envelope)
@@ -222,12 +222,12 @@ async def test_representative_end_to_end_deterministic_flow(
                 .order_by(OutboxEventRecord.created_at)
             )
         ).fetchall()
-        assert len(outbox_rows) == 2
+        assert len(outbox_rows) == 3
         event_types = [r[0]["event_type"] for r in outbox_rows]
-        assert event_types == ["plan.generated", "plan.approved"]
+        assert event_types == ["goal.created", "plan.generated", "plan.approved"]
 
         # Minimal data payload check
-        approved_evt = outbox_rows[1][0]
+        approved_evt = [r[0] for r in outbox_rows if r[0]["event_type"] == "plan.approved"][0]
         assert approved_evt["payload"]["baseline_hash"] == approved_plan.baseline_hash
         assert approved_evt["payload"]["approver_id"] == approver_id
 
