@@ -276,6 +276,7 @@ export interface TaskProgressUpdate {
   progress_percentage?: number | null;
   actual_duration_minutes?: number | null;
   blocked_reason?: string | null;
+  completion_evidence?: string | null;
 }
 
 export interface TaskResponse {
@@ -286,6 +287,8 @@ export interface TaskResponse {
   status: string;
   progress_percentage: number;
   actual_duration_minutes?: number | null;
+  variance_minutes?: number | null;
+  completion_evidence?: string | null;
   blocked_reason?: string | null;
   updated_at: string;
 }

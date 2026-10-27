@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.models.planning import (
     GoalRecord,
@@ -30,6 +31,7 @@ from app.task_intelligence.schemas import (
     GoalCreate,
     MilestoneDraft,
     TaskDraft,
+    TaskProgressStatus,
 )
 
 
@@ -332,6 +334,21 @@ class TaskRepository(SqlAlchemyRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_milestones_for_plan(
+        self, plan_id: UUID, tenant_id: str
+    ) -> list[MilestoneRecord]:
+        """Retrieve all milestones belonging to a plan."""
+        stmt = (
+            select(MilestoneRecord)
+            .where(
+                MilestoneRecord.plan_id == plan_id,
+                MilestoneRecord.tenant_id == tenant_id,
+            )
+            .order_by(MilestoneRecord.temporary_id)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def update_task_progress(
         self,
         task_id: UUID,
@@ -345,11 +362,52 @@ class TaskRepository(SqlAlchemyRepository):
 
         if update_data.status is not None:
             task.status = str(update_data.status)
+            if update_data.status == TaskProgressStatus.COMPLETED:
+                task.progress_percentage = 100
+
         if update_data.progress_percentage is not None:
+            if (
+                task.status == TaskProgressStatus.COMPLETED.value
+                and update_data.progress_percentage != 100
+            ):
+                raise ValueError("Completed tasks must have 100% progress_percentage.")
             task.progress_percentage = update_data.progress_percentage
+        elif task.status == TaskProgressStatus.COMPLETED.value:
+            task.progress_percentage = 100
         if update_data.actual_duration_minutes is not None:
             task.actual_duration_minutes = update_data.actual_duration_minutes
         if update_data.blocked_reason is not None:
             task.blocked_reason = update_data.blocked_reason
+        if update_data.completion_evidence is not None:
+            task.completion_evidence = update_data.completion_evidence
+            flag_modified(task, "effort_estimate_json")
 
         return task
+
+    async def get_completed_actual_durations(
+        self,
+        tenant_id: str,
+        work_category: str | None = None,
+    ) -> list[int]:
+        """Retrieve actual durations of completed tasks for statistical recalibration.
+
+        Filters strictly by tenant_id, status='COMPLETED', non-null and positive
+        actual_duration_minutes. Optionally filters by work_category.
+        """
+        conditions = [
+            TaskRecord.tenant_id == tenant_id,
+            TaskRecord.status == "COMPLETED",
+            TaskRecord.actual_duration_minutes.is_not(None),
+            TaskRecord.actual_duration_minutes > 0,
+        ]
+        if work_category:
+            conditions.append(TaskRecord.work_category == work_category)
+
+        stmt = (
+            select(TaskRecord.actual_duration_minutes)
+            .where(*conditions)
+            .order_by(TaskRecord.actual_duration_minutes.asc())
+        )
+        result = await self.session.execute(stmt)
+        return [int(val) for val in result.scalars().all() if val is not None]
+

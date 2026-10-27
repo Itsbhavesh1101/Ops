@@ -100,7 +100,10 @@ class MockPlanService:
                 "title": td.title,
                 "status": "TODO",
                 "progress_percentage": 0,
+                "estimated_duration_minutes": getattr(td, "estimated_duration_minutes", 0),
                 "actual_duration_minutes": None,
+                "variance_minutes": None,
+                "completion_evidence": None,
                 "blocked_reason": None,
                 "updated_at": datetime.now(UTC),
             }
@@ -176,8 +179,16 @@ class MockPlanService:
             t["status"] = str(update_data.status)
         if update_data.progress_percentage is not None:
             t["progress_percentage"] = update_data.progress_percentage
+        if update_data.actual_duration_minutes is not None:
+            t["actual_duration_minutes"] = update_data.actual_duration_minutes
+        if update_data.completion_evidence is not None:
+            t["completion_evidence"] = update_data.completion_evidence
         if update_data.blocked_reason is not None:
             t["blocked_reason"] = update_data.blocked_reason
+
+        est = t.get("estimated_duration_minutes", 0)
+        act = t.get("actual_duration_minutes")
+        t["variance_minutes"] = (act - est) if act is not None else None
 
         class MockTaskRec:
             def __init__(self, data: dict):
@@ -376,3 +387,58 @@ def test_wrong_tenant_isolation_404_equivalence(client_factory: Any) -> None:
     ghost_res = client_b.post(f"/api/v1/goals/{uuid4()}/generate-plan", json=plan_schema)
     assert ghost_res.status_code == 404
     assert ghost_res.json()["error"]["code"] == "goal.not_found"
+
+
+def test_update_task_progress_contract(client_factory: Any, mock_service: MockPlanService) -> None:
+    """FR-TI-08 contract: status, completion %, actual effort, evidence, and variance to plan."""
+    client = client_factory("tenant-alpha")
+    g_res = client.post("/api/v1/goals", json={"objective": "Exam Execution"})
+    goal_id = g_res.json()["id"]
+
+    plan_schema = {
+        "plan_name": "Execution Plan",
+        "tasks": [
+            {
+                "temporary_id": "T1",
+                "title": "Seal Question Papers",
+                "estimated_duration_minutes": 60,
+            }
+        ],
+        "dependencies": [],
+    }
+    client.post(f"/api/v1/goals/{goal_id}/generate-plan", json=plan_schema)
+    task_id = next(
+        t["id"] for (t_id, _), t in mock_service.tasks.items()
+        if t_id == "tenant-alpha" and t["temporary_id"] == "T1"
+    )
+
+    # 1. Update to IN_PROGRESS with actual effort
+    patch_1 = {
+        "status": "IN_PROGRESS",
+        "progress_percentage": 50,
+        "actual_duration_minutes": 30,
+    }
+    res_1 = client.patch(f"/api/v1/tasks/{task_id}", json=patch_1)
+    assert res_1.status_code == 200
+    d1 = res_1.json()
+    assert d1["status"] == "IN_PROGRESS"
+    assert d1["progress_percentage"] == 50
+    assert d1["actual_duration_minutes"] == 30
+    assert d1["variance_minutes"] == -30  # 30 actual - 60 estimated
+
+    # 2. Complete task with completion evidence
+    patch_2 = {
+        "status": "COMPLETED",
+        "progress_percentage": 100,
+        "actual_duration_minutes": 75,
+        "completion_evidence": "https://vault.internal/audit/evidence/seal_01.pdf",
+    }
+    res_2 = client.patch(f"/api/v1/tasks/{task_id}", json=patch_2)
+    assert res_2.status_code == 200
+    d2 = res_2.json()
+    assert d2["status"] == "COMPLETED"
+    assert d2["progress_percentage"] == 100
+    assert d2["actual_duration_minutes"] == 75
+    assert d2["completion_evidence"] == "https://vault.internal/audit/evidence/seal_01.pdf"
+    assert d2["variance_minutes"] == 15  # 75 actual - 60 estimated
+

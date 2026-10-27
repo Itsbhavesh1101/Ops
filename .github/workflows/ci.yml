@@ -60,7 +60,7 @@ jobs:
         run: |
           mypy app
 
-      - name: Verify Global Pytest Collection (all 2,192 tests)
+      - name: Verify Global Pytest Collection (all 2,248 tests)
         run: |
           pytest --collect-only -q
 
@@ -71,3 +71,15 @@ jobs:
       - name: Run Pytest (unit & contract test suites)
         run: |
           pytest tests/unit/ -q --tb=short
+
+      - name: Run Task Intelligence PostgreSQL Integration Tests
+        env:
+          E7_RUN_TASK_INTELLIGENCE_INTEGRATION: "1"
+          POSTGRES_PORT: "5432"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          PYTHONPATH: "."
+        run: |
+          pytest tests/integration/task_intelligence/ -v --tb=short
+

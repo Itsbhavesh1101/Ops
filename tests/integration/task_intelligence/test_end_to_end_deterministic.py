@@ -174,7 +174,7 @@ async def test_representative_end_to_end_deterministic_flow(
     assert len(validation_res.topological_order or []) == 7
     assert validation_res.critical_path is not None
     # Verify critical path calculation: T1 -> T2 -> T3 -> T6 -> T7
-    # Durations: 120 + 180 + 90 + 240 + 120 = 750 minutes
+    # Calibrated Category Durations: 120 + 180 + 60 + 180 + 60 = 600 minutes
     assert validation_res.critical_path == [
         "T1_PLANNING",
         "T2_QP_DRAFT",
@@ -190,7 +190,7 @@ async def test_representative_end_to_end_deterministic_flow(
 
     # Step 5: Critical Path Query
     cpm_res = await service.get_critical_path(tenant_id=tenant_id, plan_id=plan_record.id)
-    assert cpm_res.project_duration_minutes == 750
+    assert cpm_res.project_duration_minutes == 600
     assert cpm_res.critical_path == validation_res.critical_path
 
     # Step 6: Submit for Approval
@@ -214,7 +214,7 @@ async def test_representative_end_to_end_deterministic_flow(
 
     # Step 8: Verify database state, outbox events, and audit logs
     async with test_engine.connect() as conn:
-        # 1. Outbox events: plan.generated and plan.approved
+        # 1. Outbox events: goal.created, plan.generated, and plan.approved
         outbox_rows = (
             await conn.execute(
                 select(OutboxEventRecord.envelope)
@@ -222,12 +222,12 @@ async def test_representative_end_to_end_deterministic_flow(
                 .order_by(OutboxEventRecord.created_at)
             )
         ).fetchall()
-        assert len(outbox_rows) == 2
+        assert len(outbox_rows) == 3
         event_types = [r[0]["event_type"] for r in outbox_rows]
-        assert event_types == ["plan.generated", "plan.approved"]
+        assert event_types == ["goal.created", "plan.generated", "plan.approved"]
 
         # Minimal data payload check
-        approved_evt = outbox_rows[1][0]
+        approved_evt = [r[0] for r in outbox_rows if r[0]["event_type"] == "plan.approved"][0]
         assert approved_evt["payload"]["baseline_hash"] == approved_plan.baseline_hash
         assert approved_evt["payload"]["approver_id"] == approver_id
 
@@ -371,3 +371,255 @@ async def test_cross_tenant_negative_isolation(
     # 5. Tenant B cannot get critical path for Tenant A's plan
     with pytest.raises(PlanNotFoundError):
         await service.get_critical_path(tenant_id=tenant_b, plan_id=plan_a.id)
+
+
+@pytest.mark.ti_integration
+@pytest.mark.asyncio
+async def test_historical_estimation_postgres_callchain(
+    uow_factory: Any,
+) -> None:
+    """PostgreSQL integration test for FR-TI-04:
+    Completed task actuals -> historical aggregation -> new task estimate -> persisted plan output.
+    Verifies tenant isolation and fallback behavior.
+    """
+    from app.task_intelligence.progress import TaskProgressStatus, TaskProgressUpdate
+
+    service = PlanService(uow_factory=uow_factory)
+    tenant_a = f"tenant-hist-a-{uuid4().hex[:8]}"
+    tenant_b = f"tenant-hist-b-{uuid4().hex[:8]}"
+
+    # Step 1: Tenant A creates initial plan with a task in PLANNING category
+    goal_a = await service.create_goal(
+        tenant_id=tenant_a,
+        goal_data=GoalCreate(objective="Semester Exam Preparation"),
+    )
+    plan_a1 = await service.persist_generated_plan(
+        tenant_id=tenant_a,
+        goal_id=goal_a.id,
+        plan_schema=PlanSchema(
+            plan_name="Exam Setup Plan 1",
+            tasks=[
+                TaskDraft(
+                    temporary_id="T1_PLAN",
+                    title="Planning session",
+                    work_category="PLANNING",
+                    estimated_duration_minutes=120,
+                )
+            ],
+        ),
+    )
+
+    # Step 2: Tenant A completes the task with actual_duration_minutes = 75
+    detail_a1 = await service.get_plan(tenant_id=tenant_a, plan_id=plan_a1.id)
+    assert detail_a1 is not None and detail_a1.tasks
+    task_a1 = detail_a1.tasks[0]
+
+    await service.update_task_progress(
+        tenant_id=tenant_a,
+        task_id=task_a1.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.COMPLETED,
+            progress_percentage=100,
+            actual_duration_minutes=75,
+            completion_evidence="https://audit.internal/evidence/task_a1_done.pdf",
+        ),
+    )
+
+    # Verify FR-TI-08 persistence under PostgreSQL
+    detail_a1_updated = await service.get_plan(tenant_id=tenant_a, plan_id=plan_a1.id)
+    assert detail_a1_updated is not None
+    assert detail_a1_updated.tasks[0].completion_evidence == "https://audit.internal/evidence/task_a1_done.pdf"
+    assert detail_a1_updated.tasks[0].actual_duration_minutes == 75
+    assert detail_a1_updated.tasks[0].variance_minutes == -45  # 75 actual - 120 estimated
+
+    # Step 3: Tenant A persists a second plan with a new task in PLANNING
+    plan_a2 = await service.persist_generated_plan(
+        tenant_id=tenant_a,
+        goal_id=goal_a.id,
+        plan_schema=PlanSchema(
+            plan_name="Exam Setup Plan 2",
+            tasks=[
+                TaskDraft(
+                    temporary_id="T2_PLAN",
+                    title="Follow-up planning session",
+                    work_category="PLANNING",
+                    estimated_duration_minutes=120,
+                )
+            ],
+        ),
+    )
+
+    detail_a2 = await service.get_plan(tenant_id=tenant_a, plan_id=plan_a2.id)
+    assert detail_a2 is not None and detail_a2.tasks
+    task_a2 = detail_a2.tasks[0]
+
+    # Verify task was calibrated to historical median (75 minutes)
+    assert task_a2.estimated_duration_minutes == 75
+    assert task_a2.effort_estimate_json is not None
+    assert task_a2.effort_estimate_json["basis"] == "historical_median"
+    assert task_a2.effort_estimate_json["confidence"] == 0.85
+
+    # Step 4: Tenant B persists a plan with a PLANNING task (has zero completed tasks)
+    goal_b = await service.create_goal(
+        tenant_id=tenant_b,
+        goal_data=GoalCreate(objective="Tenant B Examinations"),
+    )
+    plan_b = await service.persist_generated_plan(
+        tenant_id=tenant_b,
+        goal_id=goal_b.id,
+        plan_schema=PlanSchema(
+            plan_name="Tenant B Plan",
+            tasks=[
+                TaskDraft(
+                    temporary_id="TB_PLAN",
+                    title="Tenant B planning",
+                    work_category="PLANNING",
+                    estimated_duration_minutes=60,
+                )
+            ],
+        ),
+    )
+
+    detail_b = await service.get_plan(tenant_id=tenant_b, plan_id=plan_b.id)
+    assert detail_b is not None and detail_b.tasks
+    task_b = detail_b.tasks[0]
+
+    # Tenant B must NOT use Tenant A's 75m median; falls back to category heuristic (120m)
+    assert task_b.estimated_duration_minutes == 120
+    assert task_b.effort_estimate_json is not None
+    assert task_b.effort_estimate_json["basis"] == "category_heuristic:PLANNING"
+    assert task_b.effort_estimate_json["confidence"] == 0.7
+
+
+@pytest.mark.asyncio
+async def test_task_progress_audit_status_transitions_postgres(
+    uow_factory: Any,
+    session_factory: Any,
+) -> None:
+    """PostgreSQL integration test for Task 2 and Task 3:
+    Demonstrates correct audit status tracking with SQLAlchemy's identity map:
+    TODO -> IN_PROGRESS -> COMPLETED -> IN_PROGRESS -> BLOCKED.
+    Verifies that audit event details capture true previous_status and new_status
+    at each transition, and that completion consistency is enforced.
+    """
+    from app.task_intelligence.progress import TaskProgressStatus, TaskProgressUpdate
+
+    service = PlanService(uow_factory=uow_factory)
+    tenant_id = f"tenant-status-{uuid4().hex[:8]}"
+
+    # Step 0: Create goal and plan with single task starting in TODO
+    goal = await service.create_goal(
+        tenant_id=tenant_id,
+        goal_data=GoalCreate(objective="Status Transition Lifecycle Test"),
+    )
+    plan = await service.persist_generated_plan(
+        tenant_id=tenant_id,
+        goal_id=goal.id,
+        plan_schema=PlanSchema(
+            plan_name="Lifecycle Plan",
+            tasks=[
+                TaskDraft(
+                    temporary_id="T1_LIFE",
+                    title="Lifecycle Task",
+                    work_category="OPERATIONS",
+                    estimated_duration_minutes=60,
+                )
+            ],
+        ),
+    )
+
+    detail = await service.get_plan(tenant_id=tenant_id, plan_id=plan.id)
+    assert detail is not None and detail.tasks
+    task = detail.tasks[0]
+    assert task.status == "TODO"
+
+    # Transition 1: TODO -> IN_PROGRESS
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.IN_PROGRESS,
+            progress_percentage=25,
+            actual_duration_minutes=15,
+        ),
+    )
+
+    # Transition 2: IN_PROGRESS -> COMPLETED (omitting percentage normalizes to 100)
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.COMPLETED,
+            actual_duration_minutes=50,
+            completion_evidence="https://audit.internal/evidence/done.pdf",
+        ),
+    )
+
+    # Transition 3: COMPLETED -> IN_PROGRESS (reopening)
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.IN_PROGRESS,
+            progress_percentage=50,
+            actual_duration_minutes=70,
+        ),
+    )
+
+    # Transition 4: IN_PROGRESS -> BLOCKED
+    await service.update_task_progress(
+        tenant_id=tenant_id,
+        task_id=task.id,
+        update_data=TaskProgressUpdate(
+            status=TaskProgressStatus.BLOCKED,
+            blocked_reason="Upstream dependency failed verification",
+        ),
+    )
+
+    # Query all audit events for this task from real PostgreSQL
+    async with session_factory() as session:
+        stmt = (
+            select(AuditEventRecord)
+            .where(
+                AuditEventRecord.tenant_id == tenant_id,
+                AuditEventRecord.resource_type == "task",
+                AuditEventRecord.resource_id == str(task.id),
+                AuditEventRecord.event_type == "task.progress_updated",
+            )
+            .order_by(AuditEventRecord.recorded_at.asc())
+        )
+        res = await session.execute(stmt)
+        events = list(res.scalars().all())
+
+    assert len(events) == 4
+
+    # Event 1: TODO -> IN_PROGRESS
+    ev1 = events[0].details
+    assert ev1["previous_status"] == "TODO"
+    assert ev1["new_status"] == "IN_PROGRESS"
+    assert ev1["progress_percentage"] == 25
+    assert ev1["is_reopen"] is False
+
+    # Event 2: IN_PROGRESS -> COMPLETED
+    ev2 = events[1].details
+    assert ev2["previous_status"] == "IN_PROGRESS"
+    assert ev2["new_status"] == "COMPLETED"
+    assert ev2["progress_percentage"] == 100
+    assert ev2["completion_evidence"] == "https://audit.internal/evidence/done.pdf"
+    assert ev2["is_reopen"] is False
+
+    # Event 3: COMPLETED -> IN_PROGRESS (reopen)
+    ev3 = events[2].details
+    assert ev3["previous_status"] == "COMPLETED"
+    assert ev3["new_status"] == "IN_PROGRESS"
+    assert ev3["progress_percentage"] == 50
+    assert ev3["is_reopen"] is True
+
+    # Event 4: IN_PROGRESS -> BLOCKED
+    ev4 = events[3].details
+    assert ev4["previous_status"] == "IN_PROGRESS"
+    assert ev4["new_status"] == "BLOCKED"
+    assert ev4["blocked_reason"] == "Upstream dependency failed verification"
+    assert ev4["is_reopen"] is False
+
+

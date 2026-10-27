@@ -27,9 +27,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.errors import ApiError, ApiErrorResponse
 from app.core.auth.models import AuthenticatedPrincipal, TenantContext
 from app.task_intelligence.graph.models import CPMScheduleResult
+from app.task_intelligence.milestones import MilestoneHealthResponse
 from app.task_intelligence.progress import (
     InvalidTaskProgressTransitionError,
     TaskProgressUpdate,
+)
+from app.task_intelligence.recommender import (
+    PlanRecommendationsResponse,
+    RecommendationPolicyConfig,
 )
 from app.task_intelligence.schemas import (
     GoalCreate,
@@ -75,6 +80,8 @@ class TaskResponse(BaseModel):
     status: str
     progress_percentage: int
     actual_duration_minutes: int | None = None
+    variance_minutes: int | None = None
+    completion_evidence: str | None = None
     blocked_reason: str | None = None
     updated_at: datetime
 
@@ -94,6 +101,8 @@ class TaskDetailResponse(BaseModel):
     owner_reference: str | None = None
     estimated_duration_minutes: int
     actual_duration_minutes: int | None = None
+    variance_minutes: int | None = None
+    completion_evidence: str | None = None
     status: str
     progress_percentage: int
     blocked_reason: str | None = None
@@ -128,6 +137,19 @@ class MilestoneDetailResponse(BaseModel):
     name: str
     description: str | None = None
     target_date: datetime | None = None
+
+
+class TaskRiskResponse(BaseModel):
+    """Public representation of an operational risk flag."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    task_id: str
+    category: str
+    severity: str
+    description: str
+    is_evaluable: bool
+    detected_at: datetime
 
 
 class RiskDetailResponse(BaseModel):
@@ -189,6 +211,8 @@ def _map_task(task: Any) -> TaskDetailResponse:
         owner_reference=task.owner_reference,
         estimated_duration_minutes=task.estimated_duration_minutes,
         actual_duration_minutes=task.actual_duration_minutes,
+        variance_minutes=task.variance_minutes,
+        completion_evidence=task.completion_evidence,
         status=task.status,
         progress_percentage=task.progress_percentage,
         blocked_reason=task.blocked_reason,
@@ -759,6 +783,218 @@ def create_planning_router(
                 message="Plan not found.",
             ) from exc
 
+    @router.get(
+        "/plans/{plan_id}/recommendations",
+        response_model=PlanRecommendationsResponse,
+        status_code=status.HTTP_200_OK,
+        summary="Get Next-Best-Task Recommendations",
+        responses={
+            200: {
+                "model": PlanRecommendationsResponse,
+                "description": "Deterministic actionable task recommendations.",
+            },
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+            422: {"model": ApiErrorResponse, "description": "Invalid recommendation policy."},
+        },
+    )
+    async def get_plan_recommendations(
+        plan_id: UUID = Path(...),
+        limit: int = Query(default=10, ge=1, le=50, description="Max recommendations to return"),
+        include_blocked: bool = Query(
+            default=False, description="Whether to include blocked tasks with mitigation actions"
+        ),
+        critical_path_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for critical path factor"
+        ),
+        priority_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for priority factor"
+        ),
+        progress_momentum_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for momentum factor"
+        ),
+        readiness_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for readiness factor"
+        ),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> PlanRecommendationsResponse:
+        """Get explainable, deterministic next-best-task recommendations for a plan (FR-TI-09)."""
+        if isinstance(principal, AuthenticatedPrincipal):
+            if not (
+                principal.has_any_role(
+                    "planner", "operator", "scheduler", "auditor", "tenant_admin", "admin"
+                )
+                or principal.has_permission("plan:read")
+                or principal.has_permission("*")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Insufficient permissions to view plan recommendations.",
+                )
+        tenant_id = _extract_tenant_id(tenant_context)
+
+        policy_weights = [
+            critical_path_weight,
+            priority_weight,
+            progress_momentum_weight,
+            readiness_weight,
+        ]
+        any_weight = any(w is not None for w in policy_weights)
+        all_weights = all(w is not None for w in policy_weights)
+
+        policy: RecommendationPolicyConfig | None = None
+        if any_weight and not all_weights:
+            raise ApiError(
+                status_code=422,
+                code="recommendation.policy_incomplete",
+                message=(
+                    "When supplying recommendation policy weights, all 4 weights "
+                    "(critical_path_weight, priority_weight, progress_momentum_weight, "
+                    "readiness_weight) must be provided."
+                ),
+            )
+        elif all_weights:
+            try:
+                assert critical_path_weight is not None
+                assert priority_weight is not None
+                assert progress_momentum_weight is not None
+                assert readiness_weight is not None
+                policy = RecommendationPolicyConfig(
+                    critical_path_weight=critical_path_weight,
+                    priority_weight=priority_weight,
+                    progress_momentum_weight=progress_momentum_weight,
+                    readiness_weight=readiness_weight,
+                )
+            except Exception as exc:
+                raise ApiError(
+                    status_code=422,
+                    code="recommendation.invalid_policy",
+                    message=f"Invalid recommendation policy weights: {exc}",
+                ) from exc
+
+        try:
+            return await service.get_plan_recommendations(
+                tenant_id=tenant_id,
+                plan_id=plan_id,
+                policy=policy,
+                limit=limit,
+                include_blocked=include_blocked,
+            )
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+
+    @router.get(
+        "/plans/{plan_id}/milestones",
+        response_model=list[MilestoneHealthResponse],
+        status_code=status.HTTP_200_OK,
+        summary="Get Plan Milestones and Derived Health",
+        responses={
+            200: {
+                "model": list[MilestoneHealthResponse],
+                "description": "Milestones and derived operational health rollups (FR-TI-06).",
+            },
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+        },
+    )
+    async def get_plan_milestones(
+        plan_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> list[MilestoneHealthResponse]:
+        """Get milestones and derived health metrics for a plan (FR-TI-06)."""
+        if isinstance(principal, AuthenticatedPrincipal):
+            if not (
+                principal.has_any_role(
+                    "planner", "operator", "scheduler", "auditor", "tenant_admin", "admin"
+                )
+                or principal.has_permission("plan:read")
+                or principal.has_permission("*")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Insufficient permissions to view plan milestones.",
+                )
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            return await service.get_plan_milestones(
+                tenant_id=tenant_id,
+                plan_id=plan_id,
+            )
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+
+    @router.get(
+        "/plans/{plan_id}/risks",
+        response_model=list[TaskRiskResponse],
+        status_code=status.HTTP_200_OK,
+        summary="Get Plan Operational Risks",
+        responses={
+            200: {
+                "model": list[TaskRiskResponse],
+                "description": "Deterministic operational risk and blocker detection signals.",
+            },
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+        },
+    )
+    async def get_plan_risks(
+        plan_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> list[TaskRiskResponse]:
+        """Get operational risk signals and blocker detection for a plan (FR-TI-07)."""
+        if isinstance(principal, AuthenticatedPrincipal):
+            if not (
+                principal.has_any_role(
+                    "planner", "operator", "scheduler", "auditor", "tenant_admin", "admin"
+                )
+                or principal.has_permission("plan:read")
+                or principal.has_permission("*")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Insufficient permissions to view plan risks.",
+                )
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            risks = await service.evaluate_plan_risks(
+                tenant_id=tenant_id,
+                plan_id=plan_id,
+            )
+            return [
+                TaskRiskResponse(
+                    task_id=r.task_id,
+                    category=str(r.category),
+                    severity=str(r.severity),
+                    description=r.description,
+                    is_evaluable=r.is_evaluable,
+                    detected_at=r.detected_at,
+                )
+                for r in risks
+            ]
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+
     @router.patch(
         "/tasks/{task_id}",
         response_model=TaskResponse,
@@ -801,8 +1037,10 @@ def create_planning_router(
                 title=task.title,
                 status=task.status,
                 progress_percentage=task.progress_percentage,
-                actual_duration_minutes=task.actual_duration_minutes,
-                blocked_reason=task.blocked_reason,
+                actual_duration_minutes=getattr(task, "actual_duration_minutes", None),
+                variance_minutes=getattr(task, "variance_minutes", None),
+                completion_evidence=getattr(task, "completion_evidence", None),
+                blocked_reason=getattr(task, "blocked_reason", None),
                 updated_at=task.updated_at,
             )
         except TaskNotFoundError as exc:
@@ -815,6 +1053,12 @@ def create_planning_router(
             raise ApiError(
                 status_code=422,
                 code="task.illegal_progress_transition",
+                message=str(exc),
+            ) from exc
+        except ValueError as exc:
+            raise ApiError(
+                status_code=422,
+                code="task.invalid_progress_update",
                 message=str(exc),
             ) from exc
 

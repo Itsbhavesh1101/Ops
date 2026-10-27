@@ -9,9 +9,13 @@ and outbox events.
 import hashlib
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import func, select
+
+from app.audit.models import AuditEventRecord
 from app.audit.repository import AuditRepository
 from app.audit.schemas import AuditEventCreate
 from app.core.capacity.quotas import TenantQuotaManager
@@ -21,6 +25,7 @@ from app.db.models.planning import (
     TaskDependencyRecord,
     TaskRecord,
 )
+from app.db.models.scheduling import ResourceRecord
 from app.db.repositories.planning import (
     GoalRepository,
     PlanRepository,
@@ -29,18 +34,36 @@ from app.db.repositories.planning import (
 from app.db.uow import SqlAlchemyUnitOfWork
 from app.events.outbox.repository import OutboxRepository
 from app.events.schemas import EventCreate, create_event_envelope
+from app.task_intelligence.estimators import (
+    DatabaseHistoricalMedianProvider,
+    HeuristicEffortEstimator,
+)
 from app.task_intelligence.graph import (
     CriticalPathCalculator,
     TaskDependencyGraph,
 )
+from app.task_intelligence.graph.exceptions import GraphCycleError
 from app.task_intelligence.graph.models import CPMScheduleResult
+from app.task_intelligence.milestones import MilestoneHealthCalculator, MilestoneHealthResponse
 from app.task_intelligence.planner.protocol import PlannerProtocol
 from app.task_intelligence.progress import (
     TaskProgressStatus,
     TaskProgressUpdate,
     assert_valid_task_progress_transition,
 )
+from app.task_intelligence.recommender import (
+    PlanRecommendationsResponse,
+    RecommendationPolicyConfig,
+    TaskRecommender,
+)
+from app.task_intelligence.risks import (
+    DeterministicRiskDetector,
+    RiskCategory,
+    RiskSeverity,
+    TaskRiskItem,
+)
 from app.task_intelligence.schemas import (
+    EffortEstimateDraft,
     GoalCreate,
     GoalResponse,
     PlanSchema,
@@ -273,6 +296,35 @@ class PlanService:
             uow.session.expunge_all()
             return tasks
 
+    async def get_plan_milestones(
+        self, tenant_id: str, plan_id: UUID
+    ) -> list[MilestoneHealthResponse]:
+        """Retrieve milestones belonging to a plan with derived health rollups (FR-TI-06)."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+            task_repo = TaskRepository(uow.session)
+            milestones = await task_repo.get_milestones_for_plan(plan_id, tenant_id)
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+
+            tasks_by_milestone: dict[UUID, list[TaskRecord]] = {m.id: [] for m in milestones}
+            for t in tasks:
+                if t.milestone_id and t.milestone_id in tasks_by_milestone:
+                    tasks_by_milestone[t.milestone_id].append(t)
+
+            now = datetime.now(UTC)
+            return [
+                MilestoneHealthCalculator.evaluate_milestone_health(
+                    milestone=m,
+                    member_tasks=tasks_by_milestone[m.id],
+                    now=now,
+                )
+                for m in milestones
+            ]
+
     async def generate_plan(
         self,
         tenant_id: str,
@@ -363,6 +415,48 @@ class PlanService:
 
         return plan_record, proposed_plan, val_res
 
+    async def calibrate_plan_effort(
+        self,
+        tenant_id: str,
+        plan_schema: PlanSchema,
+        task_repo: TaskRepository,
+    ) -> PlanSchema:
+        """Calibrate plan task effort estimates using historical execution data (FR-TI-04).
+
+        Precedence Hierarchy:
+        1. Explicit human override (retains confidence 1.0, basis='human_override').
+        2. Historical median provider derived from completed PostgreSQL tasks for this tenant
+           (confidence 0.85, basis='historical_median').
+        3. Category heuristic default (confidence 0.7, basis='category_heuristic:<cat>').
+        4. Global fallback duration (confidence 0.5, basis='default_fallback').
+        """
+        historical_provider = await DatabaseHistoricalMedianProvider.load_for_tenant(
+            task_repo=task_repo,
+            tenant_id=tenant_id,
+        )
+        estimator = HeuristicEffortEstimator(historical_provider=historical_provider)
+
+        for task in plan_schema.tasks:
+            human_override = None
+            if task.effort_estimate and task.effort_estimate.is_manual_override:
+                human_override = float(task.effort_estimate.value)
+
+            estimate_res = estimator.estimate(
+                title=task.title,
+                work_category=task.work_category,
+                human_override=human_override,
+            )
+            task.estimated_duration_minutes = int(estimate_res.value)
+            task.effort_estimate = EffortEstimateDraft(
+                value=estimate_res.value,
+                unit=estimate_res.unit,
+                basis=estimate_res.basis,
+                confidence=estimate_res.confidence,
+                is_manual_override=estimate_res.is_manual_override,
+            )
+
+        return plan_schema
+
     async def persist_generated_plan(
         self,
         tenant_id: str,
@@ -388,6 +482,9 @@ class PlanService:
             goal = await goal_repo.get_by_id(goal_id, tenant_id)
             if not goal:
                 raise GoalNotFoundError(goal_id)
+
+            # Calibrate effort estimates against tenant historical execution data
+            await self.calibrate_plan_effort(tenant_id, plan_schema, task_repo)
 
             latest_version = await plan_repo.get_latest_version_number(goal_id, tenant_id)
             new_version = latest_version + 1
@@ -910,12 +1007,41 @@ class PlanService:
             if not task:
                 raise TaskNotFoundError(task_id)
 
+            original_status: str | None = str(task.status) if task.status is not None else None
+
+            if original_status == TaskProgressStatus.COMPLETED.value:
+                if update_data.status is None and update_data.progress_percentage is not None:
+                    if update_data.progress_percentage != 100:
+                        raise ValueError(
+                            "Cannot set progress_percentage < 100 on a COMPLETED "
+                            "task without reopening."
+                        )
+
+            is_reopen = False
             if update_data.status is not None:
                 current_st = TaskProgressStatus(task.status)
                 assert_valid_task_progress_transition(current_st, update_data.status)
+                if (
+                    current_st == TaskProgressStatus.COMPLETED
+                    and update_data.status == TaskProgressStatus.IN_PROGRESS
+                ):
+                    is_reopen = True
 
             updated = await task_repo.update_task_progress(task_id, tenant_id, update_data)
             assert updated is not None
+
+            var_min = getattr(updated, "variance_minutes", None)
+            variance_val = int(var_min) if isinstance(var_min, (int, float)) else None
+            actual_dur = getattr(updated, "actual_duration_minutes", None)
+            actual_dur_val = int(actual_dur) if isinstance(actual_dur, (int, float)) else None
+            comp_ev = getattr(updated, "completion_evidence", None)
+            completion_ev_val = str(comp_ev) if isinstance(comp_ev, str) else None
+            prog_pct = getattr(updated, "progress_percentage", None)
+            prog_pct_val = int(prog_pct) if isinstance(prog_pct, (int, float)) else None
+            blk_rsn = getattr(updated, "blocked_reason", None)
+            blk_rsn_val = str(blk_rsn) if isinstance(blk_rsn, str) else None
+
+            new_status_str = str(updated.status) if updated.status is not None else original_status
 
             # Audit progress transition
             await audit_repo.append(
@@ -930,9 +1056,14 @@ class PlanService:
                     outcome="SUCCESS",
                     correlation_id=correlation_id,
                     details={
-                        "new_status": str(update_data.status) if update_data.status else None,
-                        "progress_percentage": update_data.progress_percentage,
-                        "blocked_reason": update_data.blocked_reason,
+                        "previous_status": original_status,
+                        "new_status": new_status_str,
+                        "progress_percentage": prog_pct_val,
+                        "actual_duration_minutes": actual_dur_val,
+                        "variance_minutes": variance_val,
+                        "completion_evidence": completion_ev_val,
+                        "blocked_reason": blk_rsn_val,
+                        "is_reopen": is_reopen,
                     },
                 )
             )
@@ -954,6 +1085,9 @@ class PlanService:
                             "temporary_id": task.temporary_id,
                             "completed_by": actor,
                             "progress_percentage": 100,
+                            "actual_duration_minutes": actual_dur_val,
+                            "variance_minutes": variance_val,
+                            "completion_evidence": completion_ev_val,
                         },
                     )
                 )
@@ -982,3 +1116,389 @@ class PlanService:
             await uow.commit()
 
             return updated
+
+    async def get_plan_recommendations(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        limit: int = 10,
+        include_blocked: bool = False,
+        policy: RecommendationPolicyConfig | None = None,
+    ) -> PlanRecommendationsResponse:
+        """Compute next-best-task recommendations for a plan (FR-TI-09)."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+            milestones = await task_repo.get_milestones_for_plan(plan_id, tenant_id)
+
+            # Compute CPM schedule metrics
+            graph = TaskDependencyGraph()
+            for t in tasks:
+                graph.add_task(
+                    task_id=t.temporary_id,
+                    duration_minutes=t.estimated_duration_minutes,
+                )
+
+            task_id_to_temp = {t.id: t.temporary_id for t in tasks}
+            for d in dependencies:
+                pred = task_id_to_temp.get(d.predecessor_id)
+                succ = task_id_to_temp.get(d.successor_id)
+                if pred and succ:
+                    graph.add_dependency(
+                        predecessor_id=pred,
+                        successor_id=succ,
+                        lag_minutes=d.lag_minutes,
+                    )
+
+            cpm_result: CPMScheduleResult | None = None
+            cpm_diagnostic: str | None = None
+            try:
+                cpm_result = CriticalPathCalculator.calculate(graph)
+            except GraphCycleError as exc:
+                cpm_diagnostic = f"Dependency cycle detected in graph: {exc.cycle_path}"
+            except Exception as exc:
+                cpm_diagnostic = f"CPM calculation failed: {str(exc)}"
+
+            return TaskRecommender.recommend(
+                plan_id=plan_id,
+                tenant_id=tenant_id,
+                tasks=tasks,
+                dependencies=dependencies,
+                cpm_result=cpm_result,
+                cpm_diagnostic=cpm_diagnostic,
+                policy=policy,
+                milestones=milestones,
+                limit=limit,
+                include_blocked=include_blocked,
+            )
+
+    async def evaluate_plan_risks(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+    ) -> list[TaskRiskItem]:
+        """Evaluate deterministic operational risks for a plan (FR-TI-07).
+
+        Invariants:
+        - Pure calculation with inspectable evidence.
+        - Tenant-scoped: never leaks cross-tenant information.
+        - Evaluates:
+          1. Critical-path vs. dependency slack slippage (CPM). Never silently swallowed.
+          2. Declared blockers and successor dependency propagation.
+          3. Overdue dependencies / task variance / repeated rework.
+          4. Authoritative resource capacity evaluation matching canonical ResourceRecord
+             skills, attributes, and types (PERSON, ROOM, EQUIPMENT, OTHER).
+          5. Concurrency-aware: evaluates peak overlapping demand from CPM execution windows;
+             non-overlapping tasks do not inflate peak demand.
+          6. When authoritative resource registry is unavailable or empty, returns an explicit
+             RESOURCE_CAPACITY_UNSUPPORTED item with is_evaluable=False.
+        """
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            task_repo = TaskRepository(uow.session)
+
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+            dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+
+            risks: list[TaskRiskItem] = []
+
+            # 1. Critical path and slack slippage
+            graph = TaskDependencyGraph()
+            for t in tasks:
+                graph.add_task(
+                    task_id=t.temporary_id,
+                    duration_minutes=t.estimated_duration_minutes,
+                )
+
+            task_id_to_temp = {t.id: t.temporary_id for t in tasks}
+            for d in dependencies:
+                pred = task_id_to_temp.get(d.predecessor_id)
+                succ = task_id_to_temp.get(d.successor_id)
+                if pred and succ:
+                    graph.add_dependency(
+                        predecessor_id=pred,
+                        successor_id=succ,
+                        lag_minutes=d.lag_minutes,
+                    )
+
+            cpm_result: CPMScheduleResult | None = None
+            try:
+                cpm_result = CriticalPathCalculator.calculate(graph)
+                delayed_task_ids = {
+                    t.temporary_id
+                    for t in tasks
+                    if (
+                        t.status == "BLOCKED"
+                        or (
+                            t.actual_duration_minutes is not None
+                            and t.actual_duration_minutes > t.estimated_duration_minutes
+                        )
+                    )
+                }
+                cpm_risks = DeterministicRiskDetector.detect_critical_path_slippage(
+                    cpm_result=cpm_result,
+                    delayed_task_ids=delayed_task_ids,
+                )
+                risks.extend(cpm_risks)
+            except GraphCycleError as exc:
+                cycle_str = (
+                    " -> ".join(exc.cycle_path)
+                    if exc.cycle_path
+                    else "dependency cycle detected"
+                )
+                risks.append(
+                    TaskRiskItem(
+                        task_id="GLOBAL",
+                        category=RiskCategory.DEPENDENCY_SLIPPAGE,
+                        severity=RiskSeverity.CRITICAL,
+                        description=(
+                            "CPM schedule calculation degraded: dependency cycle detected "
+                            f"({cycle_str}). "
+                            "Critical path and execution schedule are indeterminate."
+                        ),
+                        is_evaluable=True,
+                    )
+                )
+            except Exception as exc:
+                # Sanitized typed diagnostic without exposing internal secrets
+                risks.append(
+                    TaskRiskItem(
+                        task_id="GLOBAL",
+                        category=RiskCategory.DEPENDENCY_SLIPPAGE,
+                        severity=RiskSeverity.HIGH,
+                        description=(
+                            f"CPM schedule calculation degraded ({type(exc).__name__}): "
+                            "schedule and critical path are indeterminate."
+                        ),
+                        is_evaluable=True,
+                    )
+                )
+
+            # 2. Declared blockers and dependency propagation
+            blocker_risks = DeterministicRiskDetector.detect_blocked_dependencies(
+                tasks=tasks,
+                dependencies=dependencies,
+            )
+            risks.extend(blocker_risks)
+
+            # 3. Repeated rework and duration variance
+            for t in tasks:
+                if (
+                    t.actual_duration_minutes is not None
+                    and t.estimated_duration_minutes > 0
+                    and t.actual_duration_minutes > t.estimated_duration_minutes
+                ):
+                    ratio = (
+                        t.actual_duration_minutes - t.estimated_duration_minutes
+                    ) / float(t.estimated_duration_minutes)
+                    if ratio > 0.5:
+                        severity = RiskSeverity.HIGH if ratio > 1.0 else RiskSeverity.MEDIUM
+                        risks.append(
+                            TaskRiskItem(
+                                task_id=t.temporary_id,
+                                category=RiskCategory.DURATION_OVERRUN,
+                                severity=severity,
+                                description=(
+                                    f"Task '{t.temporary_id}' duration exceeded estimate by "
+                                    f"{ratio * 100:.1f}% ({t.actual_duration_minutes}m actual vs "
+                                    f"{t.estimated_duration_minutes}m est)."
+                                ),
+                                is_evaluable=True,
+                            )
+                        )
+
+            # 4. Authoritative Resource Capacity Evaluation
+            stmt = select(ResourceRecord).where(
+                ResourceRecord.tenant_id == tenant_id,
+                ResourceRecord.active.is_(True),
+            )
+            res_result = await uow.session.execute(stmt)
+            active_resources = list(res_result.scalars().all())
+
+            if not active_resources:
+                # Authoritative data is genuinely unavailable -> explicit unevaluable reporting
+                risks.append(
+                    TaskRiskItem(
+                        task_id="GLOBAL",
+                        category=RiskCategory.RESOURCE_CAPACITY_UNSUPPORTED,
+                        severity=RiskSeverity.LOW,
+                        description=(
+                            "Resource capacity cannot be evaluated without authoritative "
+                            "upstream resource registry data."
+                        ),
+                        is_evaluable=False,
+                    )
+                )
+            else:
+                # Identify tasks that declare resource requirements
+                demanding_tasks = [
+                    t for t in tasks
+                    if t.status != "COMPLETED" and (t.owner_role or t.owner_reference)
+                ]
+
+                if demanding_tasks:
+                    if cpm_result is None:
+                        # When execution windows cannot be determined (due to CPM failure),
+                        # concurrent demand cannot be authoritatively evaluated.
+                        risks.append(
+                            TaskRiskItem(
+                                task_id="GLOBAL",
+                                category=RiskCategory.RESOURCE_CAPACITY_UNSUPPORTED,
+                                severity=RiskSeverity.MEDIUM,
+                                description=(
+                                    "Resource capacity concurrency cannot be evaluated because "
+                                    "task execution windows are indeterminate (CPM unavailable)."
+                                ),
+                                is_evaluable=False,
+                            )
+                        )
+                    else:
+                        role_demands: dict[str, list[TaskRecord]] = {}
+                        for t in demanding_tasks:
+                            req_key = (t.owner_role or t.owner_reference or "").strip().upper()
+                            if req_key:
+                                role_demands.setdefault(req_key, []).append(t)
+
+                        for req_key, req_tasks in sorted(role_demands.items()):
+                            eligible_resources = [
+                                res for res in active_resources
+                                if (
+                                    req_key in [s.strip().upper() for s in (res.skills or [])]
+                                    or str(res.attributes.get("role", "")).strip().upper()
+                                    == req_key
+                                    or res.type.strip().upper() == req_key
+                                    or res.resource_key.strip().upper() == req_key
+                                )
+                            ]
+
+                            if not eligible_resources:
+                                for rt in req_tasks:
+                                    risks.append(
+                                        TaskRiskItem(
+                                            task_id=rt.temporary_id,
+                                            category=RiskCategory.RESOURCE_CAPACITY_SHORTFALL,
+                                            severity=RiskSeverity.HIGH,
+                                            description=(
+                                                f"Task '{rt.temporary_id}' requires '{req_key}', "
+                                                "but no active eligible resource with matching "
+                                                "skills, attributes, or type exists in registry."
+                                            ),
+                                            is_evaluable=True,
+                                        )
+                                    )
+                            else:
+                                total_capacity = sum(res.capacity for res in eligible_resources)
+
+                                events: list[tuple[int, int]] = []
+                                for rt in req_tasks:
+                                    sched = cpm_result.schedule.get(rt.temporary_id)
+                                    start = sched.early_start if sched else 0
+                                    finish = (
+                                        sched.early_finish
+                                        if sched
+                                        else rt.estimated_duration_minutes
+                                    )
+                                    if finish > start:
+                                        events.append((start, 1))
+                                        events.append((finish, -1))
+                                    else:
+                                        events.append((start, 1))
+                                        events.append((start + 1, -1))
+
+                                events.sort(key=lambda x: (x[0], x[1]))
+
+                                current_demand = 0
+                                peak_demand = 0
+                                for _, delta in events:
+                                    current_demand += delta
+                                    if current_demand > peak_demand:
+                                        peak_demand = current_demand
+
+                                if peak_demand > total_capacity:
+                                    risks.append(
+                                        TaskRiskItem(
+                                            task_id=f"RESOURCE:{req_key}",
+                                            category=RiskCategory.RESOURCE_CAPACITY_SHORTFALL,
+                                            severity=RiskSeverity.HIGH,
+                                            description=(
+                                                "Provisional planning window bottleneck for "
+                                                f"'{req_key}': peak concurrent demand is "
+                                                f"{peak_demand} units, but eligible capacity is "
+                                                f"{total_capacity}. Confirmed operational "
+                                                "shortage evaluation requires published schedule "
+                                                "assignments and resource availability intervals."
+                                            ),
+                                            is_evaluable=True,
+                                        )
+                                    )
+
+            # 5. Repeated rework evaluation from audit trail
+            task_ids_str = [str(t.id) for t in tasks if getattr(t, "id", None)]
+            if task_ids_str:
+                try:
+                    audit_stmt = (
+                        select(AuditEventRecord.resource_id, func.count().label("reopen_count"))
+                        .where(
+                            AuditEventRecord.tenant_id == tenant_id,
+                            AuditEventRecord.resource_type == "task",
+                            AuditEventRecord.resource_id.in_(task_ids_str),
+                            AuditEventRecord.event_type == "task.progress_updated",
+                            AuditEventRecord.details["is_reopen"].astext == "true",
+                        )
+                        .group_by(AuditEventRecord.resource_id)
+                    )
+                    audit_res = await uow.session.execute(audit_stmt)
+                    id_to_temp = {
+                        str(t.id): t.temporary_id for t in tasks if getattr(t, "id", None)
+                    }
+                    for row in audit_res:
+                        reopen_count = getattr(row, "reopen_count", 0)
+                        res_id = str(getattr(row, "resource_id", ""))
+                        if reopen_count >= 2:
+                            t_tid = id_to_temp.get(res_id, res_id)
+                            severity = (
+                                RiskSeverity.CRITICAL if reopen_count >= 3 else RiskSeverity.HIGH
+                            )
+                            risks.append(
+                                TaskRiskItem(
+                                    task_id=t_tid,
+                                    category=RiskCategory.REPEATED_REWORK,
+                                    severity=severity,
+                                    description=(
+                                        f"Task '{t_tid}' has undergone repeated rework "
+                                        f"({reopen_count} reopenings detected). "
+                                        "Indicates recurring quality defects or unstable "
+                                        "requirements."
+                                    ),
+                                    is_evaluable=True,
+                                )
+                            )
+                except Exception as exc:
+                    risks.append(
+                        TaskRiskItem(
+                            task_id="GLOBAL",
+                            category=RiskCategory.REPEATED_REWORK,
+                            severity=RiskSeverity.MEDIUM,
+                            description=(
+                                f"Repeated rework evaluation degraded ({type(exc).__name__}): "
+                                "audit trail history query could not be completed."
+                            ),
+                            is_evaluable=False,
+                        )
+                    )
+
+            return risks
+

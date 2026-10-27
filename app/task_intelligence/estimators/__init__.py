@@ -9,9 +9,12 @@ from app.task_intelligence.estimators.base import (
     HistoricalMedianProviderProtocol,
 )
 from app.task_intelligence.estimators.heuristic import HeuristicEffortEstimator
+from app.task_intelligence.estimators.historical import DatabaseHistoricalMedianProvider
 
 __all__ = [
+    "DatabaseHistoricalMedianProvider",
     "EffortEstimateResult",
     "HeuristicEffortEstimator",
     "HistoricalMedianProviderProtocol",
 ]
+
