@@ -586,7 +586,7 @@ async def test_task_progress_audit_status_transitions_postgres(
                 AuditEventRecord.resource_id == str(task.id),
                 AuditEventRecord.event_type == "task.progress_updated",
             )
-            .order_by(AuditEventRecord.created_at.asc())
+            .order_by(AuditEventRecord.recorded_at.asc())
         )
         res = await session.execute(stmt)
         events = list(res.scalars().all())
