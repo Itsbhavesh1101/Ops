@@ -332,6 +332,21 @@ class TaskRepository(SqlAlchemyRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def get_milestones_for_plan(
+        self, plan_id: UUID, tenant_id: str
+    ) -> list[MilestoneRecord]:
+        """Retrieve all milestones belonging to a plan."""
+        stmt = (
+            select(MilestoneRecord)
+            .where(
+                MilestoneRecord.plan_id == plan_id,
+                MilestoneRecord.tenant_id == tenant_id,
+            )
+            .order_by(MilestoneRecord.temporary_id)
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
     async def update_task_progress(
         self,
         task_id: UUID,

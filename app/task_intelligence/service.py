@@ -9,6 +9,7 @@ and outbox events.
 import hashlib
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -42,6 +43,7 @@ from app.task_intelligence.graph import (
 )
 from app.task_intelligence.graph.exceptions import GraphCycleError
 from app.task_intelligence.graph.models import CPMScheduleResult
+from app.task_intelligence.milestones import MilestoneHealthCalculator, MilestoneHealthResponse
 from app.task_intelligence.planner.protocol import PlannerProtocol
 from app.task_intelligence.progress import (
     TaskProgressStatus,
@@ -292,6 +294,35 @@ class PlanService:
             tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
             uow.session.expunge_all()
             return tasks
+
+    async def get_plan_milestones(
+        self, tenant_id: str, plan_id: UUID
+    ) -> list[MilestoneHealthResponse]:
+        """Retrieve milestones belonging to a plan with derived health rollups (FR-TI-06)."""
+        uow = self._uow_factory()
+        async with uow:
+            plan_repo = PlanRepository(uow.session)
+            plan = await plan_repo.get_by_id(plan_id, tenant_id)
+            if not plan:
+                raise PlanNotFoundError(plan_id)
+            task_repo = TaskRepository(uow.session)
+            milestones = await task_repo.get_milestones_for_plan(plan_id, tenant_id)
+            tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
+
+            tasks_by_milestone: dict[UUID, list[TaskRecord]] = {m.id: [] for m in milestones}
+            for t in tasks:
+                if t.milestone_id and t.milestone_id in tasks_by_milestone:
+                    tasks_by_milestone[t.milestone_id].append(t)
+
+            now = datetime.now(UTC)
+            return [
+                MilestoneHealthCalculator.evaluate_milestone_health(
+                    milestone=m,
+                    member_tasks=tasks_by_milestone[m.id],
+                    now=now,
+                )
+                for m in milestones
+            ]
 
     async def generate_plan(
         self,
@@ -1068,6 +1099,7 @@ class PlanService:
 
             tasks = await task_repo.get_tasks_for_plan(plan_id, tenant_id)
             dependencies = await task_repo.get_dependencies_for_plan(plan_id, tenant_id)
+            milestones = await task_repo.get_milestones_for_plan(plan_id, tenant_id)
 
             # Compute CPM schedule metrics
             graph = TaskDependencyGraph()
@@ -1105,6 +1137,7 @@ class PlanService:
                 cpm_result=cpm_result,
                 cpm_diagnostic=cpm_diagnostic,
                 policy=policy,
+                milestones=milestones,
                 limit=limit,
                 include_blocked=include_blocked,
             )
@@ -1120,11 +1153,14 @@ class PlanService:
         - Pure calculation with inspectable evidence.
         - Tenant-scoped: never leaks cross-tenant information.
         - Evaluates:
-          1. Critical-path vs. dependency slack slippage (CPM).
+          1. Critical-path vs. dependency slack slippage (CPM). Never silently swallowed.
           2. Declared blockers and successor dependency propagation.
           3. Overdue dependencies / task variance / repeated rework.
-          4. Authoritative resource capacity shortfall using PostgreSQL ResourceRecord registry.
-          5. When authoritative resource registry is unavailable or empty, returns an explicit
+          4. Authoritative resource capacity evaluation matching canonical ResourceRecord
+             skills, attributes, and types (PERSON, ROOM, EQUIPMENT, OTHER).
+          5. Concurrency-aware: evaluates peak overlapping demand from CPM execution windows;
+             non-overlapping tasks do not inflate peak demand.
+          6. When authoritative resource registry is unavailable or empty, returns an explicit
              RESOURCE_CAPACITY_UNSUPPORTED item with is_evaluable=False.
         """
         uow = self._uow_factory()
@@ -1160,6 +1196,7 @@ class PlanService:
                         lag_minutes=d.lag_minutes,
                     )
 
+            cpm_result: CPMScheduleResult | None = None
             try:
                 cpm_result = CriticalPathCalculator.calculate(graph)
                 delayed_task_ids = {
@@ -1178,8 +1215,39 @@ class PlanService:
                     delayed_task_ids=delayed_task_ids,
                 )
                 risks.extend(cpm_risks)
-            except Exception:
-                pass
+            except GraphCycleError as exc:
+                cycle_str = (
+                    " -> ".join(exc.cycle_path)
+                    if exc.cycle_path
+                    else "dependency cycle detected"
+                )
+                risks.append(
+                    TaskRiskItem(
+                        task_id="GLOBAL",
+                        category=RiskCategory.DEPENDENCY_SLIPPAGE,
+                        severity=RiskSeverity.CRITICAL,
+                        description=(
+                            "CPM schedule calculation degraded: dependency cycle detected "
+                            f"({cycle_str}). "
+                            "Critical path and execution schedule are indeterminate."
+                        ),
+                        is_evaluable=True,
+                    )
+                )
+            except Exception as exc:
+                # Sanitized typed diagnostic without exposing internal secrets
+                risks.append(
+                    TaskRiskItem(
+                        task_id="GLOBAL",
+                        category=RiskCategory.DEPENDENCY_SLIPPAGE,
+                        severity=RiskSeverity.HIGH,
+                        description=(
+                            f"CPM schedule calculation degraded ({type(exc).__name__}): "
+                            "schedule and critical path are indeterminate."
+                        ),
+                        is_evaluable=True,
+                    )
+                )
 
             # 2. Declared blockers and dependency propagation
             blocker_risks = DeterministicRiskDetector.detect_blocked_dependencies(
@@ -1224,38 +1292,118 @@ class PlanService:
 
             if not active_resources:
                 # Authoritative data is genuinely unavailable -> explicit unevaluable reporting
-                unsupported_item = DeterministicRiskDetector.evaluate_resource_capacity(
-                    resource_demands=None,
-                    resource_capacities=None,
-                )
-                if isinstance(unsupported_item, list):
-                    risks.extend(unsupported_item)
-                else:
-                    risks.append(unsupported_item)
-            else:
-                # Compute available capacity per type / role
-                available_capacities: dict[str, int] = {}
-                for res in active_resources:
-                    key = (res.type or "DEFAULT").strip().upper()
-                    available_capacities[key] = (
-                        available_capacities.get(key, 0) + int(res.capacity)
+                risks.append(
+                    TaskRiskItem(
+                        task_id="GLOBAL",
+                        category=RiskCategory.RESOURCE_CAPACITY_UNSUPPORTED,
+                        severity=RiskSeverity.LOW,
+                        description=(
+                            "Resource capacity cannot be evaluated without authoritative "
+                            "upstream resource registry data."
+                        ),
+                        is_evaluable=False,
                     )
-
-                # Compute demanded capacity from planned tasks
-                demanded_capacities: dict[str, int] = {}
-                for t in tasks:
-                    if t.status != "COMPLETED":
-                        role = (t.owner_role or t.work_category or "DEFAULT").strip().upper()
-                        demanded_capacities[role] = demanded_capacities.get(role, 0) + 1
-
-                capacity_risks = DeterministicRiskDetector.evaluate_resource_capacity(
-                    resource_demands=demanded_capacities,
-                    resource_capacities=available_capacities,
                 )
-                if isinstance(capacity_risks, list):
-                    risks.extend(capacity_risks)
-                elif capacity_risks:
-                    risks.append(capacity_risks)
+            else:
+                # Identify tasks that declare resource requirements
+                demanding_tasks = [
+                    t for t in tasks
+                    if t.status != "COMPLETED" and (t.owner_role or t.owner_reference)
+                ]
+
+                if demanding_tasks:
+                    if cpm_result is None:
+                        # When execution windows cannot be determined (due to CPM failure),
+                        # concurrent demand cannot be authoritatively evaluated.
+                        risks.append(
+                            TaskRiskItem(
+                                task_id="GLOBAL",
+                                category=RiskCategory.RESOURCE_CAPACITY_UNSUPPORTED,
+                                severity=RiskSeverity.MEDIUM,
+                                description=(
+                                    "Resource capacity concurrency cannot be evaluated because "
+                                    "task execution windows are indeterminate (CPM unavailable)."
+                                ),
+                                is_evaluable=False,
+                            )
+                        )
+                    else:
+                        role_demands: dict[str, list[TaskRecord]] = {}
+                        for t in demanding_tasks:
+                            req_key = (t.owner_role or t.owner_reference or "").strip().upper()
+                            if req_key:
+                                role_demands.setdefault(req_key, []).append(t)
+
+                        for req_key, req_tasks in sorted(role_demands.items()):
+                            eligible_resources = [
+                                res for res in active_resources
+                                if (
+                                    req_key in [s.strip().upper() for s in (res.skills or [])]
+                                    or str(res.attributes.get("role", "")).strip().upper()
+                                    == req_key
+                                    or res.type.strip().upper() == req_key
+                                    or res.resource_key.strip().upper() == req_key
+                                )
+                            ]
+
+                            if not eligible_resources:
+                                for rt in req_tasks:
+                                    risks.append(
+                                        TaskRiskItem(
+                                            task_id=rt.temporary_id,
+                                            category=RiskCategory.RESOURCE_CAPACITY_SHORTFALL,
+                                            severity=RiskSeverity.HIGH,
+                                            description=(
+                                                f"Task '{rt.temporary_id}' requires '{req_key}', "
+                                                "but no active eligible resource with matching "
+                                                "skills, attributes, or type exists in registry."
+                                            ),
+                                            is_evaluable=True,
+                                        )
+                                    )
+                            else:
+                                total_capacity = sum(res.capacity for res in eligible_resources)
+
+                                events: list[tuple[int, int]] = []
+                                for rt in req_tasks:
+                                    sched = cpm_result.schedule.get(rt.temporary_id)
+                                    start = sched.early_start if sched else 0
+                                    finish = (
+                                        sched.early_finish
+                                        if sched
+                                        else rt.estimated_duration_minutes
+                                    )
+                                    if finish > start:
+                                        events.append((start, 1))
+                                        events.append((finish, -1))
+                                    else:
+                                        events.append((start, 1))
+                                        events.append((start + 1, -1))
+
+                                events.sort(key=lambda x: (x[0], x[1]))
+
+                                current_demand = 0
+                                peak_demand = 0
+                                for _, delta in events:
+                                    current_demand += delta
+                                    if current_demand > peak_demand:
+                                        peak_demand = current_demand
+
+                                if peak_demand > total_capacity:
+                                    risks.append(
+                                        TaskRiskItem(
+                                            task_id=f"RESOURCE:{req_key}",
+                                            category=RiskCategory.RESOURCE_CAPACITY_SHORTFALL,
+                                            severity=RiskSeverity.HIGH,
+                                            description=(
+                                                "Authoritative capacity shortfall for "
+                                                f"'{req_key}': peak concurrent demand is "
+                                                f"{peak_demand} units, but eligible capacity is "
+                                                f"{total_capacity}."
+                                            ),
+                                            is_evaluable=True,
+                                        )
+                                    )
 
             return risks
 

@@ -44,31 +44,33 @@ class RecommendationQuality(StrEnum):
 class RecommendationPolicyConfig(BaseModel):
     """Explicit, validated weighting configuration for multi-criteria recommendation scoring.
 
+    All weights must be explicitly specified by caller or tenant policy configuration.
+    Production code defines ZERO default numeric weights.
     All weights must be non-negative, finite numbers that sum exactly to 1.0.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     critical_path_weight: float = Field(
-        default=0.35,
+        ...,
         ge=0.0,
         le=1.0,
         description="Weight for CPM critical-path / float factor.",
     )
     priority_weight: float = Field(
-        default=0.30,
+        ...,
         ge=0.0,
         le=1.0,
         description="Weight for task priority classification factor.",
     )
     progress_momentum_weight: float = Field(
-        default=0.20,
+        ...,
         ge=0.0,
         le=1.0,
         description="Weight for in-progress completion momentum factor.",
     )
     readiness_weight: float = Field(
-        default=0.15,
+        ...,
         ge=0.0,
         le=1.0,
         description="Weight for unblocked prerequisite readiness factor.",
@@ -91,9 +93,6 @@ class RecommendationPolicyConfig(BaseModel):
         if not math.isclose(total, 1.0, rel_tol=1e-4, abs_tol=1e-4):
             raise ValueError(f"Sum of recommendation policy weights must equal 1.0 (got {total}).")
         return self
-
-
-DEFAULT_RECOMMENDATION_POLICY = RecommendationPolicyConfig()
 
 
 class TaskRecommendation(BaseModel):
@@ -133,9 +132,19 @@ class PlanRecommendationsResponse(BaseModel):
     ready_tasks_count: int
     blocked_tasks_count: int
     completed_tasks_count: int
-    policy: RecommendationPolicyConfig = Field(
-        default_factory=lambda: DEFAULT_RECOMMENDATION_POLICY,
-        description="Validated recommendation policy weights applied.",
+    policy: RecommendationPolicyConfig | None = Field(
+        default=None,
+        description=(
+            "Validated recommendation policy weights applied, "
+            "or None if canonical structural ordering was used."
+        ),
+    )
+    policy_applied: bool = Field(
+        default=False,
+        description=(
+            "True if caller/tenant policy weights were applied; "
+            "False if canonical structural ordering was used."
+        ),
     )
     cpm_diagnostic: str | None = Field(
         default=None,
@@ -173,7 +182,18 @@ class TaskRecommender:
     ) -> PlanRecommendationsResponse:
         """Generate ranked recommendations for a plan's tasks."""
         now = datetime.now(UTC)
-        active_policy = policy or DEFAULT_RECOMMENDATION_POLICY
+        policy_applied = policy is not None
+
+        # Build milestone lookup map if milestones provided
+        milestone_map: dict[str, Any] = {}
+        if milestones:
+            for m in milestones:
+                m_id = getattr(m, "id", None)
+                m_temp = getattr(m, "temporary_id", None)
+                if m_id:
+                    milestone_map[str(m_id)] = m
+                if m_temp:
+                    milestone_map[str(m_temp)] = m
 
         # 1. Build lookup tables and validate task identities strictly
         task_by_id: dict[Any, Any] = {}
@@ -329,14 +349,17 @@ class TaskRecommender:
             # Readiness modifier
             readiness_factor = 1.0 if is_ready else 0.3
 
-            # Composite score bounded in [0.0, 1.0] using explicit validated policy
-            raw_score = (
-                active_policy.critical_path_weight * crit_factor
-                + active_policy.priority_weight * priority_factor
-                + active_policy.progress_momentum_weight * min(1.0, progress_factor)
-                + active_policy.readiness_weight * readiness_factor
-            )
-            score = round(max(0.0, min(1.0, raw_score)), 4)
+            # Score calculation
+            if policy is not None:
+                raw_score = (
+                    policy.critical_path_weight * crit_factor
+                    + policy.priority_weight * priority_factor
+                    + policy.progress_momentum_weight * min(1.0, progress_factor)
+                    + policy.readiness_weight * readiness_factor
+                )
+                score = round(max(0.0, min(1.0, raw_score)), 4)
+            else:
+                score = 0.0
 
             # Determine action
             if not is_ready:
@@ -383,9 +406,37 @@ class TaskRecommender:
                     f"Blocked or pending prerequisite execution: {'; '.join(reasons)}"
                 )
 
+            # Milestone proximity context
             m_ref = getattr(t, "milestone_reference", None) or getattr(t, "milestone_id", None)
             if m_ref:
-                explanation_parts.append(f"Associated with milestone '{m_ref}'.")
+                m_obj = milestone_map.get(str(m_ref))
+                if m_obj:
+                    m_name = getattr(m_obj, "name", str(m_ref))
+                    m_target = getattr(m_obj, "target_date", None)
+                    if m_target:
+                        if m_target.tzinfo is None:
+                            m_target = m_target.replace(tzinfo=UTC)
+                        delta_days = (m_target - now).total_seconds() / 86400.0
+                        if delta_days >= 0:
+                            explanation_parts.append(
+                                f"Associated with milestone '{m_name}' "
+                                f"(target in {delta_days:.1f} days)."
+                            )
+                        else:
+                            explanation_parts.append(
+                                f"Associated with milestone '{m_name}' "
+                                f"(target was {abs(delta_days):.1f} days ago)."
+                            )
+                    else:
+                        explanation_parts.append(f"Associated with milestone '{m_name}'.")
+                else:
+                    explanation_parts.append(f"Associated with milestone '{m_ref}'.")
+
+            if not policy_applied:
+                explanation_parts.append(
+                    "(Ranked via canonical structural ordering: "
+                    "readiness -> critical path -> declared priority -> ID)."
+                )
 
             explanation = " ".join(explanation_parts)
 
@@ -417,23 +468,37 @@ class TaskRecommender:
                     "quality_basis": quality_basis,
                     "blocked_reasons": task_block_reasons.get(t_temp, []),
                     "is_ready": is_ready,
+                    "progress_pct": progress_pct,
                 }
             )
 
         # 5. Deterministic sorting:
-        # 1. Ready tasks first (if include_blocked is true)
-        # 2. Descending score
-        # 3. Critical path first
-        # 4. Deterministic lexical tie-breaking by temporary_id
-        candidates.sort(
-            key=lambda c: (
-                1 if c["is_ready"] else 0,
-                c["score"],
-                1 if c["is_critical_path"] else 0,
-                c["temporary_id"],
-            ),
-            reverse=True,
-        )
+        prio_rank = {
+            TaskPriority.CRITICAL: 4,
+            TaskPriority.HIGH: 3,
+            TaskPriority.MEDIUM: 2,
+            TaskPriority.LOW: 1,
+        }
+
+        if policy_applied:
+            candidates.sort(
+                key=lambda c: (
+                    -1 if c["is_ready"] else 0,
+                    -c["score"],
+                    -1 if c["is_critical_path"] else 0,
+                    c["temporary_id"],
+                )
+            )
+        else:
+            candidates.sort(
+                key=lambda c: (
+                    -1 if c["is_ready"] else 0,
+                    -1 if c["is_critical_path"] else 0,
+                    -prio_rank.get(c["priority"], 2),
+                    -c["progress_pct"],
+                    c["temporary_id"],
+                )
+            )
 
         limited_candidates = candidates[: max(1, limit)]
 
@@ -467,7 +532,8 @@ class TaskRecommender:
             ready_tasks_count=ready_count,
             blocked_tasks_count=blocked_count,
             completed_tasks_count=completed_count,
-            policy=active_policy,
+            policy=policy,
+            policy_applied=policy_applied,
             cpm_diagnostic=cpm_diagnostic,
             recommendations=recommendations,
         )

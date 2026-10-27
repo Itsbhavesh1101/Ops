@@ -27,11 +27,15 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.api.errors import ApiError, ApiErrorResponse
 from app.core.auth.models import AuthenticatedPrincipal, TenantContext
 from app.task_intelligence.graph.models import CPMScheduleResult
+from app.task_intelligence.milestones import MilestoneHealthResponse
 from app.task_intelligence.progress import (
     InvalidTaskProgressTransitionError,
     TaskProgressUpdate,
 )
-from app.task_intelligence.recommender import PlanRecommendationsResponse
+from app.task_intelligence.recommender import (
+    PlanRecommendationsResponse,
+    RecommendationPolicyConfig,
+)
 from app.task_intelligence.schemas import (
     GoalCreate,
     GoalResponse,
@@ -785,6 +789,7 @@ def create_planning_router(
             },
             403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
             404: {"model": ApiErrorResponse, "description": "Plan not found."},
+            422: {"model": ApiErrorResponse, "description": "Invalid recommendation policy."},
         },
     )
     async def get_plan_recommendations(
@@ -792,6 +797,18 @@ def create_planning_router(
         limit: int = Query(default=10, ge=1, le=50, description="Max recommendations to return"),
         include_blocked: bool = Query(
             default=False, description="Whether to include blocked tasks with mitigation actions"
+        ),
+        critical_path_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for critical path factor"
+        ),
+        priority_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for priority factor"
+        ),
+        progress_momentum_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for momentum factor"
+        ),
+        readiness_weight: float | None = Query(
+            default=None, ge=0.0, le=1.0, description="Optional weight for readiness factor"
         ),
         tenant_context: Any = Depends(tenant_dependency),
         principal: Any = Depends(active_principal),
@@ -812,12 +829,100 @@ def create_planning_router(
                     message="Insufficient permissions to view plan recommendations.",
                 )
         tenant_id = _extract_tenant_id(tenant_context)
+
+        policy_weights = [
+            critical_path_weight,
+            priority_weight,
+            progress_momentum_weight,
+            readiness_weight,
+        ]
+        any_weight = any(w is not None for w in policy_weights)
+        all_weights = all(w is not None for w in policy_weights)
+
+        policy: RecommendationPolicyConfig | None = None
+        if any_weight and not all_weights:
+            raise ApiError(
+                status_code=422,
+                code="recommendation.policy_incomplete",
+                message=(
+                    "When supplying recommendation policy weights, all 4 weights "
+                    "(critical_path_weight, priority_weight, progress_momentum_weight, "
+                    "readiness_weight) must be provided."
+                ),
+            )
+        elif all_weights:
+            try:
+                assert critical_path_weight is not None
+                assert priority_weight is not None
+                assert progress_momentum_weight is not None
+                assert readiness_weight is not None
+                policy = RecommendationPolicyConfig(
+                    critical_path_weight=critical_path_weight,
+                    priority_weight=priority_weight,
+                    progress_momentum_weight=progress_momentum_weight,
+                    readiness_weight=readiness_weight,
+                )
+            except Exception as exc:
+                raise ApiError(
+                    status_code=422,
+                    code="recommendation.invalid_policy",
+                    message=f"Invalid recommendation policy weights: {exc}",
+                ) from exc
+
         try:
             return await service.get_plan_recommendations(
                 tenant_id=tenant_id,
                 plan_id=plan_id,
+                policy=policy,
                 limit=limit,
                 include_blocked=include_blocked,
+            )
+        except PlanNotFoundError as exc:
+            raise ApiError(
+                status_code=404,
+                code="plan.not_found",
+                message="Plan not found.",
+            ) from exc
+
+    @router.get(
+        "/plans/{plan_id}/milestones",
+        response_model=list[MilestoneHealthResponse],
+        status_code=status.HTTP_200_OK,
+        summary="Get Plan Milestones and Derived Health",
+        responses={
+            200: {
+                "model": list[MilestoneHealthResponse],
+                "description": "Milestones and derived operational health rollups (FR-TI-06).",
+            },
+            403: {"model": ApiErrorResponse, "description": "Unauthorized role."},
+            404: {"model": ApiErrorResponse, "description": "Plan not found."},
+        },
+    )
+    async def get_plan_milestones(
+        plan_id: UUID = Path(...),
+        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(active_principal),
+        service: PlanService = Depends(plan_service_dependency),
+    ) -> list[MilestoneHealthResponse]:
+        """Get milestones and derived health metrics for a plan (FR-TI-06)."""
+        if isinstance(principal, AuthenticatedPrincipal):
+            if not (
+                principal.has_any_role(
+                    "planner", "operator", "scheduler", "auditor", "tenant_admin", "admin"
+                )
+                or principal.has_permission("plan:read")
+                or principal.has_permission("*")
+            ):
+                raise ApiError(
+                    status_code=403,
+                    code="plan.unauthorized",
+                    message="Insufficient permissions to view plan milestones.",
+                )
+        tenant_id = _extract_tenant_id(tenant_context)
+        try:
+            return await service.get_plan_milestones(
+                tenant_id=tenant_id,
+                plan_id=plan_id,
             )
         except PlanNotFoundError as exc:
             raise ApiError(

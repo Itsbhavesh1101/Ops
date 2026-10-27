@@ -193,12 +193,20 @@ def test_critical_path_slack_elevation() -> None:
         },
     )
 
+    policy = RecommendationPolicyConfig(
+        critical_path_weight=0.40,
+        priority_weight=0.30,
+        progress_momentum_weight=0.15,
+        readiness_weight=0.15,
+    )
+
     res = TaskRecommender.recommend(
         plan_id=plan_id,
         tenant_id="tenant-alpha",
         tasks=[t_crit, t_slack],
         dependencies=[],
         cpm_result=cpm,
+        policy=policy,
     )
 
     assert len(res.recommendations) == 2
@@ -209,6 +217,20 @@ def test_critical_path_slack_elevation() -> None:
     assert top.action == RecommendationAction.EXPEDITE_CRITICAL
     assert top.score > res.recommendations[1].score
     assert top.quality == RecommendationQuality.HIGH
+    assert res.policy_applied is True
+
+    # Without policy, structural fallback still prioritizes critical-path task
+    res_no_policy = TaskRecommender.recommend(
+        plan_id=plan_id,
+        tenant_id="tenant-alpha",
+        tasks=[t_crit, t_slack],
+        dependencies=[],
+        cpm_result=cpm,
+        policy=None,
+    )
+    assert res_no_policy.policy_applied is False
+    assert res_no_policy.recommendations[0].temporary_id == "T_CRIT"
+    assert res_no_policy.recommendations[0].score == 0.0
 
 
 def test_deterministic_repeatability() -> None:
@@ -283,6 +305,7 @@ class MockPlanService:
         plan_id: UUID,
         limit: int = 10,
         include_blocked: bool = False,
+        policy: RecommendationPolicyConfig | None = None,
     ) -> PlanRecommendationsResponse:
         if tenant_id != self.tenant_id or plan_id != self.plan_id:
             raise PlanNotFoundError(plan_id)
@@ -291,6 +314,8 @@ class MockPlanService:
         return PlanRecommendationsResponse(
             plan_id=plan_id,
             tenant_id=tenant_id,
+            policy=policy,
+            policy_applied=policy is not None,
             total_tasks=1,
             ready_tasks_count=1,
             blocked_tasks_count=0,
@@ -621,5 +646,76 @@ def test_recommendation_includes_milestone_reference() -> None:
     )
     rec = res.recommendations[0]
     assert "Associated with milestone 'M1_READINESS'" in rec.explanation
+
+
+def test_recommendation_includes_milestone_proximity() -> None:
+    """When milestones have target dates, proximity is incorporated into explanations."""
+    from datetime import UTC, datetime, timedelta
+
+    from app.db.models.planning import MilestoneRecord
+
+    plan_id = uuid4()
+    t1 = DummyTask("T1", "Exam Prep Task")
+    t1.milestone_reference = "M1_FINAL"
+
+    now = datetime(2026, 11, 1, 10, 0, tzinfo=UTC)
+    target = now + timedelta(days=5)
+
+    milestone = MilestoneRecord(
+        id=uuid4(),
+        tenant_id="tenant-alpha",
+        plan_id=plan_id,
+        temporary_id="M1_FINAL",
+        name="Final Preparation",
+        target_date=target,
+    )
+
+    res = TaskRecommender.recommend(
+        plan_id=plan_id,
+        tenant_id="tenant-alpha",
+        tasks=[t1],
+        dependencies=[],
+        milestones=[milestone],
+    )
+    rec = res.recommendations[0]
+    assert "Associated with milestone 'Final Preparation'" in rec.explanation
+    assert "target in" in rec.explanation
+
+
+def test_api_recommendations_with_custom_policy_query_params() -> None:
+    """GET /plans/{plan_id}/recommendations accepts valid 4-factor policy weights."""
+    service = MockPlanService()
+    client = build_test_client(service)
+
+    resp = client.get(
+        f"/plans/{service.plan_id}/recommendations",
+        params={
+            "critical_path_weight": 0.40,
+            "priority_weight": 0.30,
+            "progress_momentum_weight": 0.15,
+            "readiness_weight": 0.15,
+        },
+    )
+    assert resp.status_code == status.HTTP_200_OK
+    data = resp.json()
+    assert data["policy_applied"] is True
+    assert data["policy"]["critical_path_weight"] == 0.40
+
+
+def test_api_recommendations_partial_policy_params_rejected() -> None:
+    """Partial policy weights are rejected with 422 Unprocessable Entity."""
+    service = MockPlanService()
+    client = build_test_client(service)
+
+    # Only 2 of 4 weights supplied
+    resp = client.get(
+        f"/plans/{service.plan_id}/recommendations",
+        params={
+            "critical_path_weight": 0.50,
+            "priority_weight": 0.50,
+        },
+    )
+    assert resp.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
 
 

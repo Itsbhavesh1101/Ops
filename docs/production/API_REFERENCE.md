@@ -4,7 +4,7 @@
 **Phase:** Phase 8F Canonical Production Documentation  
 **Base Path:** `/api/v1`  
 **OpenAPI Specification:** [`docs/production/openapi.json`](file:///f:/operations-engine/docs/production/openapi.json)  
-**Total Mounted Operations:** 70 paths  
+**Total Mounted Operations:** 71 paths  
 **Production Docs Exposure:**  
 - `STATIC_BUILD_ARTIFACT = AVAILABLE` ([`docs/production/openapi.json`](file:///f:/operations-engine/docs/production/openapi.json))  
 - `PUBLIC_INTERACTIVE_DOCS = CONFIGURABLE / DISABLED_IN_PRODUCTION` (`E7_DOCS_ENABLED=false`)  
@@ -83,9 +83,9 @@ All non-2xx responses conform to the canonical E-7 error envelope (`IMPLEMENTED_
 
 ---
 
-## 4. Canonical Mounted Operations Inventory (Complete 68 Paths)
+## 4. Canonical Mounted Operations Inventory (Complete 71 Paths)
 
-The following table provides the exhaustive inventory of all 68 mounted endpoints derived from `app.main:app`:
+The following table provides the exhaustive inventory of all 71 mounted endpoints derived from `app.main:app`:
 
 | Path | Methods | Domain / Tag | Authentication | Quota 429 Scoped | Summary |
 |---|---|---|---|---|---|
@@ -104,6 +104,7 @@ The following table provides the exhaustive inventory of all 68 mounted endpoint
 | `/api/v1/plans/{plan_id}/critical-path` | GET | Planning | Bearer / Service Key | No | Compute Critical Path Method (CPM) |
 | `/api/v1/plans/{plan_id}/recommendations` | GET | Planning | Bearer / Service Key | No | Deterministic next-best-task recommendations |
 | `/api/v1/plans/{plan_id}/risks` | GET | Planning | Bearer / Service Key | No | Real-time plan risk and capacity evaluation |
+| `/api/v1/plans/{plan_id}/milestones` | GET | Planning | Bearer / Service Key | No | Get Plan Milestones and Derived Health |
 | `/api/v1/tasks/{task_id}` | PATCH | Planning | Bearer / Service Key | No | Update task status or metadata |
 | `/api/v1/schedule-jobs` | POST | Scheduling | Bearer / Service Key | **Yes (`capacity_tenant_max_queued_solves: 5`)** | Submit CP-SAT solver job |
 | `/api/v1/schedule-jobs/{job_id}` | GET | Scheduling | Bearer / Service Key | No | Poll status of solve job |
@@ -195,6 +196,11 @@ The following table provides the exhaustive inventory of all 68 mounted endpoint
 - **Summary:** Real-time plan risk and capacity shortfall evaluation (FR-TI-07).
 - **Auth:** Bearer or Service Key (`role: planner`, `role: operator`, `role: scheduler`, `role: auditor`, `role: tenant_admin`, `role: admin`).
 - **Response `200 OK`:** Returns list of `TaskRiskResponse` items detailing critical-path delays, declared blockers, downstream propagation, duration variance (>50%), and authoritative resource capacity shortfalls or explicit unevaluable indicators.
+
+#### `GET /api/v1/plans/{plan_id}/milestones`
+- **Summary:** Get plan milestones with derived runtime health (FR-TI-06).
+- **Auth:** Bearer or Service Key (`role: planner`, `role: operator`, `role: scheduler`, `role: auditor`, `role: tenant_admin`, `role: admin`).
+- **Response `200 OK`:** Returns list of `MilestoneHealthResponse` items with status (`PENDING`, `ON_TRACK`, `AT_RISK`, `COMPLETED`), aggregate task progress percentages, blocker counts, and deadline overdue indicators.
 
 #### `PATCH /api/v1/tasks/{task_id}`
 - **Summary:** Update task status, progress percentage, or completion metadata.

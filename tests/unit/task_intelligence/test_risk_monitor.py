@@ -242,7 +242,9 @@ async def test_plan_service_evaluate_plan_risks_resource_unsupported() -> None:
 
 @pytest.mark.asyncio
 async def test_plan_service_evaluate_plan_risks_capacity_shortfall() -> None:
-    """When demand exceeds active resource capacity, emits RESOURCE_CAPACITY_SHORTFALL."""
+    """When concurrent demand exceeds active eligible resource capacity,
+    emits RESOURCE_CAPACITY_SHORTFALL.
+    """
     from unittest.mock import AsyncMock, MagicMock
 
     from app.task_intelligence.service import PlanService
@@ -256,7 +258,7 @@ async def test_plan_service_evaluate_plan_risks_capacity_shortfall() -> None:
     mock_plan.id = uuid4()
     mock_plan.tenant_id = "tenant-alpha"
 
-    # Two tasks requiring INVIGILATOR
+    # Two concurrent tasks requiring INVIGILATOR (no dependency -> [0, 60))
     t1 = MagicMock(
         id=uuid4(),
         temporary_id="T1",
@@ -265,6 +267,7 @@ async def test_plan_service_evaluate_plan_risks_capacity_shortfall() -> None:
         status="TODO",
         blocked_reason=None,
         owner_role="INVIGILATOR",
+        owner_reference=None,
         work_category="EXAM_EXECUTION",
     )
     t2 = MagicMock(
@@ -275,13 +278,18 @@ async def test_plan_service_evaluate_plan_risks_capacity_shortfall() -> None:
         status="TODO",
         blocked_reason=None,
         owner_role="INVIGILATOR",
+        owner_reference=None,
         work_category="EXAM_EXECUTION",
     )
 
-    # One active resource of type INVIGILATOR with capacity = 1
+    # One active resource of canonical type PERSON with skills=['INVIGILATOR'] and capacity=1
     res_record = MagicMock()
-    res_record.type = "INVIGILATOR"
+    res_record.type = "PERSON"
+    res_record.skills = ["INVIGILATOR"]
+    res_record.attributes = {"role": "INVIGILATOR"}
+    res_record.resource_key = "STAFF_01"
     res_record.capacity = 1
+    res_record.active = True
 
     res_plan = MagicMock()
     res_plan.scalar_one_or_none.return_value = mock_plan
@@ -306,7 +314,213 @@ async def test_plan_service_evaluate_plan_risks_capacity_shortfall() -> None:
     )
     assert shortfall is not None
     assert shortfall.is_evaluable is True
-    assert "requires 2 units but only 1 are available" in shortfall.description
+    assert "peak concurrent demand is 2 units, but eligible capacity is 1" in shortfall.description
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_non_overlapping_no_shortfall() -> None:
+    """When two tasks run sequentially (non-overlapping), peak concurrent demand is 1,
+    so capacity=1 suffices.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    uid_1 = uuid4()
+    uid_2 = uuid4()
+
+    t1 = MagicMock(
+        id=uid_1,
+        temporary_id="T1",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role="INVIGILATOR",
+        owner_reference=None,
+        work_category="EXAM_EXECUTION",
+    )
+    t2 = MagicMock(
+        id=uid_2,
+        temporary_id="T2",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role="INVIGILATOR",
+        owner_reference=None,
+        work_category="EXAM_EXECUTION",
+    )
+
+    # T2 depends on T1 -> T1 [0, 60), T2 [60, 120). Non-overlapping!
+    dep = MagicMock(predecessor_id=uid_1, successor_id=uid_2, lag_minutes=0)
+
+    res_record = MagicMock()
+    res_record.type = "PERSON"
+    res_record.skills = ["INVIGILATOR"]
+    res_record.attributes = {"role": "INVIGILATOR"}
+    res_record.resource_key = "STAFF_01"
+    res_record.capacity = 1
+    res_record.active = True
+
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1, t2]
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = [dep]
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = [res_record]
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    shortfalls = [r for r in risks if r.category == RiskCategory.RESOURCE_CAPACITY_SHORTFALL]
+    assert len(shortfalls) == 0
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_incorrect_skill_matching() -> None:
+    """When resources exist but lack the demanded skill, emits shortfall explaining
+    missing skill.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    t1 = MagicMock(
+        id=uuid4(),
+        temporary_id="T1",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role="SECURITY_OFFICER",
+        owner_reference=None,
+        work_category="SECURITY",
+    )
+
+    # Active resource exists, but type is PERSON with skills=['INVIGILATOR']
+    res_record = MagicMock()
+    res_record.type = "PERSON"
+    res_record.skills = ["INVIGILATOR"]
+    res_record.attributes = {"role": "INVIGILATOR"}
+    res_record.resource_key = "STAFF_01"
+    res_record.capacity = 5
+    res_record.active = True
+
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1]
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = []
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = [res_record]
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    shortfall = next(
+        (r for r in risks if r.category == RiskCategory.RESOURCE_CAPACITY_SHORTFALL),
+        None,
+    )
+    assert shortfall is not None
+    assert "no active eligible resource with matching skills" in shortfall.description
+
+
+@pytest.mark.asyncio
+async def test_plan_service_evaluate_plan_risks_cpm_cycle_degraded_diagnostic() -> None:
+    """When a dependency cycle exists, CPM failure is reported explicitly
+    rather than silently swallowed.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.task_intelligence.service import PlanService
+
+    mock_session = AsyncMock()
+    mock_uow = MagicMock()
+    mock_uow.session = mock_session
+    mock_uow.__aenter__.return_value = mock_uow
+
+    mock_plan = MagicMock()
+    mock_plan.id = uuid4()
+    mock_plan.tenant_id = "tenant-alpha"
+
+    uid_1 = uuid4()
+    uid_2 = uuid4()
+
+    t1 = MagicMock(
+        id=uid_1,
+        temporary_id="T1",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role=None,
+        owner_reference=None,
+        work_category="PLANNING",
+    )
+    t2 = MagicMock(
+        id=uid_2,
+        temporary_id="T2",
+        estimated_duration_minutes=60,
+        actual_duration_minutes=None,
+        status="TODO",
+        blocked_reason=None,
+        owner_role=None,
+        owner_reference=None,
+        work_category="PLANNING",
+    )
+
+    # Cycle: T1 -> T2 -> T1
+    dep1 = MagicMock(predecessor_id=uid_1, successor_id=uid_2, lag_minutes=0)
+    dep2 = MagicMock(predecessor_id=uid_2, successor_id=uid_1, lag_minutes=0)
+
+    res_plan = MagicMock()
+    res_plan.scalar_one_or_none.return_value = mock_plan
+    res_tasks = MagicMock()
+    res_tasks.scalars.return_value.all.return_value = [t1, t2]
+    res_deps = MagicMock()
+    res_deps.scalars.return_value.all.return_value = [dep1, dep2]
+    res_resources = MagicMock()
+    res_resources.scalars.return_value.all.return_value = []
+
+    mock_session.execute.side_effect = [res_plan, res_tasks, res_deps, res_resources]
+
+    service = PlanService(uow_factory=lambda: mock_uow)
+    risks: list[TaskRiskItem] = await service.evaluate_plan_risks("tenant-alpha", mock_plan.id)
+
+    cpm_degraded = next(
+        (r for r in risks if "CPM schedule calculation degraded" in r.description),
+        None,
+    )
+    assert cpm_degraded is not None
+    assert cpm_degraded.category == RiskCategory.DEPENDENCY_SLIPPAGE
+    assert cpm_degraded.severity == RiskSeverity.CRITICAL
+    assert "dependency cycle detected" in cpm_degraded.description
 
 
 @pytest.mark.asyncio
