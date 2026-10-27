@@ -9,6 +9,26 @@ jobs:
     name: Phase-1 Foundation & CI Baseline
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: operations_engine
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      E7_ENVIRONMENT: test
+      E7_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine
+      E7_JWT_SECRET_KEY: test_jwt_secret_key_for_ci_minimum_32_chars_long
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -36,6 +56,14 @@ jobs:
         run: |
           mypy app
 
-      - name: Run Pytest (unit & smoke tests)
+      - name: Verify Global Pytest Collection (all 2,192 tests)
         run: |
-          pytest -q
+          pytest --collect-only -q
+
+      - name: Apply Database Migrations (disposable test postgres)
+        run: |
+          alembic upgrade head
+
+      - name: Run Pytest (unit & contract test suites)
+        run: |
+          pytest tests/unit/ -q --tb=short

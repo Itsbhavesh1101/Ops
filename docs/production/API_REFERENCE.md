@@ -4,7 +4,7 @@
 **Phase:** Phase 8F Canonical Production Documentation  
 **Base Path:** `/api/v1`  
 **OpenAPI Specification:** [`docs/production/openapi.json`](file:///f:/operations-engine/docs/production/openapi.json)  
-**Total Mounted Operations:** 59 paths  
+**Total Mounted Operations:** 68 paths  
 **Production Docs Exposure:**  
 - `STATIC_BUILD_ARTIFACT = AVAILABLE` ([`docs/production/openapi.json`](file:///f:/operations-engine/docs/production/openapi.json))  
 - `PUBLIC_INTERACTIVE_DOCS = CONFIGURABLE / DISABLED_IN_PRODUCTION` (`E7_DOCS_ENABLED=false`)  
@@ -83,21 +83,24 @@ All non-2xx responses conform to the canonical E-7 error envelope (`IMPLEMENTED_
 
 ---
 
-## 4. Canonical Mounted Operations Inventory (Complete 59 Paths)
+## 4. Canonical Mounted Operations Inventory (Complete 68 Paths)
 
-The following table provides the exhaustive inventory of all 59 mounted endpoints derived from `app.main:app`:
+The following table provides the exhaustive inventory of all 68 mounted endpoints derived from `app.main:app`:
 
 | Path | Methods | Domain / Tag | Authentication | Quota 429 Scoped | Summary |
 |---|---|---|---|---|---|
 | `/` | GET | Root | Public | No | Engine status & liveness |
 | `/api/v1/health` | GET | Health | Public | No | Process liveness probe |
 | `/api/v1/ready` | GET | Health | Public | No | Database readiness probe |
+| `/api/v1/auth/me` | GET | Auth | Bearer / Service Key | No | Get current authenticated principal identity |
 | `/api/v1/analytics/operations` | GET | Analytics | Bearer / Service Key | No | Low-cardinality operational telemetry |
 | `/api/v1/audit` | GET | Audit | Bearer / Service Key | No | Query chronological audit logs |
 | `/api/v1/goals` | POST | Planning | Bearer / Service Key | No | Create operational planning goal |
 | `/api/v1/goals/{goal_id}/generate-plan` | POST | Planning | Bearer / Service Key | **Yes (`capacity_tenant_max_active_plans: 3`)** | Trigger AI planner proposal |
 | `/api/v1/plans/{plan_id}/validate` | POST | Planning | Bearer / Service Key | No | Deterministic plan validation |
 | `/api/v1/plans/{plan_id}/approve` | POST | Planning | Bearer / Service Key | No | Human approval baseline transition |
+| `/api/v1/plans/{plan_id}/submit-for-approval` | POST | Planning | Bearer / Service Key | No | Submit generated plan for approval |
+| `/api/v1/plans/{plan_id}/tasks` | GET | Planning | Bearer / Service Key | No | List tasks for a plan |
 | `/api/v1/plans/{plan_id}/critical-path` | GET | Planning | Bearer / Service Key | No | Compute Critical Path Method (CPM) |
 | `/api/v1/tasks/{task_id}` | PATCH | Planning | Bearer / Service Key | No | Update task status or metadata |
 | `/api/v1/schedule-jobs` | POST | Scheduling | Bearer / Service Key | **Yes (`capacity_tenant_max_queued_solves: 5`)** | Submit CP-SAT solver job |

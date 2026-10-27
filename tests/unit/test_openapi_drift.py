@@ -130,7 +130,7 @@ class TestOpenApiProvenanceAndDrift:
                     f"Protected endpoint {method.upper()} {path} missing ApiKeyAuth"
                 )
 
-        assert protected_count == 57, f"Expected 57 protected operations, found {protected_count}"
+        assert protected_count == 69, f"Expected 69 protected operations, found {protected_count}"
 
     def test_public_operations_do_not_require_auth(self) -> None:
         """Requirement C: Actual public routes do not incorrectly require OIDC/service key."""
@@ -275,7 +275,7 @@ class TestOpenApiProvenanceAndDrift:
             schema = json.load(f)
 
         paths = schema.get("paths", {})
-        assert len(paths) == 59, f"Expected 59 canonical paths, got {len(paths)}"
+        assert len(paths) == 68, f"Expected 68 canonical paths, got {len(paths)}"
 
         expected_domain_paths = {
             "root": "/",

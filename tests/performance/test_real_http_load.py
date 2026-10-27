@@ -32,12 +32,12 @@ import pytest
 
 from app.db.engine import DatabaseManager
 from app.db.uow import create_unit_of_work_factory
-from app.scheduling.education.benchmark import load_education_dataset
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.task_intelligence.planner.phase6_planner import SemesterExamPlanner
 from app.task_intelligence.schemas import GoalCreate
 from app.task_intelligence.service import PlanService
 from app.workflow.schemas import WorkflowInstanceStatus
+from tests.fixtures.scheduling.education.dataset import load_education_dataset
 from tests.performance.fixtures import (
     cleanup_perf_tenant_data,
     get_benchmark_flowable_adapter,

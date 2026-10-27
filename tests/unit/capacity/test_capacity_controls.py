@@ -113,7 +113,7 @@ async def test_tenant_fairness_skips_tenants_already_at_concurrent_limit() -> No
 
     # Tenant A already has 1 job actively SOLVING
     active_counts_result = MagicMock()
-    active_counts_result.all.return_value = [("tenant-A", 1)]
+    active_counts_result.tuples.return_value.all.return_value = [("tenant-A", 1)]
 
     session.execute.side_effect = [candidate_result, active_counts_result]
 
