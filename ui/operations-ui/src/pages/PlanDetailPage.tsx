@@ -16,6 +16,7 @@ import {
   Edit2,
   Check,
   Send,
+  Sparkles,
 } from "lucide-react";
 import { apiClient, ApiError } from "../api/client";
 import { formatStatus, formatShortId } from "../utils/formatters";
@@ -26,6 +27,9 @@ import type {
   CPMScheduleResult,
   TaskProgressStatus,
   TaskProgressUpdate,
+  MilestoneHealthResponse,
+  TaskRiskResponse,
+  PlanRecommendationsResponse,
 } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/ui/Toast";
@@ -41,7 +45,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { LoadingState } from "../components/ui/LoadingState";
 import { ErrorState } from "../components/ui/ErrorState";
 
-type PlanTab = "wbs" | "critical-path" | "milestones" | "dependencies" | "risks";
+type PlanTab = "wbs" | "recommendations" | "critical-path" | "milestones" | "dependencies" | "risks";
 
 export const PlanDetailPage: React.FC = () => {
   const { planId } = useParams<{ planId: string }>();
@@ -80,8 +84,26 @@ export const PlanDetailPage: React.FC = () => {
   const [taskProgress, setTaskProgress] = useState<number>(0);
   const [taskActualDuration, setTaskActualDuration] = useState<string>("");
   const [taskBlockedReason, setTaskBlockedReason] = useState<string>("");
+  const [taskCompletionEvidence, setTaskCompletionEvidence] = useState<string>("");
   const [isUpdatingTask, setIsUpdatingTask] = useState<boolean>(false);
   const [taskUpdateError, setTaskUpdateError] = useState<string | null>(null);
+
+  // DQ-2 Task Intelligence Recommendations State
+  const [recommendationsData, setRecommendationsData] = useState<PlanRecommendationsResponse | null>(null);
+  const [recLoading, setRecLoading] = useState<boolean>(false);
+  const [recError, setRecError] = useState<string | null>(null);
+  const [recIncludeBlocked, setRecIncludeBlocked] = useState<boolean>(false);
+  const [recLimit, setRecLimit] = useState<number>(10);
+
+  // DQ-2 Task Intelligence Milestone Health State
+  const [derivedMilestones, setDerivedMilestones] = useState<MilestoneHealthResponse[]>([]);
+  const [milestonesLoading, setMilestonesLoading] = useState<boolean>(false);
+  const [milestonesError, setMilestonesError] = useState<string | null>(null);
+
+  // DQ-2 Task Intelligence Risks State
+  const [derivedRisks, setDerivedRisks] = useState<TaskRiskResponse[]>([]);
+  const [risksLoading, setRisksLoading] = useState<boolean>(false);
+  const [risksError, setRisksError] = useState<string | null>(null);
 
   const tenantId = user?.tenant_id || "tenant-engineering";
 
@@ -125,6 +147,58 @@ export const PlanDetailPage: React.FC = () => {
     }
   }, [planId, tenantId]);
 
+  const fetchRecommendations = useCallback(async () => {
+    if (!planId) return;
+    setRecLoading(true);
+    setRecError(null);
+    try {
+      const data = await apiClient.getPlanRecommendations(
+        planId,
+        {
+          limit: recLimit,
+          include_blocked: recIncludeBlocked,
+        },
+        tenantId
+      );
+      setRecommendationsData(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load task recommendations";
+      setRecError(msg);
+    } finally {
+      setRecLoading(false);
+    }
+  }, [planId, recLimit, recIncludeBlocked, tenantId]);
+
+  const fetchMilestones = useCallback(async () => {
+    if (!planId) return;
+    setMilestonesLoading(true);
+    setMilestonesError(null);
+    try {
+      const data = await apiClient.getPlanMilestones(planId, tenantId);
+      setDerivedMilestones(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load milestone operational health";
+      setMilestonesError(msg);
+    } finally {
+      setMilestonesLoading(false);
+    }
+  }, [planId, tenantId]);
+
+  const fetchRisks = useCallback(async () => {
+    if (!planId) return;
+    setRisksLoading(true);
+    setRisksError(null);
+    try {
+      const data = await apiClient.getPlanRisks(planId, tenantId);
+      setDerivedRisks(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load operational risks";
+      setRisksError(msg);
+    } finally {
+      setRisksLoading(false);
+    }
+  }, [planId, tenantId]);
+
   useEffect(() => {
     fetchPlanDetail();
   }, [fetchPlanDetail]);
@@ -132,8 +206,14 @@ export const PlanDetailPage: React.FC = () => {
   useEffect(() => {
     if (activeTab === "critical-path" && !cpmData) {
       fetchCriticalPath();
+    } else if (activeTab === "recommendations") {
+      fetchRecommendations();
+    } else if (activeTab === "milestones") {
+      fetchMilestones();
+    } else if (activeTab === "risks") {
+      fetchRisks();
     }
-  }, [activeTab, cpmData, fetchCriticalPath]);
+  }, [activeTab, cpmData, fetchCriticalPath, fetchRecommendations, fetchMilestones, fetchRisks]);
 
   // Validation Action
   const handleValidatePlan = async () => {
@@ -231,6 +311,7 @@ export const PlanDetailPage: React.FC = () => {
     setTaskProgress(task.progress_percentage || 0);
     setTaskActualDuration(task.actual_duration_minutes ? String(task.actual_duration_minutes) : "");
     setTaskBlockedReason(task.blocked_reason || "");
+    setTaskCompletionEvidence(task.completion_evidence || "");
     setTaskUpdateError(null);
     setIsTaskModalOpen(true);
   };
@@ -249,6 +330,7 @@ export const PlanDetailPage: React.FC = () => {
         progress_percentage: Number(taskProgress),
         actual_duration_minutes: taskActualDuration ? Number(taskActualDuration) : null,
         blocked_reason: taskStatus === "BLOCKED" ? taskBlockedReason.trim() || "Blocked" : null,
+        completion_evidence: taskCompletionEvidence.trim() || null,
       };
 
       await apiClient.updateTaskProgress(selectedTask.id, payload, tenantId);
@@ -261,6 +343,9 @@ export const PlanDetailPage: React.FC = () => {
 
       setIsTaskModalOpen(false);
       fetchPlanDetail();
+      if (activeTab === "recommendations") fetchRecommendations();
+      if (activeTab === "milestones") fetchMilestones();
+      if (activeTab === "risks") fetchRisks();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update task progress";
       setTaskUpdateError(msg);
@@ -482,6 +567,18 @@ export const PlanDetailPage: React.FC = () => {
         </button>
 
         <button
+          onClick={() => setActiveTab("recommendations")}
+          className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
+            activeTab === "recommendations"
+              ? "border-indigo-600 text-indigo-600 font-semibold"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+          Recommendations {recommendationsData ? `(${recommendationsData.recommendations.length})` : ""}
+        </button>
+
+        <button
           onClick={() => setActiveTab("critical-path")}
           className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
             activeTab === "critical-path"
@@ -551,6 +648,7 @@ export const PlanDetailPage: React.FC = () => {
                   <TableHead className="w-28">Status</TableHead>
                   <TableHead className="w-32">Progress</TableHead>
                   <TableHead className="w-24">Est. Dur.</TableHead>
+                  <TableHead className="w-24">Variance</TableHead>
                   <TableHead className="w-28">Role / Owner</TableHead>
                   <TableHead className="w-24 text-right">Action</TableHead>
                 </TableRow>
@@ -573,6 +671,14 @@ export const PlanDetailPage: React.FC = () => {
                         <div className="mt-1 flex items-center gap-1 text-[11px] text-rose-400">
                           <AlertTriangle className="w-3 h-3" />
                           <span>Blocked: {task.blocked_reason}</span>
+                        </div>
+                      )}
+                      {task.completion_evidence && (
+                        <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-400">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                          <span className="font-mono truncate max-w-xs" title={task.completion_evidence}>
+                            Evidence: {task.completion_evidence}
+                          </span>
                         </div>
                       )}
                     </TableCell>
@@ -620,6 +726,24 @@ export const PlanDetailPage: React.FC = () => {
                       {task.estimated_duration_minutes}m
                     </TableCell>
 
+                    <TableCell>
+                      {task.variance_minutes !== null && task.variance_minutes !== undefined ? (
+                        <span
+                          className={`font-mono text-xs font-semibold ${
+                            task.variance_minutes > 0
+                              ? "text-rose-400"
+                              : task.variance_minutes < 0
+                              ? "text-emerald-400"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {task.variance_minutes > 0 ? `+${task.variance_minutes}m` : `${task.variance_minutes}m`}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 text-xs">—</span>
+                      )}
+                    </TableCell>
+
                     <TableCell className="text-[11px] text-slate-400">
                       {task.owner_role || "—"}
                     </TableCell>
@@ -642,7 +766,230 @@ export const PlanDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 2: Critical Path Method */}
+      {/* Tab 2: Recommendations (DQ-2 Task Intelligence) */}
+      {activeTab === "recommendations" && (
+        <div className="space-y-4">
+          {/* Advisory Intelligence Banner */}
+          <div className="p-4 rounded-xl bg-indigo-50/80 border border-indigo-200 text-slate-800 flex items-start gap-3 shadow-2xs">
+            <Sparkles className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="text-xs font-semibold text-indigo-950 uppercase tracking-wide">
+                Advisory Next-Best-Task Intelligence (FR-TI-09)
+              </h4>
+              <p className="text-xs text-indigo-900/90 leading-relaxed">
+                Recommendations are computed deterministically from DAG topological precedence, critical-path float, and execution momentum.
+                These recommendations are <strong>strictly advisory</strong> and will never automatically mutate task or plan state. Human operational judgment is required.
+              </p>
+            </div>
+          </div>
+
+          {/* CPM Diagnostic Banner (if degraded) */}
+          {recommendationsData?.cpm_diagnostic && (
+            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>CPM Diagnostic: {recommendationsData.cpm_diagnostic}</span>
+            </div>
+          )}
+
+          {/* Filter Toolbar & Heuristic Status */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-white border border-slate-200/80 rounded-xl shadow-2xs">
+            <div className="flex flex-wrap items-center gap-4 text-xs">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={recIncludeBlocked}
+                  onChange={(e) => setRecIncludeBlocked(e.target.checked)}
+                  className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4"
+                />
+                <span className="text-slate-700 font-medium">Include Blocked Tasks (with mitigation actions)</span>
+              </label>
+
+              <div className="flex items-center gap-1.5 text-slate-500">
+                <span>Limit:</span>
+                <select
+                  value={recLimit}
+                  onChange={(e) => setRecLimit(Number(e.target.value))}
+                  className="px-2 py-1 text-xs bg-white border border-slate-300 rounded-md text-slate-800"
+                >
+                  <option value={5}>Top 5</option>
+                  <option value={10}>Top 10</option>
+                  <option value={20}>Top 20</option>
+                  <option value={50}>Top 50</option>
+                </select>
+              </div>
+
+              <Badge variant={recommendationsData?.policy_applied ? "info" : "neutral"} size="sm">
+                {recommendationsData?.policy_applied ? "Tenant Policy Applied" : "Structural Ordering Heuristic"}
+              </Badge>
+            </div>
+
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={fetchRecommendations}
+              disabled={recLoading}
+              className="flex items-center gap-1.5 h-8 text-xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${recLoading ? "animate-spin" : ""}`} />
+              Refresh Recommendations
+            </Button>
+          </div>
+
+          {/* Counters Row */}
+          {recommendationsData && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Card className="p-3">
+                <span className="text-[11px] text-slate-500">Ready to Start</span>
+                <div className="text-lg font-bold text-emerald-600 tabular-nums">
+                  {recommendationsData.ready_tasks_count}
+                </div>
+              </Card>
+              <Card className="p-3">
+                <span className="text-[11px] text-slate-500">Blocked / Impeded</span>
+                <div className="text-lg font-bold text-amber-600 tabular-nums">
+                  {recommendationsData.blocked_tasks_count}
+                </div>
+              </Card>
+              <Card className="p-3">
+                <span className="text-[11px] text-slate-500">Completed</span>
+                <div className="text-lg font-bold text-slate-600 tabular-nums">
+                  {recommendationsData.completed_tasks_count}
+                </div>
+              </Card>
+              <Card className="p-3">
+                <span className="text-[11px] text-slate-500">Total Evaluated</span>
+                <div className="text-lg font-bold text-slate-900 tabular-nums">
+                  {recommendationsData.total_tasks}
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {recLoading && <LoadingState message="Computing deterministic task recommendations..." />}
+
+          {recError && (
+            <ErrorState
+              title="Recommendations Unavailable"
+              message={recError}
+              onRetry={fetchRecommendations}
+            />
+          )}
+
+          {!recLoading && !recError && recommendationsData && (
+            <div className="space-y-3">
+              {recommendationsData.recommendations.length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl text-xs text-slate-500 bg-white">
+                  No actionable recommendations matching current filters. All ready tasks may be completed or blocked.
+                </div>
+              ) : (
+                recommendationsData.recommendations.map((rec) => {
+                  const matchedTask = tasks.find((t) => t.id === rec.task_id);
+                  return (
+                    <Card
+                      key={rec.task_id}
+                      className={`p-4 transition-all border ${
+                        rec.is_critical_path ? "border-amber-200 bg-amber-50/20" : "border-slate-200/80 bg-white"
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-mono text-xs font-bold border border-indigo-200">
+                              #{rec.rank}
+                            </span>
+
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                                rec.action === "START_NOW"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : rec.action === "CONTINUE"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : rec.action === "UNBLOCK_DEPENDENCY"
+                                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                                  : "bg-purple-50 text-purple-700 border-purple-200"
+                              }`}
+                            >
+                              {(rec.action || "RECOMMENDED").replace(/_/g, " ")}
+                            </span>
+
+                            <span className="font-mono text-xs text-slate-500 font-medium">
+                              {rec.temporary_id}
+                            </span>
+
+                            {rec.is_critical_path && (
+                              <Badge variant="warning" size="sm">
+                                Critical Path
+                              </Badge>
+                            )}
+
+                            {rec.total_slack_minutes !== null && rec.total_slack_minutes !== undefined && (
+                              <span className="text-[11px] text-slate-500 font-mono">
+                                {rec.total_slack_minutes}m slack
+                              </span>
+                            )}
+
+                            <Badge
+                              variant={
+                                (rec.confidence || rec.quality) === "DEGRADED"
+                                  ? "error"
+                                  : (rec.confidence || rec.quality) === "MEDIUM"
+                                  ? "warning"
+                                  : "success"
+                              }
+                              size="sm"
+                            >
+                              {rec.confidence || rec.quality} Confidence
+                            </Badge>
+
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              Score: {rec.score.toFixed(3)}
+                            </span>
+                          </div>
+
+                          <h4 className="text-sm font-semibold text-slate-900">{rec.title}</h4>
+
+                          <p className="text-xs text-slate-600 bg-slate-50/70 p-2.5 rounded-lg border border-slate-200/60">
+                            {rec.explanation}
+                          </p>
+
+                          {rec.blocked_reasons && rec.blocked_reasons.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs text-rose-700">
+                              <span className="font-semibold text-[11px]">Blockers:</span>
+                              {rec.blocked_reasons.map((r, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200 text-[11px]"
+                                >
+                                  {r}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {matchedTask && (
+                          <div className="shrink-0 pt-1">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => openTaskModal(matchedTask)}
+                              className="text-xs flex items-center gap-1 h-8"
+                            >
+                              <Edit2 className="w-3 h-3" /> Update Progress
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 3: Critical Path Method */}
       {activeTab === "critical-path" && (
         <div className="space-y-5">
           <div className="flex items-center justify-between">
@@ -762,44 +1109,118 @@ export const PlanDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 3: Milestones */}
+      {/* Tab 4: Milestones with Derived Health (FR-TI-06) */}
       {activeTab === "milestones" && (
         <div className="space-y-4">
-          <p className="text-xs text-slate-400">
-            Key operational milestones and checkpoint dates synthesized in this plan.
-          </p>
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>Operational milestones with derived task-completion health and schedule adherence.</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={fetchMilestones}
+              disabled={milestonesLoading}
+              className="flex items-center gap-1.5 h-8 text-xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${milestonesLoading ? "animate-spin" : ""}`} />
+              Refresh Health
+            </Button>
+          </div>
 
-          {milestones.length === 0 ? (
-            <div className="p-8 text-center border border-dashed border-slate-800 rounded-xl text-xs text-slate-400">
-              No milestones defined for this plan.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {milestones.map((m) => (
-                <Card key={m.id} className="p-4 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-indigo-400 font-semibold">
-                      {m.temporary_id}
-                    </span>
-                    {m.target_date && (
-                      <span className="text-[11px] text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {new Date(m.target_date).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                  <h4 className="text-sm font-semibold text-white">{m.name}</h4>
-                  {m.description && (
-                    <p className="text-xs text-slate-400">{m.description}</p>
-                  )}
-                </Card>
-              ))}
-            </div>
+          {milestonesLoading && <LoadingState message="Evaluating milestone operational health rollups..." />}
+
+          {milestonesError && (
+            <ErrorState
+              title="Milestone Health Evaluation Error"
+              message={milestonesError}
+              onRetry={fetchMilestones}
+            />
+          )}
+
+          {!milestonesLoading && !milestonesError && (
+            <>
+              {(derivedMilestones.length > 0 ? derivedMilestones : milestones).length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl text-xs text-slate-500 bg-white">
+                  No milestones defined for this operational plan.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(derivedMilestones.length > 0 ? derivedMilestones : milestones).map((m: any) => {
+                    const health = m.health || "PENDING";
+                    return (
+                      <Card key={m.id} className="p-4 space-y-3 bg-white border border-slate-200/80 shadow-2xs">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-indigo-600 font-semibold">
+                              {m.temporary_id}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                health === "COMPLETED"
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : health === "ON_TRACK"
+                                  ? "bg-blue-50 text-blue-700 border-blue-200"
+                                  : health === "AT_RISK"
+                                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                                  : "bg-amber-50 text-amber-700 border-amber-200"
+                              }`}
+                            >
+                              {health.replace("_", " ")}
+                            </span>
+                            {m.is_overdue && (
+                              <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-[10px] font-bold">
+                                OVERDUE
+                              </span>
+                            )}
+                          </div>
+                          {m.target_date && (
+                            <span className="text-[11px] text-slate-500 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(m.target_date).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-900">{m.name}</h4>
+                          {m.description && <p className="text-xs text-slate-500 mt-0.5">{m.description}</p>}
+                        </div>
+
+                        {/* Progress and task counts if derived */}
+                        {m.total_tasks !== undefined && (
+                          <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span>
+                                {m.completed_tasks} / {m.total_tasks} tasks complete ({m.blocked_tasks} blocked)
+                              </span>
+                              <span className="font-semibold text-slate-900">
+                                {m.progress_percentage?.toFixed(0) || 0}%
+                              </span>
+                            </div>
+                            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  health === "COMPLETED"
+                                    ? "bg-emerald-500"
+                                    : health === "AT_RISK"
+                                    ? "bg-rose-500"
+                                    : "bg-indigo-600"
+                                }`}
+                                style={{ width: `${Math.min(100, m.progress_percentage || 0)}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
 
-      {/* Tab 4: Dependencies */}
+      {/* Tab 5: Dependencies */}
       {activeTab === "dependencies" && (
         <div className="space-y-4">
           <p className="text-xs text-slate-400">
@@ -841,45 +1262,76 @@ export const PlanDetailPage: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 5: Risks */}
+      {/* Tab 6: Risks (Operational Risk Signals) */}
       {activeTab === "risks" && (
         <div className="space-y-4">
-          <p className="text-xs text-slate-400">
-            Identified operational risks, bottleneck hazards, and evaluation status.
-          </p>
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>Deterministic operational risk detection, cycle hazards, and execution blocker signals.</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={fetchRisks}
+              disabled={risksLoading}
+              className="flex items-center gap-1.5 h-8 text-xs"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${risksLoading ? "animate-spin" : ""}`} />
+              Refresh Risks
+            </Button>
+          </div>
 
-          {risks.length === 0 ? (
-            <div className="p-8 text-center border border-dashed border-slate-800 rounded-xl text-xs text-slate-400">
-              No critical risks flagged for this plan.
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {risks.map((risk) => (
-                <Card key={risk.id} className="p-4 space-y-2 border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <Badge
-                      variant={
-                        risk.severity === "CRITICAL" || risk.severity === "HIGH"
-                          ? "error"
-                          : risk.severity === "MEDIUM"
-                          ? "warning"
-                          : "neutral"
-                      }
-                    >
-                      {risk.severity} SEVERITY
-                    </Badge>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Category: {risk.category}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-200 font-medium">{risk.description}</p>
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
-                    <span>Task ID: {risk.task_id.substring(0, 8)}...</span>
-                    <span>{risk.is_evaluable ? "Evaluable" : "Informational"}</span>
-                  </div>
-                </Card>
-              ))}
-            </div>
+          {risksLoading && <LoadingState message="Scanning plan for operational risks and bottlenecks..." />}
+
+          {risksError && (
+            <ErrorState
+              title="Risk Detection Unavailable"
+              message={risksError}
+              onRetry={fetchRisks}
+            />
+          )}
+
+          {!risksLoading && !risksError && (
+            <>
+              {(derivedRisks.length > 0 ? derivedRisks : risks).length === 0 ? (
+                <div className="p-8 text-center border border-dashed border-slate-300 rounded-xl text-xs text-slate-500 bg-white">
+                  No critical risks or bottlenecks flagged for this operational plan.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {(derivedRisks.length > 0 ? derivedRisks : risks).map((risk: any, idx: number) => (
+                    <Card key={risk.id || idx} className="p-4 space-y-2 bg-white border border-slate-200/80 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <Badge
+                          variant={
+                            risk.severity === "CRITICAL" || risk.severity === "HIGH"
+                              ? "error"
+                              : risk.severity === "MEDIUM"
+                              ? "warning"
+                              : "neutral"
+                          }
+                        >
+                          {risk.severity} SEVERITY
+                        </Badge>
+                        <span className="text-[11px] text-slate-500 font-mono">
+                          Category: {risk.category}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-800 font-medium leading-relaxed">{risk.description}</p>
+                      <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+                        <span>Task ID: {typeof risk.task_id === "string" ? risk.task_id.substring(0, 8) : ""}...</span>
+                        <div className="flex items-center gap-2">
+                          {risk.detected_at && (
+                            <span>{new Date(risk.detected_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          )}
+                          <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">
+                            {risk.is_evaluable ? "Evaluable" : "Informational"}
+                          </span>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -969,6 +1421,21 @@ export const PlanDetailPage: React.FC = () => {
               />
             </div>
           )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Completion Evidence / Verification Reference
+            </label>
+            <Input
+              type="text"
+              value={taskCompletionEvidence}
+              onChange={(e) => setTaskCompletionEvidence(e.target.value)}
+              placeholder="e.g. PR #2, commit 8e79995, audit log ID, verification notes..."
+            />
+            <p className="text-[10px] text-slate-500 mt-1">
+              Verifiable completion artifact, code commit reference, or test outcome sign-off.
+            </p>
+          </div>
 
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <Button
