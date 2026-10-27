@@ -67,6 +67,14 @@ export const WorkflowInstancePage: React.FC = () => {
 
   const tenantId = user?.tenant_id;
 
+  const activeInstanceIdRef = React.useRef<string | undefined>(instanceId);
+  const activeTenantIdRef = React.useRef<string | undefined>(tenantId);
+
+  useEffect(() => {
+    activeInstanceIdRef.current = instanceId;
+    activeTenantIdRef.current = tenantId;
+  }, [instanceId, tenantId]);
+
   const classifyError = (err: unknown, entityName: string) => {
     let msg = `Failed to load ${entityName}`;
     let code: number | undefined;
@@ -92,13 +100,16 @@ export const WorkflowInstancePage: React.FC = () => {
     return { msg, code };
   };
 
-  const fetchHistory = useCallback(async () => {
-    if (!instanceId || !tenantId) return;
+  const fetchHistory = useCallback(async (targetInstanceId: string, targetTenantId: string) => {
+    if (!targetInstanceId || !targetTenantId) return;
     setHistoryLoading(true);
     setHistoryError(null);
     setHistoryErrorCode(undefined);
     try {
-      const histData = await apiClient.getWorkflowHistory(instanceId, tenantId);
+      const histData = await apiClient.getWorkflowHistory(targetInstanceId, targetTenantId);
+      if (activeInstanceIdRef.current !== targetInstanceId || activeTenantIdRef.current !== targetTenantId) {
+        return; // Stale response discarded
+      }
       const normalizedHistory: WorkflowHistoryEntry[] = Array.isArray(histData)
         ? histData
         : histData && Array.isArray((histData as { activities?: WorkflowHistoryEntry[] }).activities)
@@ -106,40 +117,62 @@ export const WorkflowInstancePage: React.FC = () => {
         : [];
       setHistory(normalizedHistory);
     } catch (err: unknown) {
+      if (activeInstanceIdRef.current !== targetInstanceId || activeTenantIdRef.current !== targetTenantId) {
+        return; // Stale response discarded
+      }
       const { msg, code } = classifyError(err, "activity execution history");
       setHistoryError(msg);
       setHistoryErrorCode(code);
     } finally {
-      setHistoryLoading(false);
+      if (activeInstanceIdRef.current === targetInstanceId && activeTenantIdRef.current === targetTenantId) {
+        setHistoryLoading(false);
+      }
     }
-  }, [instanceId, tenantId]);
+  }, []);
 
-  const fetchTasks = useCallback(async () => {
-    if (!instanceId || !tenantId) return;
+  const fetchTasks = useCallback(async (targetInstanceId: string, targetTenantId: string) => {
+    if (!targetInstanceId || !targetTenantId) return;
     setTasksLoading(true);
     setTasksError(null);
     setTasksErrorCode(undefined);
     try {
-      const taskData = await apiClient.listWorkflowTasks(tenantId, { instance_id: instanceId });
+      const taskData = await apiClient.listWorkflowTasks(targetTenantId, { instance_id: targetInstanceId });
+      if (activeInstanceIdRef.current !== targetInstanceId || activeTenantIdRef.current !== targetTenantId) {
+        return; // Stale response discarded
+      }
       setTasks(taskData);
     } catch (err: unknown) {
+      if (activeInstanceIdRef.current !== targetInstanceId || activeTenantIdRef.current !== targetTenantId) {
+        return; // Stale response discarded
+      }
       const { msg, code } = classifyError(err, "workflow human tasks");
       setTasksError(msg);
       setTasksErrorCode(code);
     } finally {
-      setTasksLoading(false);
+      if (activeInstanceIdRef.current === targetInstanceId && activeTenantIdRef.current === targetTenantId) {
+        setTasksLoading(false);
+      }
     }
-  }, [instanceId, tenantId]);
+  }, []);
 
   const fetchInstanceData = useCallback(async () => {
     if (!instanceId) return;
+    activeInstanceIdRef.current = instanceId;
+    activeTenantIdRef.current = tenantId;
+
     if (!user) {
       setError("Authentication session required. Please sign in to inspect workflow instances.");
+      setInstance(null);
+      setHistory([]);
+      setTasks([]);
       setLoading(false);
       return;
     }
     if (!tenantId) {
       setError("Active authenticated tenant context is required to inspect workflow instances.");
+      setInstance(null);
+      setHistory([]);
+      setTasks([]);
       setLoading(false);
       return;
     }
@@ -147,22 +180,57 @@ export const WorkflowInstancePage: React.FC = () => {
     setLoading(true);
     setError(null);
     setErrorCode(undefined);
+    setHistory([]);
+    setTasks([]);
+    setHistoryError(null);
+    setHistoryErrorCode(undefined);
+    setTasksError(null);
+    setTasksErrorCode(undefined);
+
+    const currentInstanceId = instanceId;
+    const currentTenantId = tenantId;
 
     try {
-      const instData = await apiClient.getWorkflowInstance(instanceId, tenantId);
+      const instData = await apiClient.getWorkflowInstance(currentInstanceId, currentTenantId);
+
+      // Check if instance or tenant context shifted while request was in-flight
+      if (activeInstanceIdRef.current !== currentInstanceId || activeTenantIdRef.current !== currentTenantId) {
+        return; // Discard stale response
+      }
+
       setInstance(instData);
+      setLoading(false);
+
+      // Primary instance succeeded (HTTP 200) -> Dispatch secondary streams
+      fetchHistory(currentInstanceId, currentTenantId);
+      fetchTasks(currentInstanceId, currentTenantId);
     } catch (err: unknown) {
+      // Discard stale failure if user navigated away
+      if (activeInstanceIdRef.current !== currentInstanceId || activeTenantIdRef.current !== currentTenantId) {
+        return;
+      }
       const { msg, code } = classifyError(err, "workflow instance");
       setError(msg);
       setErrorCode(code);
-    } finally {
+      setInstance(null);
+      setHistory([]);
+      setTasks([]);
       setLoading(false);
+      // Secondary requests MUST NOT execute when primary instance retrieval fails
     }
-
-    // Trigger secondary data streams without converting failures to empty lists
-    fetchHistory();
-    fetchTasks();
   }, [instanceId, user, tenantId, fetchHistory, fetchTasks]);
+
+  const handleRetryHistory = useCallback(() => {
+    if (instanceId && tenantId) {
+      fetchHistory(instanceId, tenantId);
+    }
+  }, [instanceId, tenantId, fetchHistory]);
+
+  const handleRetryTasks = useCallback(() => {
+    if (instanceId && tenantId) {
+      fetchTasks(instanceId, tenantId);
+    }
+  }, [instanceId, tenantId, fetchTasks]);
 
   useEffect(() => {
     fetchInstanceData();
@@ -469,7 +537,7 @@ export const WorkflowInstancePage: React.FC = () => {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={fetchHistory}
+                  onClick={handleRetryHistory}
                   disabled={historyLoading}
                   className="gap-1.5"
                 >
@@ -575,7 +643,7 @@ export const WorkflowInstancePage: React.FC = () => {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={fetchTasks}
+                  onClick={handleRetryTasks}
                   disabled={tasksLoading}
                   className="gap-1.5"
                 >

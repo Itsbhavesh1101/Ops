@@ -168,10 +168,10 @@ describe("WorkflowInstancePage Integration", () => {
     expect(screen.getByText("Approve Faculty Allocation")).toBeInTheDocument();
   });
 
-  it("renders error state when instance is not found (404) or API fails", async () => {
+  it("renders error state when instance is not found (404) or API fails and does not issue secondary requests", async () => {
     vi.spyOn(apiClient, "getWorkflowInstance").mockRejectedValue(new Error("Workflow instance not found or access denied"));
-    vi.spyOn(apiClient, "getWorkflowHistory").mockRejectedValue(new Error("Workflow instance not found or access denied"));
-    vi.spyOn(apiClient, "listWorkflowTasks").mockResolvedValue([]);
+    const historySpy = vi.spyOn(apiClient, "getWorkflowHistory");
+    const tasksSpy = vi.spyOn(apiClient, "listWorkflowTasks");
 
     render(
       <MemoryRouter initialEntries={["/workflows/wf-inst-404"]}>
@@ -187,12 +187,16 @@ describe("WorkflowInstancePage Integration", () => {
 
     const retryBtn = screen.getByRole("button", { name: /Retry/i });
     expect(retryBtn).toBeInTheDocument();
+
+    // Verify secondary requests were strictly NOT issued
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(tasksSpy).not.toHaveBeenCalled();
   });
 
-  it("handles forbidden access / missing tenant cleanly", async () => {
+  it("handles forbidden access / missing tenant cleanly without issuing secondary requests", async () => {
     vi.spyOn(apiClient, "getWorkflowInstance").mockRejectedValue(new Error("Forbidden: tenant mismatch"));
-    vi.spyOn(apiClient, "getWorkflowHistory").mockResolvedValue([]);
-    vi.spyOn(apiClient, "listWorkflowTasks").mockResolvedValue([]);
+    const historySpy = vi.spyOn(apiClient, "getWorkflowHistory");
+    const tasksSpy = vi.spyOn(apiClient, "listWorkflowTasks");
 
     render(
       <MemoryRouter initialEntries={["/workflows/wf-inst-999"]}>
@@ -205,6 +209,9 @@ describe("WorkflowInstancePage Integration", () => {
     await waitFor(() => {
       expect(screen.getByText(/Forbidden: tenant mismatch/i)).toBeInTheDocument();
     });
+
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(tasksSpy).not.toHaveBeenCalled();
   });
 
   it("handles partial failure: instance succeeds but history fails with 403 Forbidden", async () => {
@@ -407,5 +414,126 @@ describe("WorkflowInstancePage Integration", () => {
     });
 
     expect(instSpy).not.toHaveBeenCalled();
+  });
+
+  it("strictly suppresses secondary requests when primary instance returns HTTP 403", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockRejectedValue(
+      new ApiError(403, "Forbidden: Cross-tenant access denied")
+    );
+    const historySpy = vi.spyOn(apiClient, "getWorkflowHistory");
+    const tasksSpy = vi.spyOn(apiClient, "listWorkflowTasks");
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-forbidden"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Tenant Boundary Enforced/i)).toBeInTheDocument();
+    });
+
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(tasksSpy).not.toHaveBeenCalled();
+  });
+
+  it("strictly suppresses secondary requests when primary instance returns HTTP 404", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockRejectedValue(
+      new ApiError(404, "Workflow instance not found")
+    );
+    const historySpy = vi.spyOn(apiClient, "getWorkflowHistory");
+    const tasksSpy = vi.spyOn(apiClient, "listWorkflowTasks");
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-missing"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Instance Not Found" })).toBeInTheDocument();
+    });
+
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(tasksSpy).not.toHaveBeenCalled();
+  });
+
+  it("strictly suppresses secondary requests when primary instance returns HTTP 500", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockRejectedValue(
+      new ApiError(500, "Internal workflow database failure")
+    );
+    const historySpy = vi.spyOn(apiClient, "getWorkflowHistory");
+    const tasksSpy = vi.spyOn(apiClient, "listWorkflowTasks");
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-err"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Server Error \(HTTP 500\)/i)).toBeInTheDocument();
+    });
+
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(tasksSpy).not.toHaveBeenCalled();
+  });
+
+  it("strictly suppresses secondary requests when primary instance encounters network failure", async () => {
+    vi.spyOn(apiClient, "getWorkflowInstance").mockRejectedValue(
+      new Error("Failed to fetch: Network unreachable")
+    );
+    const historySpy = vi.spyOn(apiClient, "getWorkflowHistory");
+    const tasksSpy = vi.spyOn(apiClient, "listWorkflowTasks");
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-neterr"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Network Error: Unable to communicate with the workflow API/i)).toBeInTheDocument();
+    });
+
+    expect(historySpy).not.toHaveBeenCalled();
+    expect(tasksSpy).not.toHaveBeenCalled();
+  });
+
+  it("discards stale secondary responses if instance shifts before request completes", async () => {
+    let resolveSlowHistory: (val: WorkflowHistoryEntry[]) => void = () => {};
+    const slowHistoryPromise = new Promise<WorkflowHistoryEntry[]>((resolve) => {
+      resolveSlowHistory = resolve;
+    });
+
+    vi.spyOn(apiClient, "getWorkflowInstance").mockResolvedValue(mockInstance);
+    vi.spyOn(apiClient, "getWorkflowHistory").mockReturnValue(slowHistoryPromise);
+    vi.spyOn(apiClient, "listWorkflowTasks").mockResolvedValue(mockTasks);
+
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/workflows/wf-inst-101"]}>
+        <Routes>
+          <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("exam-scheduling-flow").length).toBeGreaterThanOrEqual(1);
+    });
+
+    // Unmount before slow history finishes
+    unmount();
+
+    // Resolving slow history after unmount should not cause uncaught errors
+    resolveSlowHistory(mockHistoryEntries);
   });
 });

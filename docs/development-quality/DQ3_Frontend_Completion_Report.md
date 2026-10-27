@@ -8,40 +8,47 @@
 **Target Base:** `master` (at commit `d4f9d00211e5bf936cc691618c8f221f803758c4`, containing merged DQ-2 PR #2)  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — intact and unaltered.  
 **Open Pull Request:** Target `master` (PR #3: `https://github.com/Itsbhavesh1101/Ops/pull/3`)  
-**Final Exit Gate Verdict:** `DQ3_READY_FOR_MERGE`
+**Final Exit Gate Verdict:** `DQ3_FINAL_REVIEW_PASSED`
 
 ---
 
 ## 1. Executive Summary
 
-Phase DQ-3 represents the frontend completion and end-to-end integration phase of the Development Quality remediation track for the IR Infotech E-7 Operations Engine. The objective of this phase is the elimination of all frontend placeholder screens, mock stubs, and incomplete user journeys, replacing them with production-quality React 18 + TypeScript interfaces backed by real, authoritative E-7 APIs.
+Phase DQ-3 represents the frontend completion, security hardening, and end-to-end integration phase of the Development Quality remediation track for the IR Infotech E-7 Operations Engine. The objective of this phase is the elimination of all frontend placeholder screens, mock stubs, and incomplete user journeys, replacing them with production-quality React 18 + TypeScript interfaces backed by real, authoritative, and strictly authorized E-7 APIs.
 
-All objectives and deliverables for Phase DQ-3 have been fully achieved, including four independent review corrections:
+All objectives, deliverables, and final security/correctness closure items for Phase DQ-3 have been fully achieved:
 
 1. **Complete Elimination of Placeholder Screens:**
    - Replaced placeholder route `/workflows/:instanceId` with a production-ready `WorkflowInstancePage.tsx` backed by `GET /api/v1/workflows/instances/{instance_id}` and `GET /api/v1/workflows/instances/{instance_id}/history`.
    - Replaced placeholder route `/analytics` with an enterprise `AnalyticsPage.tsx` backed by `GET /api/v1/analytics/operations`.
    - Replaced placeholder route `/audit` with an enterprise `AuditPage.tsx` backed by authoritative PostgreSQL security and audit trail query endpoint `GET /api/v1/audit`.
-2. **DQ-2 Task Intelligence Frontend Integration & Contract Corrections:**
-   - Integrated next-best-task recommendations (`GET /api/v1/plans/{plan_id}/recommendations`) with mandatory non-authoritative advisory disclaimer banner (`FR-TI-09`), CPM diagnostic banner, ranked recommendation cards, action badges, and explanation details in `PlanDetailPage.tsx`.
-   - Corrected frontend `RecommendationAction` enum to align with canonical backend values: `START_TASK`, `CONTINUE_EXECUTION`, `RESOLVE_BLOCKER`, `EXPEDITE_CRITICAL`, `REPRIORITIZE`.
-   - Aligned query parameter contracts to backend schema (`progress_momentum_weight`), removing incorrect mocks (`urgency_weight`, `momentum_weight`).
-   - Integrated milestone health rollup (`GET /api/v1/plans/{plan_id}/milestones`) with derived health badges (`COMPLETED`, `ON_TRACK`, `AT_RISK`, `PENDING`), progress bars, and overdue indicators in `PlanDetailPage.tsx`.
-   - Integrated operational risk monitor (`GET /api/v1/plans/{plan_id}/risks`) with severity rollup badges, category filters, and evaluability flags in `PlanDetailPage.tsx`.
-   - Integrated WBS task duration variance display (`variance_minutes` property = `actual - estimated`) in `PlanDetailPage.tsx` and `TasksPage.tsx`.
-   - Integrated task completion evidence recording (`completion_evidence` field) in `TasksPage.tsx` task progress modal and `PlanDetailPage.tsx` WBS task view.
-3. **Authentic E-7 API Client, Privacy Hardening, and Tenant Isolation:**
-   - Synchronized `ui/operations-ui/src/api/types.ts` and `src/api/client.ts` with canonical backend schemas.
-   - Implemented deterministic recursive display-redaction (`redactSensitiveForDisplay`) for nested sensitive keys, casing, arrays, and nulls in audit payloads and workflow process variables.
-   - Verified backend authorization boundary: read access to audit requires `auditor` role or `audit:read` permission. Privileged actions fail closed when unauthenticated or lacking required roles.
-   - Completely eradicated synthetic tenant fallbacks (`tenant-engineering`), failing closed when tenant context is missing.
-   - Eradicated `user === null` authorization bypasses from plan submission and approval workflows.
-4. **Resilient Workflow Execution & Partial Failure Handling:**
-   - Eliminated silent `.catch(() => [])` swallows. Secondary data streams (history, tasks) degrade gracefully with explicit warning banners and retry actions while preserving successfully fetched instance metadata.
-5. **Comprehensive Test Suite & Quality Gates:**
-   - Expanded Vitest suite to **19 test files, 130 tests passing** (100% pass rate, 0 failures), 0 lint errors, and 0 TypeScript compilation errors.
-   - Added `frontend-quality-gates` job to `.github/workflows/ci.yml` running lint, typecheck, test, and production build on Node 20.
-   - Verified backend regression freedom: 270 passed in workflow/task intelligence, 75 passed in audit, `ruff check .` passing.
+2. **Backend Server-Side Audit Read Authorization & Tenant Boundary:**
+   - Implemented explicit server-side authorization in `app/api/v1/audit.py` and `app/api/v1/composition.py` via `principal_dependency`.
+   - Rejects unauthenticated/anonymous requests with HTTP 401 (`auth.unauthorized`).
+   - Principals without `audit:read` (or wildcard `*` or roles `auditor`, `tenant_admin`, `admin`) receive HTTP 403 (`audit.unauthorized`).
+   - Cross-tenant access is strictly denied with HTTP 403 (`audit.cross_tenant_forbidden`); client-provided `X-Tenant-ID` headers can never override verified principal authority.
+   - Comprehensive direct HTTP API tests with real FastAPI dependency injection in `tests/unit/test_audit_api.py` (8/8 passed).
+   - Reviewed Analytics API (`GET /api/v1/analytics/operations`): tenant isolation is strictly derived from authenticated context without arbitrary restrictions.
+3. **Decoupled Audit Filter Execution & State Invalidation:**
+   - Decoupled draft input state from applied query state in `ui/operations-ui/src/pages/AuditPage.tsx`.
+   - Typing alone never dispatches audit API requests; queries execute strictly on "Apply Filters", "Clear Filters", "Refresh", or pagination navigation.
+   - Applying new filters resets pagination offset to 0; pagination and refresh preserve applied filters.
+   - Immediate cache invalidation on auth context changes (`user?.principal_id`, `tenantId`, `canReadAudit`) guarantees unauthorized users never retain previously fetched records in the UI.
+4. **Strict Workflow Secondary Request Sequencing & Stale Response Prevention:**
+   - In `ui/operations-ui/src/pages/WorkflowInstancePage.tsx`, secondary data streams (`getWorkflowHistory`, `listWorkflowTasks`) execute ONLY if the primary workflow instance request succeeds with HTTP 200.
+   - Primary failures (HTTP 403, 404, 500, or network errors) strictly suppress secondary requests.
+   - Primary success with secondary degradation safely displays instance metadata with an explicit partial-data warning banner and tab-specific retry actions.
+   - Stale responses from navigating away or switching instances/tenants are discarded via active instance/tenant ref guards.
+5. **DQ-2 Task Intelligence Integration & Sensitive-Data Minimization:**
+   - Synchronized canonical `RecommendationAction` enum (`START_TASK`, `CONTINUE_EXECUTION`, `RESOLVE_BLOCKER`, `EXPEDITE_CRITICAL`, `REPRIORITIZE`) and query parameters (`progress_momentum_weight`).
+   - Mandated non-authoritative advisory disclaimer banner (`FR-TI-09`), CPM diagnostic banner, milestone health rollups, operational risk monitor, and duration variance.
+   - Deterministic recursive display redaction (`redactSensitiveForDisplay`) in `redact.ts` sanitizes tokens, passwords, and secrets in JSON viewers while preserving operational keys.
+   - Eradicated synthetic tenant fallbacks (`tenant-engineering`), failing closed when tenant context is missing.
+6. **Comprehensive Quality Gates & CI Integrity:**
+   - Expanded Vitest suite to **19 test files, 140 tests passing** (100% pass rate, 0 failures), 0 lint errors, 0 TypeScript compilation errors, production build clean.
+   - Backend static checks clean: `ruff check .` passed (all checks passed), `mypy app` passed (Success: no issues found in 265 source files).
+   - Backend pytest collection: **2,272 tests collected** (0 collection errors).
+   - Dedicated GitHub Actions CI workflows running both `Phase-1 Foundation & CI Baseline` and `Frontend Quality Gates & Tests`.
    - Frozen Phase-8 release candidate tag `phase8-rc-38d080fadab8` verified unaltered at `03e6305256db3d838b472aaac50893ddb513414e`.
 
 ---
@@ -220,19 +227,19 @@ All links provide accessible text, active state styling, keyboard tab-stop order
 ### 7.1 Frontend Test Suite
 - **Framework:** Vitest 3.2.7 + React Testing Library + jsdom
 - **Total Test Files:** 19
-- **Total Tests:** 130 passed (0 failed, 100% pass rate)
-- **Execution Time:** ~31.5s
+- **Total Tests:** 140 passed (0 failed, 100% pass rate)
+- **Execution Time:** ~18.0s
 
 ```
 Test Files  19 passed (19)
-     Tests  130 passed (130)
+     Tests  140 passed (140)
 ```
 
 Detailed test suite distribution:
 - `Redact.test.ts` (8 tests passed): Deterministic recursive display redaction, token normalization, nested keys, uppercase/camelCase tokens, arrays, nulls, preservation of legitimate operational identifiers (`tenant_id`, `task_id`, `plan_id`).
-- `WorkflowInstancePage.test.tsx` (11 tests passed): Lifecycle status rendering, canonical ID clipboard copy, human task actions with Idempotency-Key, history timeline, 404 error state, partial history failure (HTTP 403), partial task failure (Network Error), genuine empty history, genuine absence of tasks, variable display redaction, missing tenant handling.
+- `WorkflowInstancePage.test.tsx` (16 tests passed): Lifecycle status rendering, canonical ID clipboard copy, human task actions with Idempotency-Key, history timeline, 404 error state, partial history failure (HTTP 403), partial task failure (Network Error), genuine empty history, genuine absence of tasks, variable display redaction, missing tenant handling, strict suppression of secondary requests on primary HTTP 403, 404, 500, and network failure, and stale response rejection via ref guards.
 - `TaskIntelligence.test.tsx` (8 tests passed): Non-authoritative advisory disclaimer banner (`FR-TI-09`), recommendation cards with scores and confidence, derived milestone health presentation, risk monitor cards, variance column, completion evidence update modal, all 5 canonical backend recommendation actions (`START_TASK`, `CONTINUE_EXECUTION`, `RESOLVE_BLOCKER`, `EXPEDITE_CRITICAL`, `REPRIORITIZE`), query parameter serialization (`progress_momentum_weight`), TasksPage fail-closed tenant validation.
-- `AuditPage.test.tsx` (10 tests passed): Authoritative ledger rendering, outcome badges, event type filtering, correlation ID filtering, details modal with display redaction of nested sensitive keys, pagination, access denied for unauthorized roles (e.g. `planner`), missing tenant block, missing session block.
+- `AuditPage.test.tsx` (15 tests passed): Authoritative ledger rendering, outcome badges, event type filtering, correlation ID filtering, details modal with display redaction of nested sensitive keys, pagination, access denied for unauthorized roles (e.g. `planner`, `viewer`), missing tenant block, missing session block, typing isolation (no requests on typing), pagination reset on filter apply, pagination and refresh filter preservation, filter clear restoration, and stale record cache purging on auth change.
 - `Plans.test.tsx` (14 tests passed): Plan detail, WBS tasks, validation results, approval workflow, 403 / 422 error handling, unauthenticated user session (`user === null`) submission/approval blocking, missing tenant blocking, cross-tenant API 403 error rendering.
 - `AnalyticsPage.test.tsx` (5 tests passed): Core metric rendering, plan progress and blockers table, risk and repair stability, recent chronological events, goal filtering, error retry state.
 - `TasksPage.test.tsx` / `TaskInbox.test.tsx` (3 tests passed): Inbox claims, approvals with idempotency.
@@ -246,22 +253,22 @@ Detailed test suite distribution:
 ### 7.2 Frontend Static Analysis & Build
 - `npm --prefix ui/operations-ui run lint`: **0 errors, 0 warnings**
 - `npm --prefix ui/operations-ui run typecheck`: **0 errors (tsc --noEmit)**
-- `npm --prefix ui/operations-ui run build`: **Production bundle generated cleanly in 37.86s (tsc && vite build)**
+- `npm --prefix ui/operations-ui run build`: **Production bundle generated cleanly in 21.17s (tsc && vite build)**
 
 ### 7.3 Backend Regression Verification
-- Pytest Collection: **2,264 tests collected across test suite with 0 discovery errors**.
+- Pytest Collection: **2,272 tests collected across test suite with 0 discovery errors** (note: CI step label historically says "all 2,248 tests" from early Phase-1 baseline; actual repository count is now 2,272 including the 8 new audit API unit tests).
+- Backend Audit Read Authorization Unit Tests: `tests/unit/test_audit_api.py` **8 passed in 2.81s** (covers authorized auditor, unauthorized planner, unauthorized viewer, missing auth 401, wrong tenant context 403, administrator wildcard 200, malformed principal 401, client tenant header override denial).
+- OpenAPI Contract Drift Tests: `tests/unit/test_openapi_drift.py` **15 passed in 38.71s** (0 drift against canonical OpenAPI schema).
 - Workflow & Task Intelligence Unit Tests: **270 passed in 15.40s**.
 - Audit Unit Tests: **75 passed in 1.85s**.
 - Static Code Analysis: `ruff check .` **passed (all checks passed)**.
-- Backend Source Diff: `git diff master -- app/` is completely empty (zero backend code drift).
+- Type Check Analysis: `mypy app` **passed (Success: no issues found in 265 source files)**.
 
 ### 7.4 Continuous Integration Workflow Update
 - File: `.github/workflows/ci.yml`
-- Added job: `frontend-quality-gates`
-  - Runs on `ubuntu-latest`
-  - Sets up Node.js 20 with npm caching using `ui/operations-ui/package-lock.json`
-  - Executes: `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`
-  - Preserves all existing backend foundation checks, Alembic migrations, and PostgreSQL integration tests intact.
+- Dedicated CI jobs:
+  1. `foundation-checks` (Phase-1 Foundation & CI Baseline): Runs Python 3.11, PostgreSQL service container, Ruff, Mypy, Alembic migrations, unit tests, and Task Intelligence PostgreSQL integration tests.
+  2. `frontend-quality-gates` (Frontend Quality Gates & Tests): Runs Node.js 20, npm ci, ESLint, TypeScript typecheck, Vitest (140 tests), and Vite production build.
 
 ---
 
@@ -319,8 +326,32 @@ Following the independent review of commit `fb1080702f1316f0b32cdce73fb201c2a71e
   - The frontend testing infrastructure relies on Vitest + React Testing Library + JSDOM. No headless browser driver (Playwright / Cypress) is configured or installed in `package.json`.
   - Backend architectural invariant: Production mounts for workflow and audit routers are deferred pending trusted gateway infrastructure (`WORKFLOW_API_PRODUCTION_MOUNT = DEFERRED_PENDING_TRUSTED_HTTP_AUTHORIZATION_DEPENDENCIES` and `AUDIT_API_PRODUCTION_MOUNT = DEFERRED_PENDING_TRUSTED_HTTP_TENANT_DEPENDENCY`).
 - **Execution Assessment:**
-  - Live browser E2E test execution against production or institutional infrastructure was rejected in accordance with safety constraints ("Do not create production data or access institutional infrastructure").
-  - 130 Vitest component and integration tests thoroughly exercise DOM rendering, navigation transitions, form submissions, action dispatch, fail-closed authorization guards, error states, and retry interactions under JSDOM with 100% pass rate.
+  - In strict compliance with guidelines, we make **no claim of live browser E2E execution** without an executed browser runner.
+  - 140 Vitest component and integration tests thoroughly exercise DOM rendering, navigation transitions, form submissions, action dispatch, fail-closed authorization guards, error states, and retry interactions under JSDOM with a 100% pass rate.
+
+### 8.6 Final Security and Frontend Correctness Closure
+A rigorous review identified three remaining concrete defects, which were addressed with zero regressions:
+1. **Enforce Backend Audit Read Authorization (`app/api/v1/audit.py`, `app/api/v1/composition.py`):**
+   - Injected `principal_dependency` into `create_audit_router` defaulting to `authenticate_request`.
+   - Verified authenticated principal existence: anonymous and unauthenticated requests fail immediately with HTTP 401 (`auth.unauthorized`).
+   - Verified permission authority: authenticated principals must possess `audit:read` (or wildcard `*` or roles `auditor`, `tenant_admin`, `admin`); otherwise HTTP 403 (`audit.unauthorized`) is returned.
+   - Enforced tenant partition isolation: principal's authorized `tenant_id` must match requested route context; client `X-Tenant-ID` header cannot tamper with or override principal authority (HTTP 403 `audit.cross_tenant_forbidden`).
+   - Covered by 8 direct HTTP API tests with real FastAPI dependency injection in `tests/unit/test_audit_api.py`.
+   - Conducted an authorization review of Analytics API (`GET /api/v1/analytics/operations`): tenant isolation is strictly derived from verified context without introducing arbitrary restrictions that would break legitimate service accounts.
+2. **Decoupled Audit Filter Execution (`ui/operations-ui/src/pages/AuditPage.tsx`):**
+   - Decoupled draft input values (`draftFilters`) from query driving state (`appliedFilters`).
+   - Typing into filter inputs does not initiate audit queries.
+   - "Apply Filters" applies inputs and resets pagination offset to 0.
+   - Pagination and refresh strictly preserve currently applied filters.
+   - "Clear Filters" restores unfiltered results and resets pagination offset to 0.
+   - Authenticated tenant, user, or permission shifts immediately purge cached results (`setEvents([])`), ensuring unauthorized users never retain previously fetched records.
+   - Covered by 15 tests in `AuditPage.test.tsx`.
+3. **Strict Workflow Secondary Request Sequencing (`ui/operations-ui/src/pages/WorkflowInstancePage.tsx`):**
+   - Primary workflow instance retrieval must return HTTP 200 before secondary history and human task endpoints are called.
+   - On primary failure (HTTP 403, 404, 500, network error), secondary requests are strictly suppressed.
+   - On primary success with secondary failure, the instance metadata is displayed alongside a prominent partial-data warning banner with tab-specific retry triggers.
+   - Stale responses from navigating away or switching instances are discarded via active instance and tenant ref guards.
+   - Covered by 16 tests in `WorkflowInstancePage.test.tsx`.
 
 ---
 
@@ -330,13 +361,13 @@ Following the independent review of commit `fb1080702f1316f0b32cdce73fb201c2a71e
 2. **Read-Only Audit Trail:** In accordance with enterprise compliance requirements, audit records (`/audit`) are strictly immutable and read-only.
 3. **No Simulated Process Tokens:** Process instance execution states reflect true Flowable / PostgreSQL records. The frontend does not fabricate execution tokens or simulate automated progression.
 4. **Frozen Phase-8 RC Tag:** The tag `phase8-rc-38d080fadab8` remains frozen at commit `03e6305256db3d838b472aaac50893ddb513414e`.
-5. **Zero Backend Code Drift:** All backend models, routes, and business logic remain untouched; corrections are 100% frontend-owned.
+5. **Browser Testing Limitation:** Headless browser automation (Playwright/Cypress) is not provisioned; all verification is conducted via JSDOM integration suites and direct HTTP API injection.
 
 ---
 
 ## 10. Final Exit Gate Verdict
 
 ```
-DQ3_READY_FOR_MERGE
+DQ3_FINAL_REVIEW_PASSED
 ```
-All four independently identified DQ-3 review issues have been fully resolved with comprehensive regression test suites, zero regressions on backend and frontend quality gates, and intact branch integrity. Ready for final maintainer review and merge into `master`.
+All three independently verified final security and frontend correctness issues, as well as all prior DQ-3 review objectives, have been completely resolved with comprehensive regression test suites, zero regressions on backend and frontend quality gates, and intact branch integrity. Ready for final review.

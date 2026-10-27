@@ -33,6 +33,20 @@ import { LoadingState } from "../components/ui/LoadingState";
 import { EmptyState } from "../components/ui/EmptyState";
 import { ErrorState } from "../components/ui/ErrorState";
 
+interface AuditFilters {
+  eventType: string;
+  resourceType: string;
+  resourceId: string;
+  correlationId: string;
+}
+
+const EMPTY_FILTERS: AuditFilters = {
+  eventType: "",
+  resourceType: "",
+  resourceId: "",
+  correlationId: "",
+};
+
 export const AuditPage: React.FC = () => {
   const { user } = useAuth();
 
@@ -40,11 +54,11 @@ export const AuditPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter States
-  const [eventTypeFilter, setEventTypeFilter] = useState<string>("");
-  const [resourceTypeFilter, setResourceTypeFilter] = useState<string>("");
-  const [resourceIdFilter, setResourceIdFilter] = useState<string>("");
-  const [correlationIdFilter, setCorrelationIdFilter] = useState<string>("");
+  // Draft Filter States (bound to form inputs - typing does not trigger API requests)
+  const [draftFilters, setDraftFilters] = useState<AuditFilters>(EMPTY_FILTERS);
+
+  // Explicit Applied Filter States (applied on submission or clear - drives queries)
+  const [appliedFilters, setAppliedFilters] = useState<AuditFilters>(EMPTY_FILTERS);
 
   // Pagination States
   const [limit, setLimit] = useState<number>(25);
@@ -60,66 +74,114 @@ export const AuditPage: React.FC = () => {
     Boolean(user) &&
     Boolean(tenantId) &&
     (user?.roles?.some((r) => ["auditor", "tenant_admin", "admin"].includes(r)) ||
-     user?.permissions?.some((p) => ["audit:read", "*"].includes(p)));
+      user?.permissions?.some((p) => ["audit:read", "*"].includes(p)));
 
-  const fetchAuditEvents = useCallback(async () => {
+  // Authenticated tenant or permission changes strictly invalidate stale results
+  useEffect(() => {
+    setEvents([]);
+    setDraftFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    setOffset(0);
     if (!user) {
       setError("Authentication session required. Please sign in to inspect audit logs.");
       setLoading(false);
-      return;
-    }
-
-    if (!tenantId) {
+    } else if (!tenantId) {
       setError("Active authenticated tenant context is required to inspect audit logs.");
       setLoading(false);
-      return;
-    }
-
-    if (!canReadAudit) {
-      setError("Insufficient permissions to inspect audit trail. The 'audit:read' permission or 'auditor' role is required.");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const params: AuditQueryParams = {
-      limit,
-      offset,
-      event_type: eventTypeFilter.trim() || undefined,
-      resource_type: resourceTypeFilter.trim() || undefined,
-      resource_id: resourceIdFilter.trim() || undefined,
-      correlation_id: correlationIdFilter.trim() || undefined,
-    };
-
-    try {
-      const records = await apiClient.searchAudit(params, tenantId);
-      setEvents(records);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to load audit records";
-      setError(msg);
-    } finally {
+    } else if (!canReadAudit) {
+      setError(
+        "Insufficient permissions to inspect audit trail. The 'audit:read' permission or 'auditor' role is required."
+      );
       setLoading(false);
     }
-  }, [tenantId, limit, offset, eventTypeFilter, resourceTypeFilter, resourceIdFilter, correlationIdFilter]);
+  }, [user?.principal_id, tenantId, canReadAudit]);
 
+  const fetchAuditEvents = useCallback(
+    async (
+      filtersToUse: AuditFilters = appliedFilters,
+      targetOffset: number = offset,
+      targetLimit: number = limit
+    ) => {
+      if (!user) {
+        setEvents([]);
+        setError("Authentication session required. Please sign in to inspect audit logs.");
+        setLoading(false);
+        return;
+      }
+
+      if (!tenantId) {
+        setEvents([]);
+        setError("Active authenticated tenant context is required to inspect audit logs.");
+        setLoading(false);
+        return;
+      }
+
+      if (!canReadAudit) {
+        setEvents([]);
+        setError(
+          "Insufficient permissions to inspect audit trail. The 'audit:read' permission or 'auditor' role is required."
+        );
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+
+      const params: AuditQueryParams = {
+        limit: targetLimit,
+        offset: targetOffset,
+        event_type: filtersToUse.eventType.trim() || undefined,
+        resource_type: filtersToUse.resourceType.trim() || undefined,
+        resource_id: filtersToUse.resourceId.trim() || undefined,
+        correlation_id: filtersToUse.correlationId.trim() || undefined,
+      };
+
+      try {
+        const records = await apiClient.searchAudit(params, tenantId);
+        setEvents(records);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "Failed to load audit records";
+        setError(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user, tenantId, canReadAudit, appliedFilters, offset, limit]
+  );
+
+  // Effect triggers ONLY on appliedFilters, offset, limit changes or valid auth session
   useEffect(() => {
-    fetchAuditEvents();
-  }, [fetchAuditEvents]);
+    if (!user || !tenantId || !canReadAudit) return;
+    fetchAuditEvents(appliedFilters, offset, limit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.principal_id, tenantId, canReadAudit, appliedFilters, offset, limit]);
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setOffset(0); // Reset to first page
-    fetchAuditEvents();
+    const isSame =
+      draftFilters.eventType === appliedFilters.eventType &&
+      draftFilters.resourceType === appliedFilters.resourceType &&
+      draftFilters.resourceId === appliedFilters.resourceId &&
+      draftFilters.correlationId === appliedFilters.correlationId &&
+      offset === 0;
+
+    if (isSame) {
+      fetchAuditEvents(draftFilters, 0, limit);
+    } else {
+      setOffset(0); // Applying new filters resets pagination to the first page
+      setAppliedFilters({ ...draftFilters });
+    }
   };
 
   const handleClearFilters = () => {
-    setEventTypeFilter("");
-    setResourceTypeFilter("");
-    setResourceIdFilter("");
-    setCorrelationIdFilter("");
+    setDraftFilters(EMPTY_FILTERS);
     setOffset(0);
+    setAppliedFilters(EMPTY_FILTERS);
+  };
+
+  const handleRefresh = () => {
+    fetchAuditEvents(appliedFilters, offset, limit);
   };
 
   const openEventDetails = (ev: AuditEventResponse) => {
@@ -144,6 +206,17 @@ export const AuditPage: React.FC = () => {
   const hasNextPage = events.length === limit;
   const hasPrevPage = offset > 0;
 
+  const hasFilterValues = Boolean(
+    draftFilters.eventType ||
+      draftFilters.resourceType ||
+      draftFilters.resourceId ||
+      draftFilters.correlationId ||
+      appliedFilters.eventType ||
+      appliedFilters.resourceType ||
+      appliedFilters.resourceId ||
+      appliedFilters.correlationId
+  );
+
   return (
     <div className="space-y-6 text-left">
       {/* Header */}
@@ -159,7 +232,7 @@ export const AuditPage: React.FC = () => {
             <Button
               variant="secondary"
               size="sm"
-              onClick={fetchAuditEvents}
+              onClick={handleRefresh}
               disabled={loading}
               className="gap-1.5"
             >
@@ -179,8 +252,10 @@ export const AuditPage: React.FC = () => {
               </label>
               <Input
                 placeholder="e.g. task.progress_updated"
-                value={eventTypeFilter}
-                onChange={(e) => setEventTypeFilter(e.target.value)}
+                value={draftFilters.eventType}
+                onChange={(e) =>
+                  setDraftFilters((prev) => ({ ...prev, eventType: e.target.value }))
+                }
                 className="text-xs"
               />
             </div>
@@ -190,8 +265,10 @@ export const AuditPage: React.FC = () => {
               </label>
               <Input
                 placeholder="e.g. task, plan, schedule"
-                value={resourceTypeFilter}
-                onChange={(e) => setResourceTypeFilter(e.target.value)}
+                value={draftFilters.resourceType}
+                onChange={(e) =>
+                  setDraftFilters((prev) => ({ ...prev, resourceType: e.target.value }))
+                }
                 className="text-xs"
               />
             </div>
@@ -201,8 +278,10 @@ export const AuditPage: React.FC = () => {
               </label>
               <Input
                 placeholder="UUID or key"
-                value={resourceIdFilter}
-                onChange={(e) => setResourceIdFilter(e.target.value)}
+                value={draftFilters.resourceId}
+                onChange={(e) =>
+                  setDraftFilters((prev) => ({ ...prev, resourceId: e.target.value }))
+                }
                 className="text-xs font-mono"
               />
             </div>
@@ -212,8 +291,10 @@ export const AuditPage: React.FC = () => {
               </label>
               <Input
                 placeholder="Tracking UUID"
-                value={correlationIdFilter}
-                onChange={(e) => setCorrelationIdFilter(e.target.value)}
+                value={draftFilters.correlationId}
+                onChange={(e) =>
+                  setDraftFilters((prev) => ({ ...prev, correlationId: e.target.value }))
+                }
                 className="text-xs font-mono"
               />
             </div>
@@ -224,7 +305,7 @@ export const AuditPage: React.FC = () => {
               <Button type="submit" variant="primary" size="sm" className="gap-1.5">
                 <Search className="w-3.5 h-3.5" /> Apply Filters
               </Button>
-              {(eventTypeFilter || resourceTypeFilter || resourceIdFilter || correlationIdFilter) && (
+              {hasFilterValues && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -287,16 +368,8 @@ export const AuditPage: React.FC = () => {
                 icon={<ShieldCheck className="w-12 h-12 text-slate-300" />}
                 title="No Audit Events Found"
                 description="No matching audit trail records were found for the current query parameters and tenant partition."
-                actionLabel={
-                  (eventTypeFilter || resourceTypeFilter || resourceIdFilter || correlationIdFilter)
-                    ? "Reset Filters"
-                    : undefined
-                }
-                onAction={
-                  (eventTypeFilter || resourceTypeFilter || resourceIdFilter || correlationIdFilter)
-                    ? handleClearFilters
-                    : undefined
-                }
+                actionLabel={hasFilterValues ? "Reset Filters" : undefined}
+                onAction={hasFilterValues ? handleClearFilters : undefined}
               />
             </div>
           ) : (

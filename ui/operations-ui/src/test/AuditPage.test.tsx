@@ -339,4 +339,220 @@ describe("AuditPage Enterprise Audit Explorer Integration", () => {
     expect(screen.getByText(/"environment": "production"/i)).toBeInTheDocument();
     expect(screen.getByText(/"throughput": 450/i)).toBeInTheDocument();
   });
+
+  it("does not initiate new audit requests when user types into filter inputs", async () => {
+    const spy = vi.spyOn(apiClient, "searchAudit").mockResolvedValue(mockAuditRecords);
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("TASK_PROGRESS_UPDATED")).toBeInTheDocument();
+    });
+
+    const initialCallCount = spy.mock.calls.length;
+    expect(initialCallCount).toBe(1);
+
+    // Type into draft filter inputs
+    const eventTypeInput = screen.getByPlaceholderText(/task\.progress_updated/i);
+    const resourceTypeInput = screen.getByPlaceholderText(/task, plan, schedule/i);
+    const correlationIdInput = screen.getByPlaceholderText(/Tracking UUID/i);
+
+    fireEvent.change(eventTypeInput, { target: { value: "SCHEDULE_OPTIMIZED" } });
+    fireEvent.change(resourceTypeInput, { target: { value: "SCHEDULE" } });
+    fireEvent.change(correlationIdInput, { target: { value: "corr-draft-999" } });
+
+    // Verify no new requests were dispatched simply by typing
+    expect(spy.mock.calls.length).toBe(initialCallCount);
+  });
+
+  it("resets pagination to first page when new filters are applied", async () => {
+    // Generate 25 items so Next page button is enabled (limit = 25)
+    const twentyFiveRecords: AuditEventResponse[] = Array.from({ length: 25 }, (_, i) => ({
+      ...mockAuditRecords[0],
+      audit_event_id: `audit-batch-${i}`,
+      resource_id: `task-batch-${i}`,
+    }));
+    const spy = vi.spyOn(apiClient, "searchAudit").mockResolvedValue(twentyFiveRecords);
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Showing offset 0 - 25/i)).toBeInTheDocument();
+    });
+
+    // Navigate to next page
+    const nextBtn = screen.getByRole("button", { name: /Next/i });
+    fireEvent.click(nextBtn);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ offset: 25 }),
+        "tenant-engineering"
+      );
+    });
+
+    // Enter draft filter and apply
+    const eventTypeInput = screen.getByPlaceholderText(/task\.progress_updated/i);
+    fireEvent.change(eventTypeInput, { target: { value: "SCHEDULE_OPTIMIZED" } });
+
+    const applyBtn = screen.getByRole("button", { name: /Apply Filters/i });
+    fireEvent.click(applyBtn);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: "SCHEDULE_OPTIMIZED",
+          offset: 0,
+        }),
+        "tenant-engineering"
+      );
+    });
+  });
+
+  it("preserves applied filters during pagination and refresh", async () => {
+    const twentyFiveRecords: AuditEventResponse[] = Array.from({ length: 25 }, (_, i) => ({
+      ...mockAuditRecords[0],
+      audit_event_id: `audit-item-${i}`,
+      event_type: "FILTERED_EVENT",
+    }));
+    const spy = vi.spyOn(apiClient, "searchAudit").mockResolvedValue(twentyFiveRecords);
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Showing offset 0 - 25/i)).toBeInTheDocument();
+    });
+
+    // Apply a filter
+    const eventTypeInput = screen.getByPlaceholderText(/task\.progress_updated/i);
+    fireEvent.change(eventTypeInput, { target: { value: "FILTERED_EVENT" } });
+    const applyBtn = screen.getByRole("button", { name: /Apply Filters/i });
+    fireEvent.click(applyBtn);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ event_type: "FILTERED_EVENT", offset: 0 }),
+        "tenant-engineering"
+      );
+    });
+
+    // Paginate to next page — applied filter must be preserved
+    const nextBtn = screen.getByRole("button", { name: /Next/i });
+    fireEvent.click(nextBtn);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ event_type: "FILTERED_EVENT", offset: 25 }),
+        "tenant-engineering"
+      );
+    });
+
+    // Refresh — applied filter and current pagination offset must be preserved
+    const refreshBtn = screen.getByRole("button", { name: /Refresh/i });
+    fireEvent.click(refreshBtn);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ event_type: "FILTERED_EVENT", offset: 25 }),
+        "tenant-engineering"
+      );
+    });
+  });
+
+  it("clearing filters restores unfiltered query and resets pagination offset", async () => {
+    const spy = vi.spyOn(apiClient, "searchAudit").mockResolvedValue(mockAuditRecords);
+
+    render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("TASK_PROGRESS_UPDATED")).toBeInTheDocument();
+    });
+
+    // Apply a filter
+    const eventTypeInput = screen.getByPlaceholderText(/task\.progress_updated/i);
+    fireEvent.change(eventTypeInput, { target: { value: "TASK_PROGRESS_UPDATED" } });
+    const applyBtn = screen.getByRole("button", { name: /Apply Filters/i });
+    fireEvent.click(applyBtn);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({ event_type: "TASK_PROGRESS_UPDATED" }),
+        "tenant-engineering"
+      );
+    });
+
+    // Click Clear Filters
+    const clearBtn = screen.getByRole("button", { name: /Clear Filters/i });
+    fireEvent.click(clearBtn);
+
+    await waitFor(() => {
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: undefined,
+          resource_type: undefined,
+          resource_id: undefined,
+          correlation_id: undefined,
+          offset: 0,
+        }),
+        "tenant-engineering"
+      );
+    });
+  });
+
+  it("invalidates and purges previously fetched records when tenant or auth changes", async () => {
+    vi.spyOn(apiClient, "searchAudit").mockResolvedValue(mockAuditRecords);
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("TASK_PROGRESS_UPDATED")).toBeInTheDocument();
+    });
+
+    // Switch user to an unauthorized viewer lacking audit:read
+    mockAuthValue.user = {
+      principal_id: "viewer-02",
+      tenant_id: "tenant-engineering",
+      roles: ["viewer"],
+      permissions: ["plan:read"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Viewer Two",
+    };
+
+    rerender(
+      <MemoryRouter>
+        <AuditPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Insufficient permissions to inspect audit trail/i)
+      ).toBeInTheDocument();
+    });
+
+    // Verify stale records from previous authorized user are NOT displayed
+    expect(screen.queryByText("TASK_PROGRESS_UPDATED")).not.toBeInTheDocument();
+    expect(screen.queryByText("SCHEDULE_OPTIMIZED")).not.toBeInTheDocument();
+  });
 });
