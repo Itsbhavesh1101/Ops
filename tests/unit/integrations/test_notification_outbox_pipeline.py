@@ -107,6 +107,7 @@ class InMemoryOutboxDbSession:
             matched = [self.records[command_id_param]] if command_id_param in self.records else []
             owner_param = next((v for k, v in compiled.params.items() if "lease_owner" in k), None)
             tenant_param = next((v for k, v in compiled.params.items() if "tenant_id" in k), None)
+            has_lease_exp_check = any("lease_expires_at" in k for k in compiled.params)
             filtered = []
             for r in matched:
                 if owner_param and r.lease_owner != owner_param:
@@ -120,7 +121,7 @@ class InMemoryOutboxDbSession:
                 ):
                     continue
                 if (
-                    "lease_expires_at" in stmt_str
+                    has_lease_exp_check
                     and r.lease_expires_at is not None
                     and r.lease_expires_at <= datetime.now(UTC)
                 ):
