@@ -157,30 +157,27 @@ class SlaService:
 
         from sqlalchemy import event
 
-        def _cleanup() -> None:
-            try:
-                if event.contains(sync_sess, "after_rollback", _on_rollback):
-                    event.remove(sync_sess, "after_rollback", _on_rollback)
-            except Exception:
-                pass
-            try:
-                if event.contains(sync_sess, "after_commit", _on_commit):
-                    event.remove(sync_sess, "after_commit", _on_commit)
-            except Exception:
-                pass
+        if "_sla_rollback_registered" not in sync_sess.info:
+            sync_sess.info["_sla_rollback_registered"] = True
+            sync_sess.info["_sla_pending_rollbacks"] = {}
 
-        def _on_rollback(sess: Any) -> None:
-            if previous_state is None:
-                self.evict_task_sla(task_id)
-            else:
-                self._states[task_id] = previous_state
-            _cleanup()
+            def _global_on_rollback(sess: Any) -> None:
+                pending = sess.info.pop("_sla_pending_rollbacks", {})
+                for tid, prev in pending.items():
+                    if prev is None:
+                        self.evict_task_sla(tid)
+                    else:
+                        self._states[tid] = prev
 
-        def _on_commit(sess: Any) -> None:
-            _cleanup()
+            def _global_on_commit(sess: Any) -> None:
+                sess.info.pop("_sla_pending_rollbacks", None)
 
-        event.listen(sync_sess, "after_rollback", _on_rollback, once=True)
-        event.listen(sync_sess, "after_commit", _on_commit, once=True)
+            event.listen(sync_sess, "after_rollback", _global_on_rollback)
+            event.listen(sync_sess, "after_commit", _global_on_commit)
+
+        pending_dict = sync_sess.info.setdefault("_sla_pending_rollbacks", {})
+        if task_id not in pending_dict:
+            pending_dict[task_id] = previous_state
 
     async def attach_task_sla_async(
         self,

@@ -1101,9 +1101,9 @@ async def test_pg_concurrent_sla_pause_resume_row_locking(
 
     policy = SlaPolicyConfig(
         policy_key="standard_concurrent",
+        name="Standard Concurrent Policy",
         warning_duration_seconds=3600,
         breach_duration_seconds=7200,
-        escalation_actions=[],
     )
 
     def uow_factory() -> SqlAlchemyUnitOfWork:
@@ -1210,9 +1210,9 @@ async def test_pg_external_session_rollback_authoritative_reloading(
 
     policy = SlaPolicyConfig(
         policy_key="standard_rollback",
+        name="Standard Rollback Policy",
         warning_duration_seconds=3600,
         breach_duration_seconds=7200,
-        escalation_actions=[],
     )
 
     def uow_factory() -> SqlAlchemyUnitOfWork:
