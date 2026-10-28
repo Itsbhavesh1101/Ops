@@ -13,7 +13,8 @@ Enforces:
    - Escalation executes configured reassignment or service action idempotently.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -181,6 +182,26 @@ class SlaService:
         state.remaining_breach_seconds = None
         return state
 
+    @contextmanager
+    def transaction(self, tenant_id: str | None = None) -> Generator[None, None, None]:
+        """Transactional context manager for SLA state mutations.
+
+        Takes a deep snapshot of registered task SLA states (optionally scoped to a tenant).
+        If an exception is raised within the context block, the snapshot is restored,
+        ensuring rollback atomicity when outer database transactions fail.
+        """
+        snapshot = {
+            task_id: state.model_copy(deep=True)
+            for task_id, state in self._states.items()
+            if tenant_id is None or state.tenant_id == tenant_id
+        }
+        try:
+            yield
+        except Exception:
+            for task_id, original_state in snapshot.items():
+                self._states[task_id] = original_state
+            raise
+
     async def evaluate_triggers(
         self,
         as_of: datetime,
@@ -189,6 +210,9 @@ class SlaService:
         tenant_id: str | None = None,
     ) -> list[str]:
         """Evaluate active SLAs against current time and trigger warnings or breach escalations."""
+        if tenant_id is not None and not tenant_id.strip():
+            raise ValueError("tenant_id must not be empty or whitespace-only")
+
         if as_of.tzinfo is None:
             as_of = as_of.replace(tzinfo=UTC)
 

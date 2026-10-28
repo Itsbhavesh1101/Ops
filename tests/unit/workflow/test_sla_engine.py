@@ -256,3 +256,56 @@ async def test_sla_evaluation_propagates_tenant_id_and_supports_enqueue(sla_serv
     assert outbox.events[1].event_type == "workflow.sla.breached"
 
 
+def test_sla_service_transaction_rolls_back_mutations_on_error(sla_service):
+    """SlaService.transaction context manager restores snapshot on exception."""
+    base_time = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    state = sla_service.attach_task_sla(
+        tenant_id="tenant_epsilon",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="standard_approval_sla",
+        created_at=base_time,
+    )
+    assert state.warning_fired_at is None
+    assert state.status == SlaStatus.RUNNING
+
+    with pytest.raises(RuntimeError, match="Simulated crash"):
+        with sla_service.transaction(tenant_id="tenant_epsilon"):
+            state.warning_fired_at = base_time + timedelta(hours=19)
+            state.status = SlaStatus.WARNING
+            raise RuntimeError("Simulated crash")
+
+    # State was restored
+    restored = sla_service.get_task_sla(task_id)
+    assert restored.warning_fired_at is None
+    assert restored.status == SlaStatus.RUNNING
+
+
+@pytest.mark.asyncio
+async def test_sla_service_evaluate_triggers_rejects_empty_or_whitespace_tenant_id(sla_service):
+    """SlaService.evaluate_triggers rejects empty or whitespace-only tenant_id."""
+    base_time = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
+    outbox = DummyEnqueueOutboxRepo()
+    audit = DummyAuditRepo()
+
+    with pytest.raises(ValueError, match="tenant_id must not be empty or whitespace-only"):
+        await sla_service.evaluate_triggers(
+            as_of=base_time,
+            outbox_repo=outbox,
+            audit_repo=audit,
+            tenant_id="",
+        )
+
+    with pytest.raises(ValueError, match="tenant_id must not be empty or whitespace-only"):
+        await sla_service.evaluate_triggers(
+            as_of=base_time,
+            outbox_repo=outbox,
+            audit_repo=audit,
+            tenant_id="   ",
+        )
+
+
+

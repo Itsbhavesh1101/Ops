@@ -13,6 +13,9 @@ from typing import Any
 import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.repository import AuditRepository
+from app.audit.schemas import AuditEventCreate, AuditEventOutcome
+from app.core.auth.models import AuthenticationMethod, PrincipalType
 from app.events.schemas import EventEnvelope
 from app.integrations.engagement.config import NotificationSettings
 from app.integrations.engagement.dispatcher import (
@@ -108,6 +111,26 @@ class SchedulePublishedNotificationHandler:
                     had_prohibited_pii=has_prohibited_pii,
                     status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
                 )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-pub-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
+                )
                 return
         else:
             # Payload did not specify recipients; check configured default_recipients
@@ -121,6 +144,26 @@ class SchedulePublishedNotificationHandler:
                     schedule_id=schedule_id,
                     had_prohibited_pii=has_prohibited_pii,
                     status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-pub-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
                 )
                 return
 
@@ -203,6 +246,26 @@ class ScheduleChangedNotificationHandler:
                     had_prohibited_pii=has_prohibited_pii,
                     status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
                 )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-chg-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
+                )
                 return
         else:
             raw_recipients = self.default_recipients
@@ -215,6 +278,26 @@ class ScheduleChangedNotificationHandler:
                     schedule_id=schedule_id,
                     had_prohibited_pii=has_prohibited_pii,
                     status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-chg-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
                 )
                 return
 

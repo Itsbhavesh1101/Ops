@@ -537,8 +537,9 @@ def test_privacy_boundary_rejects_credentials_in_values() -> None:
 
 
 def test_privacy_boundary_rejects_plaintext_phone_numbers() -> None:
-    """Rejects plaintext phone numbers in recipient references."""
-    with pytest.raises(ValueError, match="Plaintext phone number"):
+    """Rejects plaintext phone numbers in recipient references and verifies zero PII in error."""
+    phone = "+14155552671"
+    with pytest.raises(ValueError, match="Plaintext phone number") as exc_info:
         NotificationCommand(
             command_id="cmd-phone-privacy",
             correlation_reference="corr-203",
@@ -547,13 +548,14 @@ def test_privacy_boundary_rejects_plaintext_phone_numbers() -> None:
                 trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
                 source_event_name="schedule.published",
             ),
-            recipient_references=["+14155552671"],
+            recipient_references=[phone],
             notification_context={"schedule_id": "sch-01"},
         )
+    assert phone not in str(exc_info.value)
 
 
 def test_privacy_boundary_rejects_plaintext_email_addresses() -> None:
-    """Enforces strict rejection of plaintext email addresses in recipient_references."""
+    """Enforces strict rejection of plaintext email addresses with zero PII in exception."""
     prohibited_emails = [
         "faculty-lead@school.edu",
         "student.alpha@university.ac.in",
@@ -561,7 +563,7 @@ def test_privacy_boundary_rejects_plaintext_email_addresses() -> None:
         "user.name+tag@domain.co.uk",
     ]
     for email in prohibited_emails:
-        with pytest.raises(ValueError, match="Plaintext email address"):
+        with pytest.raises(ValueError, match="Plaintext email address") as exc_info:
             NotificationCommand(
                 command_id="cmd-email-privacy",
                 correlation_reference="corr-204",
@@ -573,10 +575,11 @@ def test_privacy_boundary_rejects_plaintext_email_addresses() -> None:
                 recipient_references=[email],
                 notification_context={"schedule_id": "sch-01"},
             )
+        assert email not in str(exc_info.value)
 
 
 def test_privacy_boundary_rejects_unauthorized_personal_identifiers() -> None:
-    """Enforces rejection of personal identifiers (SSNs, names, DOBs) in recipient_references."""
+    """Enforces rejection of personal identifiers with zero sensitive values in exception."""
     prohibited_pii = [
         "student_name:Alice Smith",
         "student_ssn:123-45-6789",
@@ -589,7 +592,7 @@ def test_privacy_boundary_rejects_unauthorized_personal_identifiers() -> None:
         "last_name:Doe",
     ]
     for pii in prohibited_pii:
-        with pytest.raises(ValueError, match="Unauthorized personal identifier"):
+        with pytest.raises(ValueError, match="Unauthorized personal identifier") as exc_info:
             NotificationCommand(
                 command_id="cmd-pii-privacy",
                 correlation_reference="corr-205",
@@ -601,10 +604,11 @@ def test_privacy_boundary_rejects_unauthorized_personal_identifiers() -> None:
                 recipient_references=[pii],
                 notification_context={"schedule_id": "sch-01"},
             )
+        assert pii not in str(exc_info.value)
 
 
 def test_privacy_boundary_rejects_raw_institutional_mysql_identifiers() -> None:
-    """Enforces strict rejection of raw upstream MySQL primary keys and entity prefixes."""
+    """Enforces rejection of raw upstream MySQL IDs with zero identifiers in exception."""
     prohibited_mysql = [
         "104",
         "42",
@@ -616,7 +620,7 @@ def test_privacy_boundary_rejects_raw_institutional_mysql_identifiers() -> None:
     ]
     raw_pattern = r"(Raw numeric/MySQL primary key|Raw institutional MySQL identifier)"
     for raw_id in prohibited_mysql:
-        with pytest.raises(ValueError, match=raw_pattern):
+        with pytest.raises(ValueError, match=raw_pattern) as exc_info:
             NotificationCommand(
                 command_id="cmd-mysql-privacy",
                 correlation_reference="corr-206",
@@ -628,6 +632,7 @@ def test_privacy_boundary_rejects_raw_institutional_mysql_identifiers() -> None:
                 recipient_references=[raw_id],
                 notification_context={"schedule_id": "sch-01"},
             )
+        assert raw_id not in str(exc_info.value)
 
 
 def test_privacy_boundary_rejects_malformed_recipient_references() -> None:
@@ -1461,10 +1466,16 @@ async def test_schedule_published_handler_rejects_and_blocks_plaintext_emails() 
     )
 
     mock_session = AsyncMock()
+    mock_session.add = MagicMock()
     # Must not raise ValidationError, must not dispatch command, must return cleanly
     await handler.handle(envelope=envelope, session=mock_session)
 
     assert len(mock_disp.received_commands) == 0
+    assert mock_session.add.call_count == 1
+    added_record = mock_session.add.call_args[0][0]
+    assert added_record.event_type == "notification.dispatch.blocked"
+    assert added_record.outcome == "DENIED"
+    assert added_record.details["reason"] == "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02"
 
 
 @pytest.mark.asyncio
@@ -1494,9 +1505,14 @@ async def test_schedule_changed_handler_rejects_and_blocks_plaintext_emails() ->
     )
 
     mock_session = AsyncMock()
+    mock_session.add = MagicMock()
     await handler.handle(envelope=envelope, session=mock_session)
 
     assert len(mock_disp.received_commands) == 0
+    assert mock_session.add.call_count == 1
+    added_record = mock_session.add.call_args[0][0]
+    assert added_record.event_type == "notification.dispatch.blocked"
+    assert added_record.outcome == "DENIED"
 
 
 @pytest.mark.asyncio
@@ -1523,9 +1539,14 @@ async def test_schedule_handler_blocks_when_recipient_resolution_unavailable() -
     )
 
     mock_session = AsyncMock()
+    mock_session.add = MagicMock()
     await handler.handle(envelope=envelope, session=mock_session)
 
     assert len(mock_disp.received_commands) == 0
+    assert mock_session.add.call_count == 1
+    added_record = mock_session.add.call_args[0][0]
+    assert added_record.event_type == "notification.dispatch.blocked"
+    assert added_record.outcome == "DENIED"
 
 
 @pytest.mark.asyncio
@@ -1553,6 +1574,7 @@ async def test_schedule_handler_dispatches_when_valid_opaque_recipients_provided
     )
 
     mock_session = AsyncMock()
+    mock_session.add = MagicMock()
     await handler.handle(envelope=envelope, session=mock_session)
 
     assert len(mock_disp.received_commands) == 1

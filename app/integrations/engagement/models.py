@@ -121,7 +121,7 @@ class NotificationTrigger(BaseModel):
 class NotificationCommand(BaseModel):
     """Canonical provider-neutral NotificationCommand contract for E-8 engagement."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
 
     contract_version: str = Field(default="1.0.0", min_length=1)
     command_id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
@@ -184,23 +184,18 @@ class NotificationCommand(BaseModel):
 
             # Malformed checks: length, control chars, injection delimiters
             if len(clean_ref) > 256:
-                raise ValueError(
-                    f"Recipient reference exceeds maximum length (256): '{clean_ref[:32]}...'"
-                )
+                raise ValueError("Recipient reference exceeds maximum length (256)")
             if any(ord(c) < 32 or ord(c) == 127 for c in clean_ref):
-                repr_ref = repr(clean_ref)
-                raise ValueError(
-                    f"Malformed recipient reference contains control characters: '{repr_ref}'"
-                )
+                raise ValueError("Malformed recipient reference contains control characters")
             if ";" in clean_ref or "--" in clean_ref or "/*" in clean_ref:
                 raise ValueError(
-                    f"Malformed recipient reference contains invalid characters: '{clean_ref}'"
+                    "Malformed recipient reference contains invalid delimiter characters"
                 )
 
             # 1. Reject plaintext email addresses
             if "@" in clean_ref:
                 raise ValueError(
-                    f"Plaintext email address '{clean_ref}' is prohibited in recipient_references. "
+                    "Plaintext email address is prohibited in recipient_references. "
                     "Use canonical opaque references (e.g. 'urn:e7:cohort:faculty' or 'user:<id>')."
                 )
 
@@ -214,7 +209,7 @@ class NotificationCommand(BaseModel):
             is_local = digits_only.isdigit() and len(digits_only) >= 7
             if is_intl or is_local:
                 raise ValueError(
-                    f"Plaintext phone number '{clean_ref}' is prohibited in recipient_references. "
+                    "Plaintext phone number is prohibited in recipient_references. "
                     "Use canonical opaque references (e.g. 'urn:e7:cohort:faculty')."
                 )
 
@@ -224,15 +219,15 @@ class NotificationCommand(BaseModel):
             for pii in prohibited_pii_keywords:
                 if pii in lower_ref:
                     msg = (
-                        f"Unauthorized personal identifier detected in recipient reference "
-                        f"'{clean_ref}'. Violates recipient privacy and data minimization."
+                        "Unauthorized personal identifier detected in recipient reference. "
+                        "Violates recipient privacy and data minimization."
                     )
                     raise ValueError(msg)
 
             # 4. Reject raw institutional MySQL identifiers (pure integer PKs or table.id prefixes)
             if clean_ref.isdigit():
                 msg = (
-                    f"Raw numeric/MySQL primary key '{clean_ref}' is prohibited in "
+                    "Raw numeric/MySQL primary key is prohibited in "
                     "recipient_references. Use canonical opaque references."
                 )
                 raise ValueError(msg)
@@ -243,7 +238,7 @@ class NotificationCommand(BaseModel):
                     or f"raw_{prefix}" in lower_ref
                 ):
                     msg = (
-                        f"Raw institutional MySQL identifier '{clean_ref}' is prohibited in "
+                        "Raw institutional MySQL identifier is prohibited in "
                         "recipient_references."
                     )
                     raise ValueError(msg)
@@ -300,8 +295,9 @@ class NotificationCommand(BaseModel):
                     )
                 # Detect plaintext email addresses inside context values
                 if re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b", val):
-                    msg = f"notification_context contains prohibited plaintext email: '{val}'."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        "notification_context contains prohibited plaintext email address."
+                    )
                 # Detect plaintext phone numbers inside context values
                 digits_only = re.sub(r"[\s\-\(\)\.]", "", val)
                 val_intl = (
@@ -311,8 +307,9 @@ class NotificationCommand(BaseModel):
                 )
                 val_local = digits_only.isdigit() and len(digits_only) >= 10
                 if val_intl or val_local:
-                    msg = f"notification_context contains prohibited plaintext phone: '{val}'."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        "notification_context contains prohibited plaintext phone number."
+                    )
 
         def _traverse(data: Any) -> None:
             if isinstance(data, dict):
