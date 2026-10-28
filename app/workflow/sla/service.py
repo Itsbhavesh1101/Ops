@@ -186,6 +186,7 @@ class SlaService:
         as_of: datetime,
         outbox_repo: Any,
         audit_repo: Any,
+        tenant_id: str | None = None,
     ) -> list[str]:
         """Evaluate active SLAs against current time and trigger warnings or breach escalations."""
         if as_of.tzinfo is None:
@@ -194,6 +195,8 @@ class SlaService:
         triggered_actions: list[str] = []
 
         for _task_id, state in list(self._states.items()):
+            if tenant_id and state.tenant_id != tenant_id:
+                continue
             if state.status in (SlaStatus.PAUSED, SlaStatus.COMPLETED):
                 continue
 
@@ -219,10 +222,14 @@ class SlaService:
                         subject_type="workflow_task",
                         subject_id=str(state.task_id),
                         payload=warning_payload,
+                        tenant_id=state.tenant_id,
                     ),
                     clock=self._clock,
                 )
-                await outbox_repo.append(envelope)
+                if hasattr(outbox_repo, "enqueue"):
+                    await outbox_repo.enqueue(envelope)
+                else:
+                    await outbox_repo.append(envelope)
 
                 # Record Audit Event
                 await audit_repo.append(
@@ -261,10 +268,14 @@ class SlaService:
                         subject_type="workflow_task",
                         subject_id=str(state.task_id),
                         payload=breach_payload,
+                        tenant_id=state.tenant_id,
                     ),
                     clock=self._clock,
                 )
-                await outbox_repo.append(breach_envelope)
+                if hasattr(outbox_repo, "enqueue"):
+                    await outbox_repo.enqueue(breach_envelope)
+                else:
+                    await outbox_repo.append(breach_envelope)
 
                 # Record append-only audit event: workflow.sla.breached
                 await audit_repo.append(

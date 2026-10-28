@@ -8,7 +8,9 @@ Enforces:
 - Audit emission on dispatch success and failure.
 """
 
+from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import aio_pika
 import httpx
@@ -430,7 +432,7 @@ def test_privacy_boundary_rejects_sensitive_data_in_context(forbidden_key: str) 
 @pytest.mark.asyncio
 async def test_schedule_published_handler_constructs_privacy_preserving_command() -> None:
     """SchedulePublishedNotificationHandler defaults to opaque URN and preserves tenant."""
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from app.events.schemas import EventCreate, create_event_envelope
     from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
@@ -697,7 +699,7 @@ def test_handlers_support_default_dispatcher_resolution() -> None:
 async def test_notification_consumer_handler_routes_published_and_changed() -> None:
     """NotificationConsumerHandler routes published and changed events to handlers."""
     from datetime import UTC, datetime
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.schemas import EventEnvelope
@@ -833,7 +835,7 @@ async def test_notification_consumer_handler_routes_published_and_changed() -> N
 async def test_create_notification_consumer_processor_deduplication() -> None:
     """ConsumerEventProcessor created via factory executes handler and enforces inbox dedupe."""
     from datetime import UTC, datetime
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.inbox.processor import ConsumerProcessingOutcome
@@ -905,7 +907,7 @@ async def test_create_notification_consumer_processor_deduplication() -> None:
 async def test_inbox_handler_failure_rolls_back_and_allows_recovery() -> None:
     """When E-8 dispatch fails, inbox marker is rolled back so retrying succeeds."""
     from datetime import UTC, datetime
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.inbox.processor import ConsumerProcessingOutcome
@@ -1026,7 +1028,7 @@ async def test_missing_e8_broker_url_fails_closed_without_fallback() -> None:
 async def test_worker_runtime_registers_notification_consumer_when_enabled() -> None:
     """Production run_worker wires and manages NotificationWorker background tasks when enabled."""
     import asyncio
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from app.worker import run_worker
 
@@ -1202,7 +1204,7 @@ async def test_notification_worker_missing_broker_url_fails_closed() -> None:
 @pytest.mark.asyncio
 async def test_rabbitmq_inbound_handler_rejects_malformed_wire_messages_to_dlx() -> None:
     """RabbitMqInboundMessageHandler rejects malformed wire messages with requeue=False."""
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from app.events.consumers.rabbitmq_message import (
         InvalidMessageReason,
@@ -1246,7 +1248,7 @@ async def test_rabbitmq_inbound_handler_rejects_malformed_wire_messages_to_dlx()
 async def test_rabbitmq_inbound_handler_leaves_message_unsettled_on_processor_exception() -> None:
     """RabbitMqInboundMessageHandler propagates processor exception without ack, nack, or reject."""
     import json
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.consumers.rabbitmq_message import (
@@ -1393,6 +1395,247 @@ async def test_consumer_event_processor_rollback_and_subsequent_retry_success() 
     res3 = await processor2.process(envelope)
     assert res3.outcome == ConsumerProcessingOutcome.DUPLICATE
     assert not handler_called_on_duplicate
+
+
+# =====================================================================
+# 12. DQ-4 Runtime Integration Defect Regression Tests
+# =====================================================================
+
+
+def test_rabbitmq_binding_keys_match_canonical_published_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify that NotificationWorker binding keys match published event types.
+
+    In AMQP topic exchanges:
+    - Published routing key is envelope.event_type (e.g. 'schedule.published').
+    - Binding key '*.schedule.published' needs 3 words and drops 2-word events.
+    - Canonical 2-word event types MUST be directly bound in NotificationWorker.
+    """
+    from app.integrations.engagement.worker import NotificationWorker
+
+    expected_canonical_events = {
+        "schedule.published",
+        "schedule.changed",
+        "task.blocked",
+        "workflow.task.created",
+        "workflow.sla.warning",
+    }
+
+    monkeypatch.setenv("E7_RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+    worker = NotificationWorker(db_manager=MagicMock())
+    runner = worker._build_consumer_runner()
+    binding_keys = set(runner._settings.rabbitmq_consumer_binding_keys)
+
+    # Every canonical published event type must match a binding key
+    for event_type in expected_canonical_events:
+        assert event_type in binding_keys, (
+            f"Canonical published event type '{event_type}' missing from "
+            f"NotificationWorker binding keys: {binding_keys}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_schedule_published_handler_rejects_and_blocks_plaintext_emails() -> None:
+    """schedule.published with plaintext emails is blocked under DEC-E8-02 safely."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = SchedulePublishedNotificationHandler(dispatcher=mock_disp)
+
+    # Event containing plaintext email address
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.published",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={
+            "schedule_id": "sch-leak-1",
+            "version": 1,
+            "recipients": ["faculty@school.edu", "prof@department.org"],
+        },
+    )
+
+    mock_session = AsyncMock()
+    # Must not raise ValidationError, must not dispatch command, must return cleanly
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 0
+
+
+@pytest.mark.asyncio
+async def test_schedule_changed_handler_rejects_and_blocks_plaintext_emails() -> None:
+    """schedule.changed containing plaintext emails is blocked under DEC-E8-02 without crashing."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import ScheduleChangedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = ScheduleChangedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.changed",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={
+            "schedule_id": "sch-leak-2",
+            "old_version": 1,
+            "new_version": 2,
+            "repair_reason": "resource.conflict",
+            "recipients": ["dean@university.edu"],
+        },
+    )
+
+    mock_session = AsyncMock()
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 0
+
+
+@pytest.mark.asyncio
+async def test_schedule_handler_blocks_when_recipient_resolution_unavailable() -> None:
+    """When default_recipients is empty and payload has no recipients, dispatch is blocked."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = SchedulePublishedNotificationHandler(
+        dispatcher=mock_disp,
+        default_recipients=[],
+    )
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.published",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={"schedule_id": "sch-unresolved", "version": 1},
+    )
+
+    mock_session = AsyncMock()
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 0
+
+
+@pytest.mark.asyncio
+async def test_schedule_handler_dispatches_when_valid_opaque_recipients_provided() -> None:
+    """When event payload contains valid opaque recipient URNs, dispatch succeeds."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = SchedulePublishedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.published",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={
+            "schedule_id": "sch-opaque-ok",
+            "version": 1,
+            "recipients": ["urn:e7:cohort:science-faculty", "user:faculty-99"],
+        },
+    )
+
+    mock_session = AsyncMock()
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 1
+    cmd = mock_disp.received_commands[0]
+    assert cmd.recipient_references == ["urn:e7:cohort:science-faculty", "user:faculty-99"]
+
+
+@pytest.mark.asyncio
+async def test_task_blocked_handler_missing_tenant_id_fails_closed() -> None:
+    """task.blocked with missing tenant_id raises ValueError to prevent silent notification loss."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import TaskBlockedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = TaskBlockedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="task.blocked",
+        occurred_at=datetime.now(UTC),
+        tenant_id=None,  # Missing tenant identity
+        payload={"task_id": "task-01", "blocked_reason": "resource shortage"},
+    )
+
+    with pytest.raises(ValueError, match="missing.*tenant_id"):
+        await handler.handle(envelope=envelope, session=AsyncMock())
+
+
+@pytest.mark.asyncio
+async def test_workflow_task_created_handler_missing_tenant_id_fails_closed() -> None:
+    """workflow.task.created with missing tenant_id raises ValueError."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import WorkflowTaskCreatedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = WorkflowTaskCreatedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.task.created",
+        occurred_at=datetime.now(UTC),
+        tenant_id=None,  # None tenant identity
+        payload={"workflow_task_id": "wt-01", "task_name": "Approve Timetable"},
+    )
+
+    with pytest.raises(ValueError, match="missing.*tenant_id"):
+        await handler.handle(envelope=envelope, session=AsyncMock())
+
+
+@pytest.mark.asyncio
+async def test_workflow_sla_warning_handler_missing_tenant_id_fails_closed() -> None:
+    """workflow.sla.warning with missing tenant_id raises ValueError."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import WorkflowSlaWarningNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = WorkflowSlaWarningNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.sla.warning",
+        occurred_at=datetime.now(UTC),
+        tenant_id=None,  # Missing tenant identity
+        payload={
+            "workflow_task_id": "wt-01",
+            "policy_key": "standard_sla",
+            "breach_at": "2026-10-29T10:00:00Z",
+            "action": "REMINDER",
+        },
+    )
+
+    with pytest.raises(ValueError, match="missing.*tenant_id"):
+        await handler.handle(envelope=envelope, session=AsyncMock())
+
 
 
 

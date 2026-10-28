@@ -1,6 +1,7 @@
 """Unit tests for SchedulingService."""
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
@@ -230,4 +231,80 @@ async def test_execute_job_solve_budget_exhausted_creates_no_candidate_schedule(
         assert not isinstance(added_obj, ScheduleRecord), (
             "No ScheduleRecord should be created on BUDGET_EXHAUSTED"
         )
+
+
+@pytest.mark.asyncio
+async def test_publish_schedule_outbox_event_payload_privacy() -> None:
+    """publish_schedule must NOT emit plaintext recipient email addresses into outbox events."""
+    from unittest.mock import patch
+
+    from app.db.models.scheduling import ScheduleAssignmentRecord, ScheduleRecord
+    from app.scheduling.policy import DefaultSchedulePublishPolicy
+
+    session = AsyncMock()
+    session.add = MagicMock()
+    session.execute = AsyncMock()
+
+    sched_id = uuid4()
+    sched = ScheduleRecord(
+        id=sched_id,
+        tenant_id="tenant-audit-1",
+        schedule_key="faculty_exam_key",
+        version=1,
+        status="REVIEW",
+        source_job_id=uuid4(),
+        input_snapshot_hash="hash-abc",
+        score_components={},
+        assignments=[
+            ScheduleAssignmentRecord(
+                id=uuid4(),
+                tenant_id="tenant-audit-1",
+                schedule_id=sched_id,
+                activity_id="act-1",
+                resource_id="room-101",
+                start_at=datetime(2026, 11, 1, 9, 0, tzinfo=UTC),
+                end_at=datetime(2026, 11, 1, 12, 0, tzinfo=UTC),
+            )
+        ],
+    )
+
+    mock_res = MagicMock()
+    # First call: fetch target schedule to publish -> sched
+    # Second call: fetch active published schedule to supersede -> None
+    mock_res.scalar_one_or_none.side_effect = [sched, None]
+    session.execute.return_value = mock_res
+
+    enqueued_envelopes = []
+
+    class MockOutboxRepo:
+        def __init__(self, s: Any) -> None:
+            pass
+
+        async def enqueue(self, envelope: Any) -> None:
+            enqueued_envelopes.append(envelope)
+
+    with patch("app.scheduling.service.OutboxRepository", MockOutboxRepo):
+        service = SchedulingService()
+        policy = DefaultSchedulePublishPolicy(granted_principals={"admin-user-01"})
+        published = await service.publish_schedule(
+            session=session,
+            tenant_id="tenant-audit-1",
+            schedule_id=sched_id,
+            principal="admin-user-01",
+            publish_policy=policy,
+            correlation_id="corr-sched-01",
+        )
+
+    assert published.status == "PUBLISHED"
+    assert len(enqueued_envelopes) == 1
+
+    pub_ev = enqueued_envelopes[0]
+    assert pub_ev.event_type == "schedule.published"
+    assert pub_ev.tenant_id == "tenant-audit-1"
+    assert "recipients" not in pub_ev.payload
+    assert list(pub_ev.payload["affected_resource_ids"]) == ["room-101"]
+    # Verify no plaintext email exists anywhere in the payload string
+    payload_str = str(pub_ev.payload)
+    assert "@" not in payload_str
+
 

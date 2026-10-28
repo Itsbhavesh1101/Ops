@@ -550,7 +550,9 @@ class SchedulingService:
                         }
                         for a in sched.assignments
                     ],
-                    "recipients": ["faculty@school.edu"],
+                    "affected_resource_ids": [
+                        a.resource_id for a in sched.assignments if a.resource_id
+                    ],
                 },
             )
         )
@@ -578,7 +580,9 @@ class SchedulingService:
                         "movement_score": sched.score_components.get("movement_penalty", 0)
                         if sched.score_components
                         else 0,
-                        "recipients": ["faculty@school.edu"],
+                        "affected_resource_ids": [
+                            a.resource_id for a in sched.assignments if a.resource_id
+                        ],
                     },
                 )
             )

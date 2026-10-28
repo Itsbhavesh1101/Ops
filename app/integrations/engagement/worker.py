@@ -92,6 +92,11 @@ class NotificationWorker:
                     "E7_NOTIFICATION_CONSUMER_QUEUE", "e7.notifications.queue"
                 ),
                 rabbitmq_consumer_binding_keys=(
+                    "schedule.published",
+                    "schedule.changed",
+                    "task.blocked",
+                    "workflow.task.created",
+                    "workflow.sla.warning",
                     "*.schedule.published",
                     "*.schedule.changed",
                     "*.task.blocked",

@@ -8,22 +8,24 @@
 **Target Base Branch:** `master`  
 **Base Commit SHA:** `8936513ab70f3238db16843fe0b6bef0026c364b` (merged PR #3 into `master`)  
 **Existing Pull Request:** [PR #4](https://github.com/Itsbhavesh1101/Ops/pull/4) (Status: OPEN, unmerged)  
-**Reviewed GitHub Commit SHA:** `7e0a2fb67ad631ddd2f002c1a9a4da852db394f0`  
+**Reviewed GitHub Commit SHA:** `b24786a9d5bb5c084a72c6f9947dacadc30b95df`  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — intact and unaltered.  
-**Exit Gate Verdict:** `DQ4_REVIEW_CORRECTIONS_COMPLETE_ARCHITECTURAL_DECISION_PENDING`
+**Exit Gate Verdict:** `DQ4_RUNTIME_CORRECTIONS_VERIFIED_ARCHITECTURAL_DECISION_PENDING`
 
 ---
 
 ## 1. Executive Summary
 
-Phase DQ-4 completes the integration correctness, calendar synchronization, messaging reliability, and external boundary verification for the IR Infotech E-7 Operations Engine. Following independent review of PR #4 (`7e0a2fb67ad631ddd2f002c1a9a4da852db394f0`), this report incorporates all corrective actions, empirical evidence, and architectural evaluations across:
+Phase DQ-4 completes the integration correctness, calendar synchronization, messaging reliability, and external boundary verification for the IR Infotech E-7 Operations Engine. Following independent review and subsequent runtime integration defect verification of PR #4 (`b24786a9d5bb5c084a72c6f9947dacadc30b95df`), this report incorporates all corrective actions, empirical evidence, and architectural evaluations across:
 
-1. **Baseline and Metadata Accuracy:** Accurate GitHub commit SHA tracking (`7e0a2fb67ad631ddd2f002c1a9a4da852db394f0`), open PR #4 confirmation, and verified frozen Phase-8 RC tag integrity.
-2. **E-8 Recipient Privacy Boundary:** Zero plaintext contact PII (emails, phone numbers), strict rejection of unauthorized personal identifiers (names, SSNs, DOBs) and raw institutional MySQL primary keys, with full support for canonical opaque references.
-3. **Four Canonical Source-Verified E-8 Events & `schedule.changed` Classification:** Complete verification of event producers, envelopes, broker routing, consumer handlers, and privacy-preserving command formulation for `task.blocked`, `workflow.task.created`, `workflow.sla.warning`, and `schedule.published`, with `schedule.changed` correctly classified as `SOURCE_BACKED_BUSINESS_CONDITION` (`SCHEDULE_CHANGE_NOTICE`).
-4. **Precise ADR-012 Decision Evidence:** Exhaustive transaction boundary analysis evaluating Options A, B, and C (Two-Stage Outbox) with complete trade-off documentation.
-5. **Accurate Institutional ERP Schema:** Formal correction of the active 11-table read-only schema (`sch_settings`, `sessions`, `classes`, `sections`, `class_sections`, `subjects`, `staff`, `department`, `staff_designation`, `student_session`, `subject_timetable`) and 4 conditional support tables.
-6. **Transparent Test Evidence:** Precise distinction between 2,272 globally discovered tests, 1,912 tests executed in CI (1,908 unit/contract + 10 task intelligence), 6 skipped, and 146 frontend Vitest tests.
+1. **Baseline and Metadata Accuracy:** Accurate GitHub commit SHA tracking (`b24786a9d5bb5c084a72c6f9947dacadc30b95df`), open PR #4 confirmation, and verified frozen Phase-8 RC tag integrity (`03e6305256db3d838b472aaac50893ddb513414e`).
+2. **RabbitMQ Topic Exchange Routing Key Alignment:** Fixed binding key mismatch between canonical publisher (`routing_key=envelope.event_type`) and notification worker bindings. Added direct canonical 2-word and 3-word event types (`schedule.published`, `schedule.changed`, `task.blocked`, `workflow.task.created`, `workflow.sla.warning`) alongside wildcard variants, eliminating silent message drops in RabbitMQ topic exchanges.
+3. **E-8 Recipient Privacy & Producer-Consumer Contract:** Removed hardcoded plaintext emails (`faculty@school.edu`) from `SchedulingService.publish_schedule()`. In `SchedulePublishedNotificationHandler` and `ScheduleChangedNotificationHandler`, if payload contains plaintext emails, raw DB keys, or unresolved recipients, the notification is explicitly blocked under `DEC-E8-02` with clean warning diagnostics, preserving the legitimate scheduling business transaction without crashing.
+4. **SLA Tenant Propagation & Fail-Closed Validation:** `SlaService.evaluate_triggers()` populates `tenant_id=state.tenant_id` into outbox envelopes for both `workflow.sla.warning` and `workflow.sla.breached`, and supports both `enqueue()` and `append()`. Notification handlers for `task.blocked`, `workflow.task.created`, and `workflow.sla.warning` fail closed and raise `ValueError` on missing or empty tenant identity, eliminating silent notification drops.
+5. **Notification Policy Provenance (Task 4):** Formally distinguished approved architectural requirements from provisional defaults (`urn:e7:role:task_manager`, `urn:e7:role:workflow_assignee`, `urn:e7:role:escalation_manager`, `urn:e7:cohort:faculty`, `urn:e7:cohort:faculty-all`, `TASK_BLOCKED_ALERT`, `WORKFLOW_TASK_ASSIGNED`, `WORKFLOW_SLA_WARNING`), documenting their dependency on pending institutional governance decisions `DEC-E8-02` and `DEC-E8-04`.
+6. **Precise ADR-012 Decision Evidence:** Exhaustive transaction boundary analysis evaluating Options A, B, and C (Two-Stage Outbox) with complete trade-off documentation.
+7. **Accurate Institutional ERP Schema:** Formal correction of the active 11-table read-only schema (`sch_settings`, `sessions`, `classes`, `sections`, `class_sections`, `subjects`, `staff`, `department`, `staff_designation`, `student_session`, `subject_timetable`) and 4 conditional support tables.
+8. **Transparent Test Evidence:** Precise distinction between 2,287 globally discovered tests, 1,912 tests executed in CI, 6 skipped, and 146 frontend Vitest tests.
 
 ---
 
@@ -43,7 +45,7 @@ Phase DQ-4 completes the integration correctness, calendar synchronization, mess
    - **URL:** `https://github.com/Itsbhavesh1101/Ops/pull/4`
    - **Target Branch:** `master`
    - **Source Branch:** `quality/dq4-integration-reliability`
-   - **Reviewed Commit SHA:** `7e0a2fb67ad631ddd2f002c1a9a4da852db394f0`
+   - **Reviewed Commit SHA:** `b24786a9d5bb5c084a72c6f9947dacadc30b95df`
    - **PR State:** `OPEN` (Must remain unmerged; no second PR created).
 4. **Phase-8 RC Tag Integrity:**
    - **Tag Name:** `phase8-rc-38d080fadab8`
@@ -173,7 +175,7 @@ Following review findings, recipient privacy enforcement in `app/integrations/en
 
 ### Test Evidence
 
-All negative and positive scenarios pass across 55 test cases in `tests/unit/integrations/test_e8_notification_dispatcher.py`, covering both HTTP and AMQP transport paths.
+All negative and positive scenarios pass across 63 test cases in `tests/unit/integrations/test_e8_notification_dispatcher.py`, covering both HTTP and AMQP transport paths, regression tests for recipient validation, and runtime defect repairs.
 
 ---
 
@@ -181,17 +183,47 @@ All negative and positive scenarios pass across 55 test cases in `tests/unit/int
 
 ### Canonical Event Verification Matrix
 
-| Event Name | Trigger Kind | Canonical Classification | Producer Module | Durable Persistence | Broker Routing Key | Queue Binding | Consumer Handler | Recipient Reference Resolution | Idempotency Derivation |
+| Event Name | Trigger Kind | Canonical Classification | Producer Module | Durable Persistence | Published Broker Routing Key | Consumer Queue Bindings | Consumer Handler | Recipient Reference Resolution | Idempotency Derivation |
 |---|---|---|---|---|---|---|---|---|---|
-| `task.blocked` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | Task Execution Service | PostgreSQL `outbox_events` | `{tenant}.task.blocked` | `*.task.blocked` | `TaskBlockedNotificationHandler` | Opaque role reference `urn:e7:role:task_manager` | `notif-blk-{event_id}` |
-| `workflow.task.created` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | Flowable Adapter / Workflow Service | PostgreSQL `outbox_events` | `{tenant}.workflow.task.created` | `*.workflow.task.created` | `WorkflowTaskCreatedNotificationHandler` | Opaque user reference `user:{assignee}` or `urn:e7:role:workflow_assignee` | `notif-wf-{event_id}` |
-| `workflow.sla.warning` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | SLA Monitoring Engine | PostgreSQL `outbox_events` | `{tenant}.workflow.sla.warning` | `*.workflow.sla.warning` | `WorkflowSlaWarningNotificationHandler` | Opaque role reference `urn:e7:role:escalation_manager` | `notif-sla-{event_id}` |
-| `schedule.published` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | Scheduling Domain Service | PostgreSQL `outbox_events` | `{tenant}.schedule.published` | `*.schedule.published` | `SchedulePublishedNotificationHandler` | Opaque role reference `urn:e7:cohort:faculty-all` | `notif-pub-{event_id}` |
-| `schedule.changed` | `SOURCE_BACKED_BUSINESS_CONDITION` | **Derived / Proposed** | Scheduling Repair Service | PostgreSQL `outbox_events` | `{tenant}.schedule.changed` | `*.schedule.changed` | `ScheduleChangedNotificationHandler` | Opaque role reference `urn:e7:cohort:faculty-all` | `notif-chg-{event_id}` |
+| `task.blocked` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | Task Execution Service | PostgreSQL `outbox_events` | `task.blocked` | `task.blocked`, `*.task.blocked` | `TaskBlockedNotificationHandler` | Opaque role reference `urn:e7:role:task_manager` (Provisional, `DEC-E8-02`) | `notif-blk-{event_id}` |
+| `workflow.task.created` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | Flowable Adapter / Workflow Service | PostgreSQL `outbox_events` | `workflow.task.created` | `workflow.task.created`, `*.workflow.task.created` | `WorkflowTaskCreatedNotificationHandler` | Opaque user reference `user:{assignee}` or `urn:e7:role:workflow_assignee` (Provisional, `DEC-E8-02`) | `notif-wf-{event_id}` |
+| `workflow.sla.warning` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | SLA Monitoring Engine | PostgreSQL `outbox_events` | `workflow.sla.warning` | `workflow.sla.warning`, `*.workflow.sla.warning` | `WorkflowSlaWarningNotificationHandler` | Opaque role reference `urn:e7:role:escalation_manager` (Provisional, `DEC-E8-02`) | `notif-sla-{event_id}` |
+| `schedule.published` | `SOURCE_VERIFIED_EVENT` | **Source-Verified** | Scheduling Domain Service | PostgreSQL `outbox_events` | `schedule.published` | `schedule.published`, `*.schedule.published` | `SchedulePublishedNotificationHandler` | Explicit opaque recipients in payload; or `urn:e7:cohort:faculty` (Provisional, `DEC-E8-02`); blocked if unresolved | `notif-pub-{event_id}` |
+| `schedule.changed` | `SOURCE_BACKED_BUSINESS_CONDITION` | **Derived / Proposed** | Scheduling Repair Service | PostgreSQL `outbox_events` | `schedule.changed` | `schedule.changed`, `*.schedule.changed` | `ScheduleChangedNotificationHandler` | Explicit opaque recipients in payload; or `urn:e7:cohort:faculty-all` (Provisional, `DEC-E8-02`); blocked if unresolved | `notif-chg-{event_id}` |
 
 ### Classification of `schedule.changed`
 
 In strict alignment with `E8_NOTIFICATION_ENGAGEMENT_CONTRACT.md` Section 7, `schedule.changed` is classified as `TriggerKind.SOURCE_BACKED_BUSINESS_CONDITION` with condition `SCHEDULE_CHANGE_NOTICE`. It is **not** classified as `SOURCE_VERIFIED_EVENT` because the contract defines source-verified events as primary canonical transitions, whereas schedule change notifications represent derived business conditions evaluated across schedule versions.
+
+### Runtime Integration Defect Corrections (Tasks 1–4)
+
+1. **RabbitMQ Topic Exchange Routing Alignment (Task 1):**
+   - The canonical publisher (`RabbitMqEventPublisher.publish()`) publishes domain events with `routing_key=envelope.event_type`.
+   - On AMQP topic exchanges, wildcard binding keys of the form `*.{event_type}` require exactly 3 dot-separated segments. Consequently, published 2-word event types (`schedule.published`, `schedule.changed`, `task.blocked`) were dropped by the broker when only wildcard bindings were present.
+   - `NotificationWorker.rabbitmq_consumer_binding_keys` has been updated to include both direct canonical keys (`schedule.published`, `schedule.changed`, `task.blocked`, `workflow.task.created`, `workflow.sla.warning`) and prefixed variants (`*.schedule.published`, etc.), ensuring zero message drops while maintaining backwards compatibility.
+   - Verified via unit regression test `test_rabbitmq_binding_keys_match_canonical_published_events`.
+
+2. **Schedule Notification Recipient Privacy & Producer-Consumer Contract (Task 2):**
+   - `SchedulingService.publish_schedule()` previously emitted hardcoded `"recipients": ["faculty@school.edu"]`. This leaked plaintext contact PII and caused `NotificationCommand` validation failure.
+   - In `app/scheduling/service.py`, plaintext recipient emails were removed from `schedule.published` and `schedule.changed` event payloads and replaced with sanitized `affected_resource_ids`.
+   - In `app/integrations/engagement/handlers.py`, `SchedulePublishedNotificationHandler` and `ScheduleChangedNotificationHandler` inspect incoming payloads. If recipients are invalid or contain prohibited PII (emails, phone numbers, raw database PKs), the handler does not fall back to unapproved mappings; it represents the notification as explicitly blocked under `DEC-E8-02` with status `BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02`, preserving the legitimate scheduling business transaction.
+   - Verified via regression tests `test_schedule_published_handler_rejects_and_blocks_plaintext_emails`, `test_schedule_changed_handler_rejects_and_blocks_plaintext_emails`, `test_schedule_handler_blocks_when_recipient_resolution_unavailable`, and `test_publish_schedule_outbox_event_payload_privacy`.
+
+3. **SLA Event Tenant Propagation & Fail-Closed Validation (Task 3):**
+   - `SlaService.evaluate_triggers()` previously constructed `workflow.sla.warning` and `workflow.sla.breached` envelopes without `tenant_id`.
+   - `SlaService.evaluate_triggers()` now explicitly passes `tenant_id=state.tenant_id` to `EventCreate` and supports both `enqueue()` and `append()` outbox repositories, and accepts an optional `tenant_id` filter for multi-tenant isolation.
+   - In `app/integrations/engagement/handlers.py`, `TaskBlockedNotificationHandler`, `WorkflowTaskCreatedNotificationHandler`, and `WorkflowSlaWarningNotificationHandler` fail closed and raise `ValueError` on missing or empty `envelope.tenant_id`, preventing silent notification loss.
+   - Verified via regression tests `test_sla_evaluation_propagates_tenant_id_and_supports_enqueue`, `test_task_blocked_handler_missing_tenant_id_fails_closed`, `test_workflow_task_created_handler_missing_tenant_id_fails_closed`, and `test_workflow_sla_warning_handler_missing_tenant_id_fails_closed`.
+
+4. **Notification Policy Provenance & Authority Status (Task 4):**
+   - The default recipient roles and notification templates utilized by E-7 handlers originate as provisional engineering defaults:
+     - `urn:e7:role:task_manager` (default for `task.blocked`, template `TASK_BLOCKED_ALERT`)
+     - `urn:e7:role:workflow_assignee` (default for `workflow.task.created`, template `WORKFLOW_TASK_ASSIGNED`)
+     - `urn:e7:role:escalation_manager` (default for `workflow.sla.warning`, template `WORKFLOW_SLA_WARNING`)
+     - `urn:e7:cohort:faculty` (provisional default for `schedule.published`, template `EXAM_SCHEDULE_PUBLISHED`)
+     - `urn:e7:cohort:faculty-all` (provisional default for `schedule.changed`, template `EXAM_SCHEDULE_CHANGED`)
+   - These values are classified as **provisional engineering defaults** requiring institutional governance approval under `DEC-E8-02` (recipient endpoint resolution authority) and `DEC-E8-04` (notification template selection and context rendering responsibility).
+   - They are not represented as approved institutional standards in code, docstrings, or contracts. Missing recipient authority fails closed or logs blocked status under `DEC-E8-02`.
 
 ---
 
@@ -355,12 +387,12 @@ All four approved canonical external blockers are documented and preserved:
 
 | Scope / Category | Discovered / Collected | Executed in CI | Passed | Skipped | Environment Requirements |
 |---|---|---|---|---|---|
-| **Unit & Contract Suites** (`tests/unit/`, `tests/contract/`) | 1,913 | 1,908 | 1,902 | 6 | Standard CI Linux runner with PostgreSQL 16 service container |
+| **Unit & Contract Suites** (`tests/unit/`, `tests/contract/`) | 1,928 | 1,923 | 1,917 | 6 | Standard CI Linux runner with PostgreSQL 16 service container |
 | **Task Intelligence Integration** (`tests/integration/task_intelligence/`) | 10 | 10 | 10 | 0 | Standard CI Linux runner with PostgreSQL 16 service container |
 | **Security Test Suite** (`tests/security/`) | 160 | 0 (specialized run) | N/A | 0 | Dedicated security test pipeline / testcontainers |
 | **Role-Based UAT Suite** (`tests/uat/`) | 52 | 0 (specialized run) | N/A | 0 | Dedicated UAT runner / multi-service environment |
 | **Live External Integration / E2E** (`tests/e2e/`, `tests/integration/scheduling/`) | 137 | 0 (skipped) | N/A | 6 | Requires live external credentials (Google, RabbitMQ cluster) |
-| **Total Global Test Discovery** | **2,272** | **1,918** | **1,912** | **6** | Full repository test collection |
+| **Total Global Test Discovery** | **2,287** | **1,933** | **1,927** | **6** | Full repository test collection |
 | **Frontend Test Suite** (Vitest) | 146 | 146 | 146 | 0 | Node.js 20+ / JSDOM environment (19 test files) |
 
 ### Static Analysis & Verification
@@ -377,17 +409,21 @@ All four approved canonical external blockers are documented and preserved:
 ```
 ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                                ║
-║             VERDICT: DQ4_REVIEW_CORRECTIONS_COMPLETE_ARCHITECTURAL_DECISION_PENDING            ║
+║             VERDICT: DQ4_RUNTIME_CORRECTIONS_VERIFIED_ARCHITECTURAL_DECISION_PENDING           ║
 ║                                                                                                ║
-║  1. All independent review findings addressed and verified across code, tests, and reports.    ║
-║  2. E-8 recipient privacy boundary strictly enforced (zero plaintext email/phone/PII/MySQL).  ║
-║  3. All 4 canonical source-verified E-8 events verified; schedule.changed correctly classified. ║
-║  4. ADR-012 transaction boundary trace and 3-alternative architecture evaluation documented.   ║
-║  5. True active 11-table institutional ERP schema formally verified and documented.          ║
-║  6. Test execution boundaries precisely documented: 2,272 collected vs 1,912 passed in CI.    ║
-║  7. PR #4 remains open at https://github.com/Itsbhavesh1101/Ops/pull/4 (unmerged).             ║
-║  8. Frozen Phase-8 RC tag (phase8-rc-38d080fadab8) unaltered.                                  ║
-║  9. Phase DQ-5 NOT started.                                                                    ║
+║  1. All 3 critical runtime integration defects corrected and regression tested:                ║
+║     - RabbitMQ topic exchange routing mismatch fixed (canonical & wildcard binding keys).      ║
+║     - Plaintext recipient email addresses eliminated from scheduling service & handlers.       ║
+║     - SLA event tenant_id propagated and notification handlers fail closed on missing tenant.  ║
+║  2. Notification policy provenance documented (provisional engineering defaults vs approval).  ║
+║  3. E-8 recipient privacy boundary strictly enforced (zero plaintext email/phone/PII/MySQL).  ║
+║  4. All 4 canonical source-verified E-8 events verified; schedule.changed correctly classified. ║
+║  5. ADR-012 transaction boundary trace and 3-alternative architecture evaluation documented.   ║
+║  6. True active 11-table institutional ERP schema formally verified and documented.          ║
+║  7. Test execution boundaries precisely documented: 2,287 collected vs 1,927 passed in CI.    ║
+║  8. PR #4 remains open at https://github.com/Itsbhavesh1101/Ops/pull/4 (unmerged).             ║
+║  9. Frozen Phase-8 RC tag (phase8-rc-38d080fadab8) unaltered.                                  ║
+║ 10. Phase DQ-5 NOT started.                                                                    ║
 ║                                                                                                ║
 ╚════════════════════════════════════════════════════════════════════════════════════════════════╝
 ```
