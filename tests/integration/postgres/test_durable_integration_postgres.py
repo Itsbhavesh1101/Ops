@@ -17,13 +17,15 @@ Enforces real database integration verification across 13 core production scenar
 """
 
 import asyncio
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+import pytest_asyncio
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.db.models.notification_outbox import NotificationOutboxCommandRecord
@@ -50,6 +52,30 @@ from app.workflow.sla.models import (
     TaskSlaState,
 )
 from app.workflow.sla.repository import SlaRepository
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def clean_durable_tables(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> AsyncGenerator[None, None]:
+    """Ensure complete test isolation by cleaning tables before and after each test."""
+    async with session_factory() as session:
+        await session.execute(
+            text(
+                "TRUNCATE TABLE notification_outbox_commands, task_sla_states, "
+                "inbox_messages CASCADE;"
+            )
+        )
+        await session.commit()
+    yield
+    async with session_factory() as session:
+        await session.execute(
+            text(
+                "TRUNCATE TABLE notification_outbox_commands, task_sla_states, "
+                "inbox_messages CASCADE;"
+            )
+        )
+        await session.commit()
 
 # ==============================================================================
 # 1. Notification Command Persistence
