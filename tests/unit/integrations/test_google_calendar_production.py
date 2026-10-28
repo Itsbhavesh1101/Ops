@@ -105,6 +105,13 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         else str(settings.database_url)
     )
     engine = create_async_engine(db_url, poolclass=NullPool, echo=False)
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(select(1))
+    except Exception as exc:
+        await engine.dispose()
+        pytest.skip(f"PostgreSQL database unreachable at {db_url}: {exc}")
+
     session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
     async with session_factory() as session:
         yield session
@@ -1348,6 +1355,12 @@ async def test_multi_worker_concurrent_renewal_safety(
         else str(settings.database_url)
     )
     engine = create_async_engine(db_url, poolclass=NullPool, echo=False)
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(select(1))
+    except Exception as exc:
+        await engine.dispose()
+        pytest.skip(f"PostgreSQL database unreachable at {db_url}: {exc}")
     session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     tenant_id = f"tenant-{uuid4().hex[:6]}"
@@ -1462,6 +1475,12 @@ async def test_multi_worker_reconciliation_multi_replica_idempotency(
         else str(settings.database_url)
     )
     engine = create_async_engine(db_url, poolclass=NullPool, echo=False)
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(select(1))
+    except Exception as exc:
+        await engine.dispose()
+        pytest.skip(f"PostgreSQL database unreachable at {db_url}: {exc}")
     session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
     tenant_id = f"tenant-{uuid4().hex[:6]}"
