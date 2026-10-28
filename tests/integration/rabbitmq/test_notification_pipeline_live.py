@@ -251,7 +251,7 @@ async def test_live_notification_pipeline_end_to_end(
         worker_id=f"worker-live-{suffix}",
     )
 
-    delivered_count = await delivery_worker.run_once()
+    delivered_count = await delivery_worker.poll_and_deliver()
     assert delivered_count == 1
 
     # Verify fake E-8 received the canonical command
@@ -391,6 +391,6 @@ async def test_live_notification_pipeline_provisional_recipient_fail_closed(
         settings=NotificationSettings(enabled=True, pipeline_mode="outbox"),
         worker_id=f"worker-prov-{suffix}",
     )
-    processed = await delivery_worker.run_once()
+    processed = await delivery_worker.poll_and_deliver()
     assert processed == 0
     assert len(fake_e8_dispatcher.sent_commands) == 0
