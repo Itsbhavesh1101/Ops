@@ -29,10 +29,10 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import DurableIntegrationBase
 
 
-class NotificationOutboxCommandRecord(Base):
+class NotificationOutboxCommandRecord(DurableIntegrationBase):
     """Canonical notification command outbox entity mapped to notification_outbox_commands."""
 
     __tablename__ = "notification_outbox_commands"

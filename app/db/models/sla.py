@@ -28,7 +28,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, DurableIntegrationBase
 
 
 class SlaPolicyRecord(Base):
@@ -120,7 +120,7 @@ class SlaPolicyRecord(Base):
     )
 
 
-class TaskSlaStateRecord(Base):
+class TaskSlaStateRecord(DurableIntegrationBase):
     """Canonical task SLA entity mapped to PostgreSQL task_sla_states (AD-DQ4-02)."""
 
     __tablename__ = "task_sla_states"
