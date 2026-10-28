@@ -24,6 +24,20 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      rabbitmq:
+        image: rabbitmq:3.13-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       E7_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine
       E7_JWT_SECRET_KEY: test_jwt_secret_key_for_ci_minimum_32_chars_long
@@ -94,22 +108,11 @@ jobs:
         run: |
           pytest tests/integration/postgres/test_durable_integration_postgres.py -v --tb=short
 
-      - name: Start Disposable RabbitMQ Container
+      - name: Ensure RabbitMQ Container Aliased as e7-rabbitmq
         run: |
-          docker run -d --name e7-rabbitmq --hostname e7-rabbitmq -p 5672:5672 -p 15672:15672 -e RABBITMQ_DEFAULT_USER=guest -e RABBITMQ_DEFAULT_PASS=guest rabbitmq:3.13-management
-          for i in $(seq 1 30); do
-            if docker exec e7-rabbitmq rabbitmqctl status >/dev/null 2>&1; then
-              echo "RabbitMQ is ready"
-              break
-            fi
-            echo "Waiting for RabbitMQ... ($i/30)"
-            sleep 2
-          done
-          if ! docker ps | grep e7-rabbitmq; then
-            echo "=== RabbitMQ container stopped! Container logs: ==="
-            docker logs e7-rabbitmq
-            exit 1
-          fi
+          RABBIT_CONTAINER=$(docker ps -q --filter "ancestor=rabbitmq:3.13-management")
+          echo "RabbitMQ service container ID: $RABBIT_CONTAINER"
+          docker rename "$RABBIT_CONTAINER" e7-rabbitmq || true
           docker exec e7-rabbitmq rabbitmqctl status
 
       - name: Run RabbitMQ Live Integration Tests
@@ -127,11 +130,10 @@ jobs:
         run: |
           pytest tests/integration/rabbitmq/ -v --tb=short
 
-      - name: Stop Disposable RabbitMQ Container
+      - name: Inspect RabbitMQ Broker Logs
         if: always()
         run: |
           docker logs e7-rabbitmq || true
-          docker rm -f e7-rabbitmq || true
 
   frontend-quality-gates:
     name: Frontend Quality Gates & Tests
