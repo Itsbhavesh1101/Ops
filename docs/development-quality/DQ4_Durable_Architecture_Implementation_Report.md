@@ -307,6 +307,20 @@ The PostgreSQL integration test suite in [`tests/integration/postgres/test_durab
 15. `test_pg_concurrent_sla_pause_resume_row_locking`
 16. `test_pg_external_session_rollback_authoritative_reloading`
 
+### 7.5 Verified GitHub Actions CI Evidence (Runs 40757140210 & 40757128773)
+- **Pull Request CI Run:** [Run 40757140210](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757140210) — **SUCCESS** (3m21s)
+  - `Phase-1 Foundation & CI Baseline`: **SUCCESS** (3m17s)
+  - `Compile python source files`: **SUCCESS** (0 syntax/compilation errors)
+  - `Run Ruff (linter & format checks)`: **SUCCESS** (`All checks passed!`)
+  - `Run Mypy (type check)`: **SUCCESS** (`Success: no issues found in 272 source files`)
+  - `Verify Global Pytest Collection`: **2,348 tests collected** in 10.87s
+  - `Apply Database Migrations`: **SUCCESS** (Alembic upgraded head on PostgreSQL 16 container)
+  - `Run Pytest (unit & contract test suites)`: **1,962 passed, 6 skipped** in 46.85s
+  - `Run Task Intelligence PostgreSQL Integration Tests`: **10 passed** in 4.19s
+  - `Run Durable Architecture PostgreSQL Integration Tests`: **16 passed in 3.89s (100% green)**
+  - `Frontend Quality Gates & Tests`: **146 passed** in 1m3s
+- **Branch Push CI Run:** [Run 40757128773](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757128773) — **SUCCESS** (3m26s)
+
 ---
 
 ## 8. Canonical External Blockers Summary
