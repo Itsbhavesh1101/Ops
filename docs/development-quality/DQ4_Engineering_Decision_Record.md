@@ -7,7 +7,7 @@
 **Repository:** `F:\operations-engine`  
 **Base Pull Request:** [PR #4](https://github.com/Itsbhavesh1101/Ops/pull/4) (`quality/dq4-integration-reliability` -> `master`), Status: **OPEN**, unmerged  
 **Target Pull Request:** [PR #5](https://github.com/Itsbhavesh1101/Ops/pull/5) (`quality/dq4-durable-architecture` -> `quality/dq4-integration-reliability`), Status: **OPEN**, unmerged  
-**Engineering Baseline SHA:** `f01b8d76648e998d72ef58aea284957065b573f0`  
+**Independently Verified Remote SHA:** `2cb189b89b2cd547bfd64bc4616884b88e792a21`  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — *verified intact and unaltered*  
 **Overall Status:** `ENGINEERING_DESIGN_APPROVED — FORMAL_GOVERNANCE_PENDING`
 
@@ -32,12 +32,12 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 
 | Decision ID | Area | Selected Technical Architecture | Engineering Status | Formal Governance Status | Production Activation Status |
 |---|---|---|---|---|---|
-| **AD-DQ4-01** | Notification Outbox Durability | Option C: Two-Stage Notification Outbox (`notification_outbox_commands`) | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (gated by `BLK-03`) |
-| **AD-DQ4-02** | SLA Tracking Durability | PostgreSQL Persistence with Row-Level Locking (`task_sla_states`) | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_READY` (requires migration run) |
-| **DEC-E8-02** | Recipient Contact Governance | E-8 Directory Contact Resolution with Fail-Closed E-7 Governance | `ENGINEERING_DESIGN_APPROVED` | `INSTITUTIONAL_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (`allow_provisional_recipients=False`) |
-| **DEC-E8-04** | Template & Rendering Ownership | E-8 Message-Template, Rendering, and Channel Ownership | `ENGINEERING_DESIGN_APPROVED` | `INSTITUTIONAL_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (gated by E-8 template catalogue) |
-| **REC-E8-01** | Blocked Notification Recovery | Durable Outbox Recovery with Authenticated Administrative RBAC | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (gated by gateway infrastructure) |
-| **GOV-E8-01** | Production Delivery Safeguard | Default-Disabled Outbound Notification Delivery (`enabled=False`) | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_ENFORCED` (fail-closed default) |
+| **`AD-DQ4-01`** | Notification Outbox Durability | Option C: Two-Stage Notification Outbox (`notification_outbox_commands`) | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (gated by `BLK-03`) |
+| **`AD-DQ4-02`** | SLA Tracking Durability | PostgreSQL Persistence with Row-Level Locking (`task_sla_states`) | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_PENDING_ARB_AND_MIGRATION` |
+| **`DEC-E8-02`** | Recipient Contact Governance | E-8 Directory Contact Resolution with Fail-Closed E-7 Governance | `ENGINEERING_DESIGN_APPROVED` | `INSTITUTIONAL_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (`allow_provisional_recipients=False`) |
+| **`DEC-E8-04`** | Template & Rendering Ownership | E-8 Message-Template, Rendering, and Channel Ownership | `ENGINEERING_DESIGN_APPROVED` | `INSTITUTIONAL_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (gated by E-8 template inventory) |
+| **`REC-E8-01`** | Blocked Notification Recovery | Durable Outbox Recovery with Authenticated Administrative RBAC | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_BLOCKED` (gated by enterprise gateway) |
+| **`GOV-E8-01`** | Production Delivery Safeguard | Default-Disabled Outbound Notification Delivery (`enabled=False`) | `ENGINEERING_DESIGN_APPROVED` | `FORMAL_ARB_APPROVAL_PENDING` | `PRODUCTION_ACTIVATION_ENFORCED` (fail-closed default) |
 
 ---
 
@@ -54,32 +54,33 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 1. **Network I/O Isolation:** Eliminates holding open database connections during remote HTTP/AMQP network requests to E-8, completely preventing database connection pool exhaustion under downstream latency.
 2. **Decoupled Lifecycle:** Internal domain event publishing (`e7.events`) is decoupled from external delivery retry cycles, preventing slow or failing notifications from head-of-line blocking internal event delivery.
 3. **Queue Health & Durability:** RabbitMQ consumer transactions acknowledge messages immediately upon database staging. Failed external deliveries retry from PostgreSQL with exponential backoff without congesting broker queues.
-4. **Idempotency & Replay Safety:** Eliminates duplicate dispatch risks through three independent layers: broker idempotency via `inbox_messages`, deterministic `command_id` deduplication in `notification_outbox_commands`, and downstream deduplication in E-8.
+4. **Idempotency & At-Least-Once Delivery:** Deduplication occurs at ingestion via `inbox_messages` and deterministic `command_id` deduplication in `notification_outbox_commands`. External delivery operates under at-least-once semantics, requiring downstream E-8 idempotency for end-to-end deduplication.
 
 ### 3.3 Reviewed Implementation
-- **Schema Migration:** [`app/db/migrations/versions/0015_create_notification_outbox.py`](file:///f:/operations-engine/app/db/migrations/versions/0015_create_notification_outbox.py) (creates `notification_outbox_commands`).
-- **ORM Model:** [`app/db/models/notification_outbox.py`](file:///f:/operations-engine/app/db/models/notification_outbox.py) (`NotificationOutboxCommandRecord`).
-- **Repository:** [`app/integrations/engagement/repository.py`](file:///f:/operations-engine/app/integrations/engagement/repository.py) (`NotificationOutboxRepository`).
-- **Delivery Worker:** [`app/integrations/engagement/delivery_worker.py`](file:///f:/operations-engine/app/integrations/engagement/delivery_worker.py) (`NotificationDeliveryWorker`).
-- **Lease Expiration Invalidation (`DEC-LE-01`):** `mark_dispatched()` and `mark_failed()` strictly check `NotificationOutboxCommandRecord.lease_expires_at > now`, invalidating completion rights upon lease expiration to eliminate split-brain races with concurrent polling workers.
+- **Schema Migration:** [`0015_create_notification_outbox.py`](../../app/db/migrations/versions/0015_create_notification_outbox.py) (creates `notification_outbox_commands`).
+- **ORM Model:** [`notification_outbox.py`](../../app/db/models/notification_outbox.py) (`NotificationOutboxCommandRecord`).
+- **Repository:** [`repository.py`](../../app/integrations/engagement/repository.py) (`NotificationOutboxRepository`).
+- **Delivery Worker:** [`delivery_worker.py`](../../app/integrations/engagement/delivery_worker.py) (`NotificationDeliveryWorker`).
+- **Lease Expiration Invalidation (`DEC-LE-01`):** `mark_dispatched()` and `mark_failed()` verify `lease_owner` and check `lease_expires_at > now` when `enforce_lease_expiration=True`. If the lease has expired or ownership was reassigned, the repository returns `False`, invalidating completion rights and preventing split-brain overwrites.
 
-### 3.4 CI & Automated Test Evidence
-- **PostgreSQL Integration Tests (6 tests):**
-  - `test_pg_notification_command_persistence`
-  - `test_pg_inbox_and_command_transactional_atomicity`
-  - `test_pg_database_rollback_prevents_partial_commit`
-  - `test_pg_concurrent_command_claims_skip_locked`
-  - `test_pg_lease_expiration_and_stale_worker_rejection`
-  - `test_pg_lease_expiration_contract_and_unassigned_semantics`
-  - `test_pg_notification_retry_state_transitions`
-  - `test_pg_complete_trigger_provenance_round_trip`
-- **CI Execution:** Verified passing in GitHub Actions CI (PR Run `40757937011`, Push Run `40757925636`).
+### 3.4 Engineering Test Evidence (PostgreSQL Integration Tests — Outbox & Recovery Subsuite)
+The outbox pipeline is verified across 8 targeted integration test scenarios:
+- `test_pg_notification_command_persistence`
+- `test_pg_inbox_and_command_transactional_atomicity`
+- `test_pg_database_rollback_prevents_partial_commit`
+- `test_pg_concurrent_command_claims_skip_locked`
+- `test_pg_lease_expiration_and_stale_worker_rejection`
+- `test_pg_lease_expiration_contract_and_unassigned_semantics`
+- `test_pg_notification_retry_state_transitions`
+- `test_pg_complete_trigger_provenance_round_trip`
+
+**CI Execution:** Verified passing in GitHub Actions CI (PR Run [40761195919](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761195919), Push Run [40761186484](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761186484)).
 
 ### 3.5 Remaining Limitations
 - Operational monitoring dashboard (Prometheus metrics and Grafana alerts for outbox queue depth and lease expiration lag) requires deployment configuration in staging.
 
 ### 3.6 Required Formal Approvals
-- Formal ARB approval of proposed ADR-012 amendment (`docs/adr/ADR-012-AMENDMENT-PROPOSED.md`).
+- Formal ARB approval of proposed ADR-012 amendment ([ADR-012-AMENDMENT-PROPOSED.md](../adr/ADR-012-AMENDMENT-PROPOSED.md)).
 
 ### 3.7 Production Activation Restrictions
 - Outbound delivery to E-8 is disabled by default (`NotificationSettings.enabled = False`). Activation requires formal sign-off and resolution of `BLK-03`.
@@ -102,22 +103,23 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 4. **Tenant Isolation:** All SLA tables and row locks are strictly scoped by `tenant_id`. Cross-tenant point lookups fail closed (`SlaTaskStateNotFoundError`).
 
 ### 4.3 Reviewed Implementation
-- **Schema Migration:** [`app/db/migrations/versions/0016_create_task_sla_states.py`](file:///f:/operations-engine/app/db/migrations/versions/0016_create_task_sla_states.py) (creates `task_sla_states`).
-- **ORM Model:** [`app/db/models/sla.py`](file:///f:/operations-engine/app/db/models/sla.py) (`TaskSlaStateRecord`).
-- **Repository:** [`app/workflow/sla/repository.py`](file:///f:/operations-engine/app/workflow/sla/repository.py) (`SlaRepository`).
-- **Service Integration:** [`app/workflow/sla/service.py`](file:///f:/operations-engine/app/workflow/sla/service.py) and [`app/workflow/service.py`](file:///f:/operations-engine/app/workflow/service.py).
+- **Schema Migration:** [`0016_create_task_sla_states.py`](../../app/db/migrations/versions/0016_create_task_sla_states.py) (creates `task_sla_states`).
+- **ORM Model:** [`sla.py`](../../app/db/models/sla.py) (`TaskSlaStateRecord`).
+- **Repository:** [`repository.py`](../../app/workflow/sla/repository.py) (`SlaRepository`).
+- **Service Integration:** [`service.py`](../../app/workflow/sla/service.py) and [`service.py`](../../app/workflow/service.py).
 - **Fail-Closed Legacy Guards:** Synchronous methods (`attach_task_sla_sync`, etc.) raise `RuntimeError` when `persistence_mode="database"`.
 
-### 4.4 CI & Automated Test Evidence
-- **PostgreSQL Integration Tests (6 tests):**
-  - `test_pg_persisted_sla_registration`
-  - `test_pg_persisted_pause_and_resume`
-  - `test_pg_restart_recovery`
-  - `test_pg_concurrent_sla_warning_evaluation`
-  - `test_pg_cross_tenant_negative_access`
-  - `test_pg_concurrent_sla_pause_resume_row_locking`
-  - `test_pg_external_session_rollback_authoritative_reloading`
-- **CI Execution:** Verified 100% green in GitHub Actions CI (PR Run `40757937011`).
+### 4.4 Engineering Test Evidence (PostgreSQL Integration Tests — SLA Persistence Subsuite)
+SLA persistence is verified across 7 targeted integration test scenarios:
+- `test_pg_persisted_sla_registration`
+- `test_pg_persisted_pause_and_resume`
+- `test_pg_restart_recovery`
+- `test_pg_concurrent_sla_warning_evaluation`
+- `test_pg_cross_tenant_negative_access`
+- `test_pg_concurrent_sla_pause_resume_row_locking`
+- `test_pg_external_session_rollback_authoritative_reloading`
+
+**CI Execution:** Verified 100% green in GitHub Actions CI (PR Run [40761195919](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761195919)).
 
 ### 4.5 Remaining Limitations
 - The periodic SLA evaluation loop (`evaluate_sla_triggers()`) requires a scheduled timer or background daemon runner in production deployment.
@@ -126,33 +128,33 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 - Formal ARB schema and architecture sign-off on migration `0016` and SLA database persistence mode.
 
 ### 4.7 Production Activation Restrictions
-- Migration `0016` must be applied in the staging and production release pipelines before enabling `persistence_mode="database"`.
+- Formal ARB approval and migration `0016` must be applied in the target environment, and periodic evaluation daemon configured, before enabling `persistence_mode="database"`. Status remains `PRODUCTION_ACTIVATION_PENDING_ARB_AND_MIGRATION`.
 
 ---
 
 ## 5. Decision 3: DEC-E8-02 — E-8 Recipient Contact Resolution & Fail-Closed Governance
 
-### 5.1 Selected Architecture
+### 5.1 Selected Architecture (Engineering Recommendation)
 **E-8 Recipient Contact Directory Resolution with Fail-Closed E-7 Governance**
-- **Strict Boundary Separation:** E-7 formulates only canonical opaque recipient references (`urn:e7:cohort:...`, `urn:e7:role:...`). Resolution of opaque references to individual contact endpoints (emails, phone numbers, mobile push tokens) is owned exclusively by downstream E-8 directory services.
+- **Strict Boundary Separation:** E-7 formulates only canonical opaque recipient references (`urn:e7:cohort:...`, `urn:e7:role:...`). Resolution of opaque references to individual contact endpoints (emails, phone numbers, mobile push tokens) is owned exclusively by downstream E-8 directory services under the proposed architecture.
 - **Fail-Closed Recipient Governance:** In compliance with DEC-E8-02, E-7 defaults `allow_provisional_recipients: bool = False`. If a command carries provisional or unverified cohort references without confirmed resolution, E-7 marks the command `BLOCKED` in `notification_outbox_commands` and emits an audit event (`notification.dispatch.blocked`).
-- **Zero Raw PII Storage:** Raw emails, mobile numbers, and personal identifiers are strictly prohibited from being persisted in E-7 outbox tables.
+- **Data Minimization:** Raw emails, mobile numbers, and personal identifiers are strictly prohibited from being persisted in E-7 outbox tables.
 
 ### 5.2 Technical Rationale
-1. **Data Minimization & Compliance:** Preserves FERPA, GDPR, and institutional privacy compliance by eliminating personal contact data replication into E-7.
+1. **Data Minimization:** Supports privacy principles by eliminating personal contact data replication into E-7. (Formal FERPA/GDPR compliance requires institutional legal and IT verification).
 2. **Defensive Governance:** Prevents accidental or unauthorized mass communications to student or faculty cohorts before institutional directory authorization is confirmed.
 
 ### 5.3 Reviewed Implementation
-- **Configuration:** [`app/integrations/engagement/config.py`](file:///f:/operations-engine/app/integrations/engagement/config.py) (`allow_provisional_recipients: bool = False`).
-- **Dispatch Governance Handlers:** [`app/integrations/engagement/handlers.py`](file:///f:/operations-engine/app/integrations/engagement/handlers.py).
-- **Outbox Staging Enforcement:** [`app/integrations/engagement/repository.py`](file:///f:/operations-engine/app/integrations/engagement/repository.py) (`stage_command()` persists state as `BLOCKED` with reason `BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02`).
+- **Configuration:** [`config.py`](../../app/integrations/engagement/config.py) (`allow_provisional_recipients: bool = False`).
+- **Dispatch Governance Handlers:** [`handlers.py`](../../app/integrations/engagement/handlers.py).
+- **Outbox Staging Enforcement:** [`repository.py`](../../app/integrations/engagement/repository.py) (`stage_command()` persists state as `BLOCKED` with reason `BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02`).
 
-### 5.4 CI & Automated Test Evidence
+### 5.4 Engineering Test Evidence
 - **Automated Tests:**
   - `test_notification_disabled_mode_prevents_dispatch`
   - `test_provisional_recipients_fail_closed_under_dec_e8_02`
   - `test_pg_tenant_scoped_recovery`
-- **CI Execution:** Verified 100% green in GitHub Actions CI (PR Run `40757937011`).
+- **CI Execution:** Verified 100% green in GitHub Actions CI (PR Run [40761195919](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761195919)).
 
 ### 5.5 Remaining Limitations
 - E-8 directory endpoint contracts and institutional LDAP/Active Directory resolution protocols remain unverified pending institutional IT engagement.
@@ -167,7 +169,7 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 
 ## 6. Decision 4: DEC-E8-04 — E-8 Message Template & Rendering Ownership
 
-### 6.1 Selected Architecture
+### 6.1 Selected Architecture (Engineering Recommendation)
 **E-8 Message-Template, Multi-Channel Rendering, and Content Ownership**
 - **E-7 Responsibility:** E-7 formulates operational triggers (`trigger_kind`), typed business conditions (`business_condition`, e.g. `SCHEDULE_CHANGE_NOTICE`, `EXAM_SCHEDULE_CHANGED`), and structured contextual parameters (schedule IDs, dates, room numbers, revision counters).
 - **E-8 Responsibility:** E-8 owns template catalogs, message copy, HTML email rendering, SMS character truncation, localized translations, and legal disclaimers.
@@ -178,12 +180,12 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 2. **Multi-Channel Agility:** E-8 can adjust channel selection (SMS vs. Email vs. WhatsApp) and template branding without redeploying E-7 domain services.
 
 ### 6.3 Reviewed Implementation
-- **Data Contracts:** [`app/integrations/engagement/models.py`](file:///f:/operations-engine/app/integrations/engagement/models.py) (`NotificationTrigger`, `NotificationCommand`, `TriggerKind`).
+- **Data Contracts:** [`models.py`](../../app/integrations/engagement/models.py) (`NotificationTrigger`, `NotificationCommand`, `TriggerKind`).
 - **Provenance Round-Trip:** Model serialization and deserialization in `NotificationOutboxRepository.to_command()`.
 
-### 6.4 CI & Automated Test Evidence
+### 6.4 Engineering Test Evidence
 - **PostgreSQL Integration Test:** `test_pg_complete_trigger_provenance_round_trip` verified round-trip preservation of `business_condition` and context metadata into mock delivery.
-- **CI Execution:** Verified 100% green in GitHub Actions CI (PR Run `40757937011`).
+- **CI Execution:** Verified 100% green in GitHub Actions CI (PR Run [40761195919](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761195919)).
 
 ### 6.5 Remaining Limitations
 - Specific template identifiers (e.g. `EXAM_SCHEDULE_CHANGED`) are defined as engineering conventions and require institutional catalog confirmation.
@@ -201,7 +203,7 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 ### 7.1 Selected Architecture
 **Durable Outbox Recovery with Authenticated Administrative RBAC Controls**
 - **Persistent Blocked Queue:** Blocked notification commands are durably retained in `notification_outbox_commands` in state `BLOCKED`.
-- **Administrative Recovery Engine:** Implemented [`NotificationRecoveryService`](file:///f:/operations-engine/app/integrations/engagement/recovery.py):
+- **Administrative Recovery Engine:** Implemented [`NotificationRecoveryService`](../../app/integrations/engagement/recovery.py):
   - Strictly requires administrative caller credentials (`admin` or `operations_manager` principal roles).
   - Validates replacement recipient references against syntax rules and rejects prohibited PII (raw emails, phone numbers).
   - Atomically transitions command state from `BLOCKED` to `PENDING` with immediate `next_attempt_at = now`.
@@ -212,16 +214,16 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 2. **Operational Safety:** Prevents unauthenticated users or non-admin roles from releasing blocked communications.
 
 ### 7.3 Reviewed Implementation
-- **Service:** [`app/integrations/engagement/recovery.py`](file:///f:/operations-engine/app/integrations/engagement/recovery.py).
+- **Service:** [`recovery.py`](../../app/integrations/engagement/recovery.py).
 - **Repository Methods:** `NotificationOutboxRepository.recover_blocked_command()` and `list_by_state()`.
 
-### 7.4 CI & Automated Test Evidence
+### 7.4 Engineering Test Evidence
 - **PostgreSQL Integration Test:** `test_pg_tenant_scoped_recovery` (verifies administrative recovery, tenant scoping, and state transition).
 - **Unit Tests:** `test_notification_recovery_service_rbac_and_pii_guards`.
-- **CI Execution:** Verified 100% green in GitHub Actions CI (PR Run `40757937011`).
+- **CI Execution:** Verified 100% green in GitHub Actions CI (PR Run [40761195919](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761195919)).
 
 ### 7.5 Remaining Limitations
-- HTTP API mount for administrative recovery (`POST /api/v1/admin/notifications/{id}/unblock`) is deferred pending production gateway infrastructure (`BLK-04`).
+- `NotificationRecoveryService` enforces application-level role checks on caller principal roles; enterprise production identity verification (OIDC / gateway tokens) and a mounted HTTP administrative recovery API (`POST /api/v1/admin/notifications/{id}/unblock`) remain unverified and deferred pending enterprise gateway infrastructure (`BLK-04`).
 
 ### 7.6 Required Formal Approvals
 - Information Security and Governance approval of recovery RBAC policy.
@@ -243,11 +245,11 @@ Under delegation from the project owner, the engineering reviewer has evaluated 
 - Defense-in-depth governance invariant preventing accidental dispatch during development, testing, staging deployment, or credential configuration.
 
 ### 8.3 Reviewed Implementation
-- [`app/integrations/engagement/config.py`](file:///f:/operations-engine/app/integrations/engagement/config.py) and [`app/integrations/engagement/delivery_worker.py`](file:///f:/operations-engine/app/integrations/engagement/delivery_worker.py).
+- [`config.py`](../../app/integrations/engagement/config.py) and [`delivery_worker.py`](../../app/integrations/engagement/delivery_worker.py).
 
-### 8.4 CI & Automated Test Evidence
+### 8.4 Engineering Test Evidence
 - Verified in unit and integration test suites (`test_notification_disabled_mode_prevents_dispatch`).
-- Verified 100% green in GitHub Actions CI (PR Run `40757937011`).
+- Verified 100% green in GitHub Actions CI (PR Run [40761195919](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761195919)).
 
 ### 8.5 Required Formal Approvals
 - Formal Production Readiness Review (PRR) sign-off prior to setting `E7_NOTIFICATION_ENABLED=True`.
@@ -263,14 +265,16 @@ All six approved engineering designs are implemented and verified in the codebas
 - **Unit & Contract Tests:** 1,962 passed, 6 skipped in CI.
 - **Durable PostgreSQL Integration Tests:** **16 passed in 3.12s (100% green)** in CI.
 - **Frontend Vitest Suite:** 146 passed in CI.
-- **GitHub Actions PR CI:** [Run 40757937011](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757937011) — **SUCCESS** (2m44s).
-- **GitHub Actions Push CI:** [Run 40757925636](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757925636) — **SUCCESS** (3m16s).
+- **GitHub Actions PR CI:** [Run 40761195919](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761195919) — **SUCCESS** (3m21s).
+- **GitHub Actions Push CI:** [Run 40761186484](https://github.com/Itsbhavesh1101/Ops/actions/runs/40761186484) — **SUCCESS** (3m12s).
+
+*(Note: Automated test passing constitutes ENGINEERING_TEST_EVIDENCE, not formal institutional sign-off).*
 
 ---
 
 ## 10. Canonical External Blockers Status
 
-The authoritative external blockers identified in `docs/development-quality/E7_Development_Completion_Remediation_Plan.md` remain isolated and unresolved pending institutional infrastructure and credentials:
+The authoritative external blockers identified in [`E7_Development_Completion_Remediation_Plan.md`](E7_Development_Completion_Remediation_Plan.md) remain isolated and unresolved pending institutional infrastructure and credentials:
 
 | Blocker ID | Name | Canonical Description | Pre-requisite |
 |---|---|---|---|

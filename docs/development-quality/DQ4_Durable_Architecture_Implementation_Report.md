@@ -63,8 +63,8 @@ Under Option C, external HTTP I/O is strictly decoupled from domain event ingest
 4. Terminal results (`DISPATCHED` or `FAILED` after max retries with exponential backoff) are committed in short database transactions.
 
 #### Database Schema: `notification_outbox_commands` (Migration `0015`)
-- File: [`app/db/migrations/versions/0015_create_notification_outbox.py`](file:///f:/operations-engine/app/db/migrations/versions/0015_create_notification_outbox.py)
-- Model: [`NotificationOutboxCommandRecord`](file:///f:/operations-engine/app/db/models/notification_outbox.py#L32-L115) in [`app/db/models/notification_outbox.py`](file:///f:/operations-engine/app/db/models/notification_outbox.py)
+- File: [`app/db/migrations/versions/0015_create_notification_outbox.py`](../../app/db/migrations/versions/0015_create_notification_outbox.py)
+- Model: [`NotificationOutboxCommandRecord`](../../app/db/models/notification_outbox.py#L32-L115) in [`app/db/models/notification_outbox.py`](../../app/db/models/notification_outbox.py)
 - Table Columns:
   - `id`: `UUID` primary key.
   - `command_id`: `String(128)`, unique, indexed.
@@ -89,8 +89,8 @@ Under Option C, external HTTP I/O is strictly decoupled from domain event ingest
   - `ix_notif_outbox_poll`: `(dispatch_state, next_attempt_at)`.
   - `ix_notif_outbox_tenant_state`: `(tenant_id, dispatch_state)`.
 
-#### Outbox Repository: [`NotificationOutboxRepository`](file:///f:/operations-engine/app/integrations/engagement/repository.py#L22-L175)
-- Location: [`app/integrations/engagement/repository.py`](file:///f:/operations-engine/app/integrations/engagement/repository.py)
+#### Outbox Repository: [`NotificationOutboxRepository`](../../app/integrations/engagement/repository.py#L22-L175)
+- Location: [`app/integrations/engagement/repository.py`](../../app/integrations/engagement/repository.py)
 - Methods:
   - `stage_command(command, dispatch_state, block_reason, max_retries)`: Atomically inserts or returns existing record by `command_id`.
   - `claim_pending_batch(limit, lease_duration_seconds, lease_owner)`: Uses `SELECT ... FOR UPDATE SKIP LOCKED` on PostgreSQL to lease records whose state is `PENDING` or `PROCESSING` with expired lease.
@@ -99,8 +99,8 @@ Under Option C, external HTTP I/O is strictly decoupled from domain event ingest
   - `mark_blocked(command_id, reason)`: Transitions record to `BLOCKED`.
   - `recover_blocked_command(command_id, resolved_recipients)`: Validates state is `BLOCKED`, updates recipients, transitions to `PENDING` with immediate eligibility (`next_attempt_at = now`).
 
-#### Delivery Worker: [`NotificationDeliveryWorker`](file:///f:/operations-engine/app/integrations/engagement/delivery_worker.py#L32-L210)
-- Location: [`app/integrations/engagement/delivery_worker.py`](file:///f:/operations-engine/app/integrations/engagement/delivery_worker.py)
+#### Delivery Worker: [`NotificationDeliveryWorker`](../../app/integrations/engagement/delivery_worker.py#L32-L210)
+- Location: [`app/integrations/engagement/delivery_worker.py`](../../app/integrations/engagement/delivery_worker.py)
 - Features:
   - Background asynchronous task with clean shutdown via `asyncio.Event`.
   - Invokes `dispatcher.dispatch(cmd, session=None)` strictly outside database transactions.
@@ -111,8 +111,8 @@ Under Option C, external HTTP I/O is strictly decoupled from domain event ingest
 ### 3.2 AD-DQ4-01: Administrative Notification Recovery Service
 
 To resolve the lack of an executable replay/unblocking mechanism, the administrative recovery service provides authenticated, authorized unblocking for intents held in `BLOCKED` status:
-- Service: [`NotificationRecoveryService`](file:///f:/operations-engine/app/integrations/engagement/recovery.py#L22-L159)
-- Location: [`app/integrations/engagement/recovery.py`](file:///f:/operations-engine/app/integrations/engagement/recovery.py)
+- Service: [`NotificationRecoveryService`](../../app/integrations/engagement/recovery.py#L22-L159)
+- Location: [`app/integrations/engagement/recovery.py`](../../app/integrations/engagement/recovery.py)
 - Security & Privacy Invariants:
   1. **Strict Role-Based Access Control (RBAC):** Requires caller to hold `admin` or `operations_manager` role. Rejects unauthorized principals with `PermissionError` and emits `notification.recovery.denied` audit event.
   2. **Strict Opaque Recipient Validation:** Validates all replacement recipients against privacy rules. Rejects plaintext emails (`@`), formatted phone numbers (E.164 / local), raw upstream database primary keys (`mysql:`, `students.id:`, `staff.id:`), and numeric identifiers with `ValueError` and emits `notification.recovery.rejected` audit event.
@@ -124,8 +124,8 @@ To resolve the lack of an executable replay/unblocking mechanism, the administra
 ### 3.3 DEC-E8-02: Fail-Closed Provisional Recipient Handling
 
 To ensure no unauthorized outbound notifications occur:
-- Configuration: Added `allow_provisional_recipients: bool = False` (default) to [`NotificationSettings`](file:///f:/operations-engine/app/integrations/engagement/config.py#L20-L40).
-- Handlers: Updated [`SchedulePublishedNotificationHandler`](file:///f:/operations-engine/app/integrations/engagement/handlers.py#L130-L240), [`ScheduleChangedNotificationHandler`](file:///f:/operations-engine/app/integrations/engagement/handlers.py#L320-L430), [`TaskBlockedNotificationHandler`](file:///f:/operations-engine/app/integrations/engagement/handlers.py#L515-L620), [`WorkflowTaskCreatedNotificationHandler`](file:///f:/operations-engine/app/integrations/engagement/handlers.py#L645-L750), [`WorkflowSlaWarningNotificationHandler`](file:///f:/operations-engine/app/integrations/engagement/handlers.py#L790-L890), and [`NotificationConsumerHandler`](file:///f:/operations-engine/app/integrations/engagement/handlers.py#L930-L1000).
+- Configuration: Added `allow_provisional_recipients: bool = False` (default) to [`NotificationSettings`](../../app/integrations/engagement/config.py#L20-L40).
+- Handlers: Updated [`SchedulePublishedNotificationHandler`](../../app/integrations/engagement/handlers.py#L130-L240), [`ScheduleChangedNotificationHandler`](../../app/integrations/engagement/handlers.py#L320-L430), [`TaskBlockedNotificationHandler`](../../app/integrations/engagement/handlers.py#L515-L620), [`WorkflowTaskCreatedNotificationHandler`](../../app/integrations/engagement/handlers.py#L645-L750), [`WorkflowSlaWarningNotificationHandler`](../../app/integrations/engagement/handlers.py#L790-L890), and [`NotificationConsumerHandler`](../../app/integrations/engagement/handlers.py#L930-L1000).
 - Behavior:
   - If event payload provides explicit, valid opaque recipients (e.g. `["urn:e7:faculty:dean-office"]`), the command is staged as `PENDING`.
   - If event contains only provisional cohort/role URNs (`urn:e7:cohort:faculty`, `urn:e7:role:task_manager`, etc.) and `allow_provisional_recipients=False`, the command fails closed into `BLOCKED` with `block_reason = "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02"`.
@@ -137,7 +137,7 @@ To ensure no unauthorized outbound notifications occur:
 
 To eliminate in-memory volatility and concurrency hazards:
 - Database Schema: `task_sla_states` table created via Alembic Migration `0016_create_task_sla_states.py`.
-- Model: [`TaskSlaStateRecord`](file:///f:/operations-engine/app/db/models/sla.py#L123-L210) in [`app/db/models/sla.py`](file:///f:/operations-engine/app/db/models/sla.py).
+- Model: [`TaskSlaStateRecord`](../../app/db/models/sla.py#L123-L210) in [`app/db/models/sla.py`](../../app/db/models/sla.py).
 - Columns:
   - `id`: `UUID` PK.
   - `task_id`: `UUID` indexed.
@@ -154,9 +154,9 @@ To eliminate in-memory volatility and concurrency hazards:
 - Constraints & Indices:
   - Unique constraint `uq_task_sla_tenant_task`: `(tenant_id, task_id)`.
   - Evaluation index `ix_task_sla_eval`: `(tenant_id, status, warning_at, breach_at)`.
-- Repository: [`SlaRepository`](file:///f:/operations-engine/app/workflow/sla/repository.py#L22-L175) provides tenant-scoped queries and `list_evaluable_slas(tenant_id, as_of)` using `SELECT ... FOR UPDATE SKIP LOCKED` on PostgreSQL.
-- Service: [`SlaService.evaluate_triggers`](file:///f:/operations-engine/app/workflow/sla/service.py#L235-L380) updated to accept `session: AsyncSession | None = None`. When an active DB session is present, queries `task_sla_states`, updates records atomically, and emits events without double-firing across worker restarts or multiple pod replicas.
-- Workflow Integration: [`WorkflowService.evaluate_sla_triggers`](file:///f:/operations-engine/app/workflow/service.py#L425-L445) forwards `session=uow.session` to `SlaService`.
+- Repository: [`SlaRepository`](../../app/workflow/sla/repository.py#L22-L175) provides tenant-scoped queries and `list_evaluable_slas(tenant_id, as_of)` using `SELECT ... FOR UPDATE SKIP LOCKED` on PostgreSQL.
+- Service: [`SlaService.evaluate_triggers`](../../app/workflow/sla/service.py#L235-L380) updated to accept `session: AsyncSession | None = None`. When an active DB session is present, queries `task_sla_states`, updates records atomically, and emits events without double-firing across worker restarts or multiple pod replicas.
+- Workflow Integration: [`WorkflowService.evaluate_sla_triggers`](../../app/workflow/service.py#L425-L445) forwards `session=uow.session` to `SlaService`.
 
 ---
 
@@ -166,12 +166,12 @@ All automated verification gates have passed 100%:
 
 ### 4.1 Unit & Integration Test Summary
 Targeted test execution via `.venv\Scripts\python.exe -m pytest ...`:
-- Migration & Schema Discovery: [`tests/unit/test_alembic.py`](file:///f:/operations-engine/tests/unit/test_alembic.py) -> **14 passed**
-- Durable Notification Outbox Pipeline: [`tests/unit/integrations/test_notification_outbox_pipeline.py`](file:///f:/operations-engine/tests/unit/integrations/test_notification_outbox_pipeline.py) -> **22 passed**
-- PostgreSQL SLA Persistence & Multi-Instance Safety: [`tests/unit/workflow/test_sla_persistence.py`](file:///f:/operations-engine/tests/unit/workflow/test_sla_persistence.py) -> **15 passed**
-- E-8 Notification Dispatcher: [`tests/unit/integrations/test_e8_notification_dispatcher.py`](file:///f:/operations-engine/tests/unit/integrations/test_e8_notification_dispatcher.py) -> **63 passed**
-- SLA Engine & Workflow Service: [`tests/unit/workflow/test_sla_engine.py`](file:///f:/operations-engine/tests/unit/workflow/test_sla_engine.py), [`tests/unit/workflow/test_workflow_service.py`](file:///f:/operations-engine/tests/unit/workflow/test_workflow_service.py) -> **20 passed**
-- Entire Workflow Domain Suite: [`tests/unit/workflow/`](file:///f:/operations-engine/tests/unit/workflow/) -> **146 passed**
+- Migration & Schema Discovery: [`tests/unit/test_alembic.py`](../../tests/unit/test_alembic.py) -> **14 passed**
+- Durable Notification Outbox Pipeline: [`tests/unit/integrations/test_notification_outbox_pipeline.py`](../../tests/unit/integrations/test_notification_outbox_pipeline.py) -> **22 passed**
+- PostgreSQL SLA Persistence & Multi-Instance Safety: [`tests/unit/workflow/test_sla_persistence.py`](../../tests/unit/workflow/test_sla_persistence.py) -> **15 passed**
+- E-8 Notification Dispatcher: [`tests/unit/integrations/test_e8_notification_dispatcher.py`](../../tests/unit/integrations/test_e8_notification_dispatcher.py) -> **63 passed**
+- SLA Engine & Workflow Service: [`tests/unit/workflow/test_sla_engine.py`](../../tests/unit/workflow/test_sla_engine.py), [`tests/unit/workflow/test_workflow_service.py`](../../tests/unit/workflow/test_workflow_service.py) -> **20 passed**
+- Entire Workflow Domain Suite: [`tests/unit/workflow/`](../../tests/unit/workflow/) -> **146 passed**
 - **Total Unit & Contract Execution:** **100% green**
 
 ### 4.2 Static Analysis & Quality Checks
@@ -181,7 +181,7 @@ Targeted test execution via `.venv\Scripts\python.exe -m pytest ...`:
 - **Workflow & SLA Unit Suite:** `pytest tests/unit/workflow/` -> **146 passed (100% green)**
 - **Notification Outbox Pipeline Suite:** `pytest tests/unit/integrations/test_notification_outbox_pipeline.py` -> **22 passed (100% green)**
 - **Contract Test Suite:** `pytest tests/contract/` -> **17 passed (100% green)**
-- **Durable Architecture PostgreSQL Integration Suite:** [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) -> **13 tests configured and verified in CI workflow**
+- **Durable Architecture PostgreSQL Integration Suite:** [`tests/integration/postgres/test_durable_integration_postgres.py`](../../tests/integration/postgres/test_durable_integration_postgres.py) -> **13 tests configured and verified in CI workflow**
 
 ---
 
@@ -214,7 +214,7 @@ Following secondary independent architecture review, five critical production co
 - **Resolution:** Added top-level guard `if not self.settings.enabled: return 0` in `NotificationDeliveryWorker.poll_and_deliver()`. Updated `NotificationWorker.start_background_tasks(stop_event)` to instantiate and start `NotificationDeliveryWorker` when `pipeline_mode == 'outbox'`.
 
 ### 5.7 Real PostgreSQL Integration Verification
-- Added comprehensive PostgreSQL integration test suite: [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) covering 13 production scenarios including concurrent claims, lease expiration, crash recovery, tenant isolation, and trigger provenance round-trip.
+- Added comprehensive PostgreSQL integration test suite: [`tests/integration/postgres/test_durable_integration_postgres.py`](../../tests/integration/postgres/test_durable_integration_postgres.py) covering 13 production scenarios including concurrent claims, lease expiration, crash recovery, tenant isolation, and trigger provenance round-trip.
 
 ---
 
@@ -232,7 +232,7 @@ Following tertiary independent verification, final reliability corrections and a
 - **State Protection:** Conditional updates enforce `dispatch_state == 'PROCESSING'` and `lease_owner == active_worker_id`. Stale workers whose lease expired or was reclaimed by another worker cannot complete or fail reclaimed commands. Terminal states (`DISPATCHED`, `FAILED`, `BLOCKED`) remain protected against invalid reversion.
 
 ### 6.3 Real PostgreSQL Integration Suite Execution (13/13)
-The 13 durable integration tests in [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) were executed against disposable PostgreSQL 16 via `E7_RUN_POSTGRES_INTEGRATION=1`:
+The 13 durable integration tests in [`tests/integration/postgres/test_durable_integration_postgres.py`](../../tests/integration/postgres/test_durable_integration_postgres.py) were executed against disposable PostgreSQL 16 via `E7_RUN_POSTGRES_INTEGRATION=1`:
 1. `test_pg_notification_command_persistence`
 2. `test_pg_inbox_and_command_transactional_atomicity`
 3. `test_pg_database_rollback_prevents_partial_commit`
@@ -250,7 +250,7 @@ The 13 durable integration tests in [`tests/integration/postgres/test_durable_in
 All 13 tests execute with strict tenant isolation, isolated test database lifecycle (`operations_engine_test`), and zero mutation of core tables.
 
 ### 6.4 GitHub Actions CI Verification Gate
-Updated [`.github/workflows/ci.yml`](file:///f:/operations-engine/.github/workflows/ci.yml) to add the step `Run Durable Architecture PostgreSQL Integration Tests`, configuring `E7_RUN_POSTGRES_INTEGRATION: "1"`, `POSTGRES_PORT: "5432"`, `POSTGRES_HOST: "localhost"`, `POSTGRES_USER: "postgres"`, `POSTGRES_PASSWORD: "postgres"`. This executes the 13 durable architecture integration tests against the disposable PostgreSQL 16 Alpine container in CI, providing verified automated gate enforcement.
+Updated [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) to add the step `Run Durable Architecture PostgreSQL Integration Tests`, configuring `E7_RUN_POSTGRES_INTEGRATION: "1"`, `POSTGRES_PORT: "5432"`, `POSTGRES_HOST: "localhost"`, `POSTGRES_USER: "postgres"`, `POSTGRES_PASSWORD: "postgres"`. This executes the 13 durable architecture integration tests against the disposable PostgreSQL 16 Alpine container in CI, providing verified automated gate enforcement.
 
 CI Execution Evidence:
 - **Pull Request CI Run:** [Run 40749815245](https://github.com/Itsbhavesh1101/Ops/actions/runs/40749815245) — **SUCCESS**
@@ -278,19 +278,19 @@ Following quaternary independent engineering review, final concurrency controls,
 - **Retry Counter Consistency:** Failed attempts by workers without valid active leases do not increment `retry_count`.
 
 ### 7.2 Concurrent SLA Pause/Resume Serialization via Row-Level Locking
-- **Row-Level Locking:** In [`app/workflow/sla/repository.py`](file:///f:/operations-engine/app/workflow/sla/repository.py), `get_task_sla()` and `update_task_sla()` accept `for_update: bool = False`. On PostgreSQL, `for_update=True` applies `SELECT ... FOR UPDATE`, acquiring exclusive row locks on `task_sla_states`.
-- **Deterministic Serialization:** In [`app/workflow/sla/service.py`](file:///f:/operations-engine/app/workflow/sla/service.py), `pause_task_sla_async()` and `resume_task_sla_async()` pass `for_update=True`. Concurrent pause or resume operations serialize cleanly in PostgreSQL.
+- **Row-Level Locking:** In [`app/workflow/sla/repository.py`](../../app/workflow/sla/repository.py), `get_task_sla()` and `update_task_sla()` accept `for_update: bool = False`. On PostgreSQL, `for_update=True` applies `SELECT ... FOR UPDATE`, acquiring exclusive row locks on `task_sla_states`.
+- **Deterministic Serialization:** In [`app/workflow/sla/service.py`](../../app/workflow/sla/service.py), `pause_task_sla_async()` and `resume_task_sla_async()` pass `for_update=True`. Concurrent pause or resume operations serialize cleanly in PostgreSQL.
 - **Idempotent Transitions & Duration Preservation:** Subsequent concurrent pause requests detect `state.status == SlaStatus.PAUSED` and no-op without duplicating pause durations or corrupting remaining business-calendar metrics. Subsequent concurrent resume requests detect `state.status == SlaStatus.RUNNING` and no-op without double-accumulating pause durations.
 - **Strict Cross-Tenant Isolation:** Row queries and locks are strictly qualified by `tenant_id`. Negative cross-tenant operations raise `SlaTaskStateNotFoundError` without locking or modifying other tenants' records.
 
 ### 7.3 Externally Managed Transaction Rollback & Authoritative PostgreSQL Reloading
-- **Session Lifecycle Binding:** In [`app/workflow/sla/service.py`](file:///f:/operations-engine/app/workflow/sla/service.py), `_bind_session_lifecycle()` listens to SQLAlchemy session events (`after_rollback`, `after_commit`) on caller-owned sessions. If a caller rolls back externally without committing:
+- **Session Lifecycle Binding:** In [`app/workflow/sla/service.py`](../../app/workflow/sla/service.py), `_bind_session_lifecycle()` listens to SQLAlchemy session events (`after_rollback`, `after_commit`) on caller-owned sessions. If a caller rolls back externally without committing:
   - On `attach_task_sla()`, the uncommitted task is evicted from in-memory cache (`_states.pop(task_id)`).
   - On `pause_task_sla()` or `resume_task_sla()`, the in-memory cache is restored to the previous committed state.
-- **Authoritative Database Reloading:** [`WorkflowService.get_task_sla()`](file:///f:/operations-engine/app/workflow/service.py) and `SlaService.get_task_sla_async()` reload domain states directly from `SlaRepository.get_task_sla(tenant_id, task_id)` when a session or UoW is used, keeping in-memory caches synchronized with authoritative PostgreSQL records. If a record was rolled back, lookups raise `SlaTaskStateNotFoundError`.
+- **Authoritative Database Reloading:** [`WorkflowService.get_task_sla()`](../../app/workflow/service.py) and `SlaService.get_task_sla_async()` reload domain states directly from `SlaRepository.get_task_sla(tenant_id, task_id)` when a session or UoW is used, keeping in-memory caches synchronized with authoritative PostgreSQL records. If a record was rolled back, lookups raise `SlaTaskStateNotFoundError`.
 
 ### 7.4 Real PostgreSQL Integration Suite Expansion (16/16)
-The PostgreSQL integration test suite in [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) was expanded to 16 comprehensive production scenarios:
+The PostgreSQL integration test suite in [`tests/integration/postgres/test_durable_integration_postgres.py`](../../tests/integration/postgres/test_durable_integration_postgres.py) was expanded to 16 comprehensive production scenarios:
 1. `test_pg_notification_command_persistence`
 2. `test_pg_inbox_and_command_transactional_atomicity`
 3. `test_pg_database_rollback_prevents_partial_commit`
@@ -350,9 +350,9 @@ The authoritative external blockers identified in `docs/development-quality/E7_D
 ## 10. Engineering Decision Ratification & Governance Separation
 
 Under delegation from the project owner, the engineering reviewer has ratified the technical architecture selections for integration durability and governance. The complete rationale, implementation references, automated test evidence, and operational limits are recorded in:
-- **Engineering Decision Record:** [`docs/development-quality/DQ4_Engineering_Decision_Record.md`](file:///f:/operations-engine/docs/development-quality/DQ4_Engineering_Decision_Record.md)
-- **Proposed ADR-012 Amendment:** [`docs/adr/ADR-012-AMENDMENT-PROPOSED.md`](file:///f:/operations-engine/docs/adr/ADR-012-AMENDMENT-PROPOSED.md)
-- **E-8 Governance Handoff Specification:** [`docs/development-quality/E8_Governance_Handoff_Specification.md`](file:///f:/operations-engine/docs/development-quality/E8_Governance_Handoff_Specification.md)
+- **Engineering Decision Record:** [`docs/development-quality/DQ4_Engineering_Decision_Record.md`](DQ4_Engineering_Decision_Record.md)
+- **Proposed ADR-012 Amendment:** [`docs/adr/ADR-012-AMENDMENT-PROPOSED.md`](../adr/ADR-012-AMENDMENT-PROPOSED.md)
+- **E-8 Governance Handoff Specification:** [`docs/development-quality/E8_Governance_Handoff_Specification.md`](E8_Governance_Handoff_Specification.md)
 
 ### 10.1 Four-Tier Governance Separation
 
