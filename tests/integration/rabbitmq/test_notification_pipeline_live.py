@@ -153,7 +153,10 @@ async def test_live_notification_pipeline_end_to_end(
     stop_event = asyncio.Event()
     runner = RabbitMqConsumerRunner(
         settings=consumer_settings,
-        runner_policy=RabbitMqConsumerRunnerPolicy.from_settings(consumer_settings),
+        runner_policy=RabbitMqConsumerRunnerPolicy.from_settings(
+            consumer_settings,
+            shutdown_grace_period=timedelta(seconds=5),
+        ),
         inbound_handler=inbound_handler,
     )
     runner_task = asyncio.create_task(runner.run(stop_event=stop_event))
@@ -314,7 +317,10 @@ async def test_live_notification_pipeline_provisional_recipient_fail_closed(
     stop_event = asyncio.Event()
     runner = RabbitMqConsumerRunner(
         settings=consumer_settings,
-        runner_policy=RabbitMqConsumerRunnerPolicy.from_settings(consumer_settings),
+        runner_policy=RabbitMqConsumerRunnerPolicy.from_settings(
+            consumer_settings,
+            shutdown_grace_period=timedelta(seconds=5),
+        ),
         inbound_handler=inbound_handler,
     )
     runner_task = asyncio.create_task(runner.run(stop_event=stop_event))
