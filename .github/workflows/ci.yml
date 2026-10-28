@@ -60,7 +60,7 @@ jobs:
         run: |
           mypy app
 
-      - name: Verify Global Pytest Collection (all 2,348 tests)
+      - name: Verify Global Pytest Collection (all 2,357 tests)
         run: |
           pytest --collect-only -q
 
@@ -93,6 +93,39 @@ jobs:
           PYTHONPATH: "."
         run: |
           pytest tests/integration/postgres/test_durable_integration_postgres.py -v --tb=short
+
+      - name: Start Disposable RabbitMQ Container
+        run: |
+          docker run -d --name e7-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.13-management-alpine
+          for i in $(seq 1 30); do
+            if docker exec e7-rabbitmq rabbitmq-diagnostics -q ping; then
+              echo "RabbitMQ is ready"
+              break
+            fi
+            echo "Waiting for RabbitMQ... ($i/30)"
+            sleep 2
+          done
+          docker exec e7-rabbitmq rabbitmq-diagnostics -q ping
+
+      - name: Run RabbitMQ Live Integration Tests
+        env:
+          E7_RUN_RABBITMQ_INTEGRATION: "1"
+          RABBITMQ_HOST: "localhost"
+          RABBITMQ_PORT: "5672"
+          RABBITMQ_DEFAULT_USER: "guest"
+          RABBITMQ_DEFAULT_PASS: "guest"
+          POSTGRES_PORT: "5432"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          PYTHONPATH: "."
+        run: |
+          pytest tests/integration/rabbitmq/ -v --tb=short
+
+      - name: Stop Disposable RabbitMQ Container
+        if: always()
+        run: |
+          docker rm -f e7-rabbitmq || true
 
   frontend-quality-gates:
     name: Frontend Quality Gates & Tests
