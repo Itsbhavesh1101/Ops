@@ -220,12 +220,16 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
         *,
         lease_owner: str | None = None,
         tenant_id: str | None = None,
+        enforce_lease_expiration: bool = True,
     ) -> bool:
         """Mark a notification command as successfully dispatched.
 
         Requires that the record is in 'PROCESSING' state, owned by lease_owner,
         and matches tenant_id. Missing lease_owner or tenant_id fails closed (returns False).
-        Returns True if the record was updated, False if lease was lost, state changed,
+        When enforce_lease_expiration is True (default), completion rights require an
+        active (unexpired) lease (lease_expires_at > now). An expired lease invalidates
+        completion rights to eliminate split-brain races with background re-claiming workers.
+        Returns True if the record was updated, False if lease was lost or expired, state changed,
         or record was already completed by another worker.
         """
         if not lease_owner or not lease_owner.strip() or not tenant_id or not tenant_id.strip():
@@ -238,10 +242,14 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
             NotificationOutboxCommandRecord.lease_owner == lease_owner.strip(),
             NotificationOutboxCommandRecord.dispatch_state == "PROCESSING",
         ]
+        if enforce_lease_expiration:
+            conditions.append(NotificationOutboxCommandRecord.lease_expires_at > now)
 
         stmt = select(NotificationOutboxCommandRecord).where(and_(*conditions))
-        bind = getattr(self.session, "bind", None)
-        dialect_name = getattr(bind.dialect, "name", "") if bind is not None else ""
+        bind = getattr(self.session, "bind", None) or getattr(
+            getattr(self.session, "sync_session", None), "bind", None
+        )
+        dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
         if dialect_name == "postgresql":
             stmt = stmt.with_for_update()
 
@@ -266,28 +274,37 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
         lease_owner: str | None = None,
         retry_backoff_seconds: float = 1.0,
         tenant_id: str | None = None,
+        enforce_lease_expiration: bool = True,
     ) -> bool:
         """Record dispatch failure, increment retry count, and calculate backoff.
 
         Requires that the record is in 'PROCESSING' state, owned by lease_owner,
         and matches tenant_id. Missing lease_owner or tenant_id fails closed (returns False).
+        When enforce_lease_expiration is True (default), failure transitions require an
+        active (unexpired) lease (lease_expires_at > now). An expired lease invalidates
+        transition rights to eliminate split-brain races with background re-claiming workers.
         Sanitizes error text before persisting.
-        Returns True if the record was updated, False if lease was lost, state changed,
+        Returns True if the record was updated, False if lease was lost or expired, state changed,
         or record was already completed by another worker.
         """
         if not lease_owner or not lease_owner.strip() or not tenant_id or not tenant_id.strip():
             return False
 
+        now = datetime.now(UTC)
         conditions = [
             NotificationOutboxCommandRecord.command_id == command_id,
             NotificationOutboxCommandRecord.tenant_id == tenant_id.strip(),
             NotificationOutboxCommandRecord.lease_owner == lease_owner.strip(),
             NotificationOutboxCommandRecord.dispatch_state == "PROCESSING",
         ]
+        if enforce_lease_expiration:
+            conditions.append(NotificationOutboxCommandRecord.lease_expires_at > now)
 
         stmt = select(NotificationOutboxCommandRecord).where(and_(*conditions))
-        bind = getattr(self.session, "bind", None)
-        dialect_name = getattr(bind.dialect, "name", "") if bind is not None else ""
+        bind = getattr(self.session, "bind", None) or getattr(
+            getattr(self.session, "sync_session", None), "bind", None
+        )
+        dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
         if dialect_name == "postgresql":
             stmt = stmt.with_for_update()
 
@@ -296,7 +313,6 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
         if record is None:
             return False
 
-        now = datetime.now(UTC)
         sanitized_error = sanitize_notification_error(error)
         record.retry_count += 1
         record.last_error = sanitized_error

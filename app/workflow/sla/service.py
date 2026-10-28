@@ -139,6 +139,49 @@ class SlaService:
 
         return state
 
+    def _bind_session_lifecycle(
+        self,
+        session: AsyncSession,
+        task_id: UUID,
+        previous_state: TaskSlaState | None,
+    ) -> None:
+        """Bind in-memory cache state lifecycle to external transaction outcome.
+
+        If the caller's session rolls back, restores the previous state or evicts
+        the uncommitted task SLA from memory, ensuring in-memory cache is not left
+        authoritative over PostgreSQL.
+        """
+        sync_sess = getattr(session, "sync_session", None)
+        if sync_sess is None:
+            return
+
+        from sqlalchemy import event
+
+        def _cleanup() -> None:
+            try:
+                if event.contains(sync_sess, "after_rollback", _on_rollback):
+                    event.remove(sync_sess, "after_rollback", _on_rollback)
+            except Exception:
+                pass
+            try:
+                if event.contains(sync_sess, "after_commit", _on_commit):
+                    event.remove(sync_sess, "after_commit", _on_commit)
+            except Exception:
+                pass
+
+        def _on_rollback(sess: Any) -> None:
+            if previous_state is None:
+                self.evict_task_sla(task_id)
+            else:
+                self._states[task_id] = previous_state
+            _cleanup()
+
+        def _on_commit(sess: Any) -> None:
+            _cleanup()
+
+        event.listen(sync_sess, "after_rollback", _on_rollback, once=True)
+        event.listen(sync_sess, "after_commit", _on_commit, once=True)
+
     async def attach_task_sla_async(
         self,
         tenant_id: str,
@@ -149,6 +192,7 @@ class SlaService:
         session: AsyncSession | None = None,
     ) -> TaskSlaState:
         """Attach an SLA policy and flush to database if session is provided."""
+        prev = self._states.get(task_id)
         try:
             state = self.attach_task_sla(
                 tenant_id=tenant_id,
@@ -159,6 +203,7 @@ class SlaService:
                 session=session,
             )
             if session is not None:
+                self._bind_session_lifecycle(session, task_id, previous_state=prev)
                 await session.flush()
             return state
         except Exception:
@@ -174,6 +219,37 @@ class SlaService:
         if task_id not in self._states:
             raise SlaTaskStateNotFoundError(f"No SLA state found for task '{task_id}'.")
         return self._states[task_id]
+
+    async def get_task_sla_async(
+        self,
+        tenant_id: str,
+        task_id: UUID,
+        session: AsyncSession | None = None,
+    ) -> TaskSlaState:
+        """Retrieve authoritative task SLA state, reloading from PostgreSQL when session given."""
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError("tenant_id must not be empty or whitespace-only")
+
+        if session is not None:
+            sla_repo = SlaRepository(session)
+            db_record = await sla_repo.get_task_sla(tenant_id=tenant_id, task_id=task_id)
+            if db_record is None:
+                self.evict_task_sla(task_id)
+                raise SlaTaskStateNotFoundError(
+                    f"No SLA state found for task '{task_id}' in tenant '{tenant_id}'."
+                )
+            state = SlaRepository.to_model(db_record)
+            self._states[task_id] = state
+            return state
+
+        in_mem_state = self._states.get(task_id)
+        if in_mem_state is None:
+            raise SlaTaskStateNotFoundError(f"No SLA state found for task '{task_id}'.")
+        if in_mem_state.tenant_id != tenant_id:
+            raise SlaTaskStateNotFoundError(
+                f"Task '{task_id}' not found in tenant '{tenant_id}'."
+            )
+        return in_mem_state
 
     def pause_task_sla(
         self,
@@ -216,16 +292,24 @@ class SlaService:
         if not tenant_id or not tenant_id.strip():
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
+        prev = self._states.get(task_id)
         state: TaskSlaState
         if session is not None:
-            # PostgreSQL is authoritative: always reload latest state from database
+            # PostgreSQL is authoritative: always reload latest state with row-level lock
             sla_repo = SlaRepository(session)
-            db_record = await sla_repo.get_task_sla(tenant_id=tenant_id, task_id=task_id)
+            db_record = await sla_repo.get_task_sla(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                for_update=True,
+            )
             if db_record is None:
+                self.evict_task_sla(task_id)
                 raise SlaTaskStateNotFoundError(
                     f"No SLA state found for task '{task_id}' in tenant '{tenant_id}'."
                 )
             state = SlaRepository.to_model(db_record)
+            prev = state
+            self._states[task_id] = state
         else:
             in_mem_state = self._states.get(task_id)
             if in_mem_state is None:
@@ -258,6 +342,7 @@ class SlaService:
         if session is not None:
             sla_repo = SlaRepository(session)
             await sla_repo.update_task_sla(new_state)
+            self._bind_session_lifecycle(session, task_id, previous_state=prev)
             await session.flush()
 
         self._states[task_id] = new_state
@@ -312,16 +397,24 @@ class SlaService:
         if not tenant_id or not tenant_id.strip():
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
+        prev = self._states.get(task_id)
         state: TaskSlaState
         if session is not None:
-            # PostgreSQL is authoritative: always reload latest state from database
+            # PostgreSQL is authoritative: always reload latest state with row-level lock
             sla_repo = SlaRepository(session)
-            db_record = await sla_repo.get_task_sla(tenant_id=tenant_id, task_id=task_id)
+            db_record = await sla_repo.get_task_sla(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                for_update=True,
+            )
             if db_record is None:
+                self.evict_task_sla(task_id)
                 raise SlaTaskStateNotFoundError(
                     f"No SLA state found for task '{task_id}' in tenant '{tenant_id}'."
                 )
             state = SlaRepository.to_model(db_record)
+            prev = state
+            self._states[task_id] = state
         else:
             in_mem_state = self._states.get(task_id)
             if in_mem_state is None:
@@ -363,6 +456,7 @@ class SlaService:
         if session is not None:
             sla_repo = SlaRepository(session)
             await sla_repo.update_task_sla(new_state)
+            self._bind_session_lifecycle(session, task_id, previous_state=prev)
             await session.flush()
 
         self._states[task_id] = new_state

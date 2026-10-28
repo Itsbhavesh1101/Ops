@@ -262,7 +262,54 @@ CI Execution Evidence:
 
 ---
 
-## 7. Canonical External Blockers Summary
+## 7. Final Concurrency, Lease Expiration & Transaction Closure (DQ-4 Phase 4)
+
+Following quaternary independent engineering review, final concurrency controls, lease expiration semantics, and external transaction lifecycle bindings were implemented and verified:
+
+### 7.1 Notification Lease Expiration Contract (DEC-LE-01)
+- **Active Lease Completion:** Workers holding an active lease (`lease_expires_at > now`) retain exclusive authority to mark commands `DISPATCHED` or `FAILED`.
+- **Expired Lease Without Reassignment:**
+  - When `enforce_lease_expiration=True` (default in `NotificationSettings` and PostgreSQL queries), expiration strictly invalidates completion and failure rights (`mark_dispatched` and `mark_failed` return `False`). This eliminates split-brain races where a stale worker attempts to complete a command while background batch claimers (`claim_pending_batch`) are reclaiming the expired command.
+  - When `enforce_lease_expiration=False` (grace period), completion is permitted only if the command remains in `PROCESSING` and `lease_owner` has not been reassigned.
+- **Reclaimed Lease Rejection:** If another worker has reclaimed the expired lease (updating `lease_owner`), the stale worker is strictly rejected under both strict and grace modes.
+- **Fail-Closed Identity Checks:** Missing or whitespace `lease_owner` or `tenant_id` fails closed (`False`). Wrong tenant or worker references fail closed.
+- **Terminal State Protection:** Commands in `DISPATCHED`, `FAILED`, or `BLOCKED` cannot be updated or reverted.
+- **Retry Counter Consistency:** Failed attempts by workers without valid active leases do not increment `retry_count`.
+
+### 7.2 Concurrent SLA Pause/Resume Serialization via Row-Level Locking
+- **Row-Level Locking:** In [`app/workflow/sla/repository.py`](file:///f:/operations-engine/app/workflow/sla/repository.py), `get_task_sla()` and `update_task_sla()` accept `for_update: bool = False`. On PostgreSQL, `for_update=True` applies `SELECT ... FOR UPDATE`, acquiring exclusive row locks on `task_sla_states`.
+- **Deterministic Serialization:** In [`app/workflow/sla/service.py`](file:///f:/operations-engine/app/workflow/sla/service.py), `pause_task_sla_async()` and `resume_task_sla_async()` pass `for_update=True`. Concurrent pause or resume operations serialize cleanly in PostgreSQL.
+- **Idempotent Transitions & Duration Preservation:** Subsequent concurrent pause requests detect `state.status == SlaStatus.PAUSED` and no-op without duplicating pause durations or corrupting remaining business-calendar metrics. Subsequent concurrent resume requests detect `state.status == SlaStatus.RUNNING` and no-op without double-accumulating pause durations.
+- **Strict Cross-Tenant Isolation:** Row queries and locks are strictly qualified by `tenant_id`. Negative cross-tenant operations raise `SlaTaskStateNotFoundError` without locking or modifying other tenants' records.
+
+### 7.3 Externally Managed Transaction Rollback & Authoritative PostgreSQL Reloading
+- **Session Lifecycle Binding:** In [`app/workflow/sla/service.py`](file:///f:/operations-engine/app/workflow/sla/service.py), `_bind_session_lifecycle()` listens to SQLAlchemy session events (`after_rollback`, `after_commit`) on caller-owned sessions. If a caller rolls back externally without committing:
+  - On `attach_task_sla()`, the uncommitted task is evicted from in-memory cache (`_states.pop(task_id)`).
+  - On `pause_task_sla()` or `resume_task_sla()`, the in-memory cache is restored to the previous committed state.
+- **Authoritative Database Reloading:** [`WorkflowService.get_task_sla()`](file:///f:/operations-engine/app/workflow/service.py) and `SlaService.get_task_sla_async()` reload domain states directly from `SlaRepository.get_task_sla(tenant_id, task_id)` when a session or UoW is used, keeping in-memory caches synchronized with authoritative PostgreSQL records. If a record was rolled back, lookups raise `SlaTaskStateNotFoundError`.
+
+### 7.4 Real PostgreSQL Integration Suite Expansion (16/16)
+The PostgreSQL integration test suite in [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) was expanded to 16 comprehensive production scenarios:
+1. `test_pg_notification_command_persistence`
+2. `test_pg_inbox_and_command_transactional_atomicity`
+3. `test_pg_database_rollback_prevents_partial_commit`
+4. `test_pg_concurrent_command_claims_skip_locked`
+5. `test_pg_lease_expiration_and_stale_worker_rejection`
+6. `test_pg_notification_retry_state_transitions`
+7. `test_pg_tenant_scoped_recovery`
+8. `test_pg_persisted_sla_registration`
+9. `test_pg_persisted_pause_and_resume`
+10. `test_pg_restart_recovery`
+11. `test_pg_concurrent_sla_warning_evaluation`
+12. `test_pg_cross_tenant_negative_access`
+13. `test_pg_complete_trigger_provenance_round_trip`
+14. `test_pg_lease_expiration_contract_and_unassigned_semantics`
+15. `test_pg_concurrent_sla_pause_resume_row_locking`
+16. `test_pg_external_session_rollback_authoritative_reloading`
+
+---
+
+## 8. Canonical External Blockers Summary
 
 The authoritative external blockers identified in `docs/development-quality/E7_Development_Completion_Remediation_Plan.md` remain strictly isolated and tracked:
 
@@ -275,10 +322,10 @@ The authoritative external blockers identified in `docs/development-quality/E7_D
 
 ---
 
-## 8. PR & Stacked Branch Topology
+## 9. PR & Stacked Branch Topology
 
 - **Base PR:** PR #4 (`quality/dq4-integration-reliability` -> `master`), Status: `OPEN`.
-- **New Stacked PR:** `quality/dq4-durable-architecture` -> `quality/dq4-integration-reliability`.
+- **New Stacked PR:** `quality/dq4-durable-architecture` -> `quality/dq4-integration-reliability` (PR #5), Status: `OPEN`.
 - **Targeting Strategy:** By stacking this engineering PR against `quality/dq4-integration-reliability`, PR #4 remains clean and reviewable with its accepted baseline, while the durable architecture additions are isolated for dedicated Architecture Review Board evaluation.
-- Neither PR #4 nor the stacked PR is merged.
+- Neither PR #4 nor PR #5 is merged.
 - Phase DQ-5 has not been started.

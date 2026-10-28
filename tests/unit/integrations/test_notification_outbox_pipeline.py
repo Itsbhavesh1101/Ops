@@ -24,7 +24,7 @@ Enforces:
 """
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
@@ -117,6 +117,12 @@ class InMemoryOutboxDbSession:
                     "PROCESSING" in stmt_str
                     and r.dispatch_state in ("DISPATCHED", "FAILED")
                     and r.dispatch_state != "PROCESSING"
+                ):
+                    continue
+                if (
+                    "lease_expires_at" in stmt_str
+                    and r.lease_expires_at is not None
+                    and r.lease_expires_at <= datetime.now(UTC)
                 ):
                     continue
                 filtered.append(r)
@@ -1058,6 +1064,65 @@ async def test_notification_lease_ownership_enforcement() -> None:
         tenant_id="tenant-lease",
     )
     assert dispatched_again is False
+
+
+@pytest.mark.asyncio
+async def test_notification_outbox_lease_expiration_strict_and_grace() -> None:
+    """Expired leases invalidate completion rights under strict contract;
+    permitted without reassignment under grace.
+    """
+    session = InMemoryOutboxDbSession()
+    repo = NotificationOutboxRepository(session)  # type: ignore[arg-type]
+
+    cmd = NotificationCommand(
+        command_id="cmd-lease-exp-01",
+        correlation_reference="corr-exp-01",
+        organization_scope_reference="tenant-exp",
+        trigger=NotificationTrigger(
+            trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+            source_event_name="schedule.published",
+        ),
+        recipient_references=["urn:e7:cohort:students"],
+        notification_context={"schedule_id": "sch-01"},
+    )
+    rec = await repo.stage_command(command=cmd)
+    claimed = await repo.claim_pending_batch(limit=1, lease_owner="worker-exp-owner")
+    assert len(claimed) == 1
+    assert claimed[0].dispatch_state == "PROCESSING"
+
+    # Simulate expired lease
+    rec.lease_expires_at = datetime.now(UTC) - timedelta(seconds=10)
+
+    # 1. Under default strict mode (enforce_lease_expiration=True): rejected
+    strict_dispatched = await repo.mark_dispatched(
+        "cmd-lease-exp-01",
+        lease_owner="worker-exp-owner",
+        tenant_id="tenant-exp",
+        enforce_lease_expiration=True,
+    )
+    assert strict_dispatched is False
+    assert rec.dispatch_state == "PROCESSING"
+
+    strict_failed = await repo.mark_failed(
+        "cmd-lease-exp-01",
+        error="Failure after expired lease",
+        lease_owner="worker-exp-owner",
+        tenant_id="tenant-exp",
+        enforce_lease_expiration=True,
+    )
+    assert strict_failed is False
+    assert rec.retry_count == 0
+
+    # 2. Under non-strict grace mode (enforce_lease_expiration=False): permitted if not reassigned
+    grace_dispatched = await repo.mark_dispatched(
+        "cmd-lease-exp-01",
+        lease_owner="worker-exp-owner",
+        tenant_id="tenant-exp",
+        enforce_lease_expiration=False,
+    )
+    assert grace_dispatched is True
+    assert rec.dispatch_state == "DISPATCHED"
+    assert rec.lease_owner is None
 
 
 def test_notification_error_sanitization() -> None:

@@ -995,3 +995,52 @@ async def test_synchronous_legacy_methods_fail_closed_in_database_persistence_mo
             task_id=task_id,
         )
 
+
+@pytest.mark.asyncio
+async def test_workflow_service_get_task_sla_authoritative_reloading() -> None:
+    """WorkflowService.get_task_sla queries authoritative database and synchronizes cache."""
+    adapter = AsyncMock(spec=WorkflowAdapterProtocol)
+    session = InMemorySlaDbSession()
+    service = WorkflowService(
+        uow_factory=lambda: SlaTestUnitOfWork(session),  # type: ignore[arg-type]
+        adapter=adapter,
+        persistence_mode="database",
+    )
+    policy = SlaPolicyConfig(
+        policy_key="reload_policy",
+        name="Reload Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    service.register_sla_policy(policy)
+
+    task_id = uuid4()
+    inst_id = uuid4()
+    t0 = datetime(2026, 10, 28, 10, 0, 0, tzinfo=UTC)
+
+    # 1. Attach SLA
+    await service.attach_task_sla(
+        tenant_id="tenant-auth",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="reload_policy",
+        created_at=t0,
+    )
+
+    # 2. Directly update the DB record to simulate external mutation
+    repo = SlaRepository(session)  # type: ignore[arg-type]
+    rec = await repo.get_task_sla("tenant-auth", task_id)
+    assert rec is not None
+    rec.status = "PAUSED"
+    rec.paused_at = t0 + timedelta(minutes=5)
+
+    # 3. get_task_sla reloads from DB and synchronizes memory cache
+    loaded = await service.get_task_sla("tenant-auth", task_id)
+    assert loaded.status == SlaStatus.PAUSED
+    assert service._sla_service.get_task_sla(task_id).status == SlaStatus.PAUSED
+
+    # 4. If record deleted or wrong tenant, evicts from cache and raises NotFoundError
+    other_task = uuid4()
+    with pytest.raises(SlaTaskStateNotFoundError):
+        await service.get_task_sla("tenant-auth", other_task)
+

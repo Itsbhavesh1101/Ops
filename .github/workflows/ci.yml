@@ -60,7 +60,7 @@ jobs:
         run: |
           mypy app
 
-      - name: Verify Global Pytest Collection (all 2,248 tests)
+      - name: Verify Global Pytest Collection (all 2,348 tests)
         run: |
           pytest --collect-only -q
 

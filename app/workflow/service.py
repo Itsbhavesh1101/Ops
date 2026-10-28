@@ -1213,6 +1213,35 @@ class WorkflowService:
             resumed_at=resumed_at,
         )
 
+    async def get_task_sla(
+        self,
+        tenant_id: str,
+        task_id: UUID,
+        session: AsyncSession | None = None,
+    ) -> TaskSlaState:
+        """Retrieve authoritative task SLA state from PostgreSQL.
+
+        When session is provided, queries that session directly.
+        When session is None, queries within a Unit of Work.
+        Synchronizes in-memory cache with authoritative database record.
+        """
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError("tenant_id must not be empty or whitespace-only")
+
+        if session is not None:
+            return await self._sla_service.get_task_sla_async(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                session=session,
+            )
+
+        async with self._uow_factory() as uow:
+            return await self._sla_service.get_task_sla_async(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                session=uow.session,
+            )
+
     async def evaluate_sla_triggers(
         self,
         tenant_id: str,

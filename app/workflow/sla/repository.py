@@ -51,12 +51,22 @@ class SlaRepository(SqlAlchemyRepository):
         self,
         tenant_id: str,
         task_id: UUID,
+        *,
+        for_update: bool = False,
     ) -> TaskSlaStateRecord | None:
-        """Retrieve task SLA state by tenant_id and task_id."""
+        """Retrieve task SLA state by tenant_id and task_id with optional row-level locking."""
         stmt = select(TaskSlaStateRecord).where(
             TaskSlaStateRecord.tenant_id == tenant_id,
             TaskSlaStateRecord.task_id == task_id,
         )
+        if for_update:
+            bind = getattr(self.session, "bind", None) or getattr(
+                getattr(self.session, "sync_session", None), "bind", None
+            )
+            dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
+            if dialect_name == "postgresql":
+                stmt = stmt.with_for_update()
+
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
@@ -89,13 +99,19 @@ class SlaRepository(SqlAlchemyRepository):
     async def update_task_sla(
         self,
         state: TaskSlaState,
+        *,
+        for_update: bool = False,
     ) -> TaskSlaStateRecord:
         """Update existing task SLA state in place.
 
         Strictly tenant-scoped. Raises SlaTaskStateNotFoundError if the SLA state
         record does not exist in the specified tenant. Never falls back across tenants.
         """
-        record = await self.get_task_sla(tenant_id=state.tenant_id, task_id=state.task_id)
+        record = await self.get_task_sla(
+            tenant_id=state.tenant_id,
+            task_id=state.task_id,
+            for_update=for_update,
+        )
         if record is None:
             raise SlaTaskStateNotFoundError(
                 f"Task SLA state for task '{state.task_id}' not found in "

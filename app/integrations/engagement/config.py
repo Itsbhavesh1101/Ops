@@ -93,6 +93,13 @@ class NotificationSettings(BaseSettings):
         ge=5.0,
         description="Worker lease timeout in seconds for claimed notification commands",
     )
+    enforce_lease_expiration: bool = Field(
+        default=True,
+        description=(
+            "Whether command completion/failure requires an active (unexpired) lease. "
+            "When True (default), an expired lease invalidates completion rights."
+        ),
+    )
 
     @field_validator("transport")
     @classmethod

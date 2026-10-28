@@ -1,6 +1,6 @@
 """Live PostgreSQL Integration Tests for Durable Architecture (Phase DQ-4 Option C).
 
-Enforces real database integration verification across 13 core production scenarios:
+Enforces real database integration verification across 16 core production scenarios:
 1. Notification command persistence.
 2. Inbox + command transactional atomicity.
 3. Database rollback.
@@ -14,6 +14,9 @@ Enforces real database integration verification across 13 core production scenar
 11. Concurrent SLA warning evaluation.
 12. Cross-tenant negative access.
 13. Complete trigger-provenance round-trip.
+14. Strict lease expiration invalidation and unassigned lease contract.
+15. Concurrent SLA pause/resume serialization via row-level locks.
+16. Externally managed session rollback and authoritative reloading.
 """
 
 import asyncio
@@ -863,3 +866,455 @@ async def test_pg_complete_trigger_provenance_round_trip(
         record = res.scalars().first()
         assert record is not None
         assert record.dispatch_state == "DISPATCHED"
+
+
+@pytest.mark.asyncio
+async def test_pg_lease_expiration_contract_and_unassigned_semantics(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Enforces lease expiration contract, unassigned lease handling, and terminal protection."""
+    tenant_id = f"tenant-lease-c-{uuid4().hex[:8]}"
+    cmd_id_active = f"cmd-act-{uuid4().hex[:8]}"
+    cmd_id_exp = f"cmd-exp-{uuid4().hex[:8]}"
+    cmd_id_reclaim = f"cmd-rec-{uuid4().hex[:8]}"
+
+    # 1. Active lease permits completion
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        await repo.stage_command(
+            tenant_id=tenant_id,
+            command_id=cmd_id_active,
+            correlation_reference="corr-act-01",
+            trigger_kind="SOURCE_VERIFIED_EVENT",
+            source_event_name="schedule.published",
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        claimed = await repo.claim_pending_batch(
+            limit=1,
+            lease_owner="worker-active-1",
+            lease_duration_seconds=30.0,
+        )
+        assert len(claimed) == 1
+        assert claimed[0].command_id == cmd_id_active
+        await session.commit()
+
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        dispatched_ok = await repo.mark_dispatched(
+            cmd_id_active,
+            lease_owner="worker-active-1",
+            tenant_id=tenant_id,
+            enforce_lease_expiration=True,
+        )
+        assert dispatched_ok is True
+        await session.commit()
+
+    # Terminal state protection: cannot re-dispatch or fail once DISPATCHED
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        re_dispatched = await repo.mark_dispatched(
+            cmd_id_active,
+            lease_owner="worker-active-1",
+            tenant_id=tenant_id,
+        )
+        assert re_dispatched is False
+        fail_dispatched = await repo.mark_failed(
+            cmd_id_active,
+            error="attempt fail on terminal",
+            lease_owner="worker-active-1",
+            tenant_id=tenant_id,
+        )
+        assert fail_dispatched is False
+
+    # 2. Expired lease without reassignment:
+    # Strict contract (enforce_lease_expiration=True) vs non-strict (enforce_lease_expiration=False)
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        await repo.stage_command(
+            tenant_id=tenant_id,
+            command_id=cmd_id_exp,
+            correlation_reference="corr-exp-01",
+            trigger_kind="SOURCE_VERIFIED_EVENT",
+            source_event_name="schedule.published",
+        )
+        await session.commit()
+
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        claimed_exp = await repo.claim_pending_batch(limit=1, lease_owner="worker-exp-1")
+        assert len(claimed_exp) == 1
+        rec = claimed_exp[0]
+        # Simulate expired lease in past
+        rec.lease_expires_at = datetime.now(UTC) - timedelta(seconds=15)
+        await session.commit()
+
+    # Under strict contract: completion rejected even if not reassigned
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        strict_fail = await repo.mark_dispatched(
+            cmd_id_exp,
+            lease_owner="worker-exp-1",
+            tenant_id=tenant_id,
+            enforce_lease_expiration=True,
+        )
+        assert strict_fail is False
+
+        # Attempting mark_failed with expired lease also fails closed without incrementing retry
+        strict_fail_trans = await repo.mark_failed(
+            cmd_id_exp,
+            error="Expired worker error",
+            lease_owner="worker-exp-1",
+            tenant_id=tenant_id,
+            enforce_lease_expiration=True,
+        )
+        assert strict_fail_trans is False
+        await session.commit()
+
+    # Verify retry count remains 0 and record is still in PROCESSING with expired lease
+    async with session_factory() as session:
+        stmt = select(NotificationOutboxCommandRecord).where(
+            NotificationOutboxCommandRecord.command_id == cmd_id_exp
+        )
+        res = await session.execute(stmt)
+        rec = res.scalars().one()
+        assert rec.dispatch_state == "PROCESSING"
+        assert rec.retry_count == 0
+
+    # Under non-strict contract: unassigned expired lease permitted
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        non_strict_ok = await repo.mark_dispatched(
+            cmd_id_exp,
+            lease_owner="worker-exp-1",
+            tenant_id=tenant_id,
+            enforce_lease_expiration=False,
+        )
+        assert non_strict_ok is True
+        await session.commit()
+
+    # 3. Reclaimed lease rejects stale workers under BOTH modes
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        await repo.stage_command(
+            tenant_id=tenant_id,
+            command_id=cmd_id_reclaim,
+            correlation_reference="corr-rec-01",
+            trigger_kind="SOURCE_VERIFIED_EVENT",
+            source_event_name="schedule.published",
+        )
+        await session.commit()
+
+    # Worker A claims and expires
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        claimed_rec = await repo.claim_pending_batch(limit=1, lease_owner="worker-stale-A")
+        assert len(claimed_rec) == 1
+        claimed_rec[0].lease_expires_at = datetime.now(UTC) - timedelta(seconds=10)
+        await session.commit()
+
+    # Worker B reclaims
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        reclaimed_b = await repo.claim_pending_batch(limit=1, lease_owner="worker-active-B")
+        assert len(reclaimed_b) == 1
+        assert reclaimed_b[0].command_id == cmd_id_reclaim
+        await session.commit()
+
+    # Stale Worker A is rejected under both strict and non-strict
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        assert (
+            await repo.mark_dispatched(
+                cmd_id_reclaim,
+                lease_owner="worker-stale-A",
+                tenant_id=tenant_id,
+                enforce_lease_expiration=False,
+            )
+            is False
+        )
+        assert (
+            await repo.mark_failed(
+                cmd_id_reclaim,
+                error="Stale failure",
+                lease_owner="worker-stale-A",
+                tenant_id=tenant_id,
+                enforce_lease_expiration=False,
+            )
+            is False
+        )
+
+    # Wrong tenant/worker fail-closed validation
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        assert (
+            await repo.mark_dispatched(
+                cmd_id_reclaim,
+                lease_owner="",
+                tenant_id=tenant_id,
+            )
+            is False
+        )
+        assert (
+            await repo.mark_dispatched(
+                cmd_id_reclaim,
+                lease_owner="worker-active-B",
+                tenant_id="",
+            )
+            is False
+        )
+        assert (
+            await repo.mark_dispatched(
+                cmd_id_reclaim,
+                lease_owner="worker-active-B",
+                tenant_id="wrong-tenant",
+            )
+            is False
+        )
+
+    # Active Worker B completes cleanly
+    async with session_factory() as session:
+        repo = NotificationOutboxRepository(session)
+        assert (
+            await repo.mark_dispatched(
+                cmd_id_reclaim,
+                lease_owner="worker-active-B",
+                tenant_id=tenant_id,
+            )
+            is True
+        )
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_pg_concurrent_sla_pause_resume_row_locking(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Concurrent pause and resume operations serialize via PostgreSQL FOR UPDATE row locks."""
+    tenant_id = f"tenant-sla-lock-{uuid4().hex[:8]}"
+    other_tenant = f"tenant-sla-other-{uuid4().hex[:8]}"
+    instance_id = uuid4()
+    task_id = uuid4()
+    now = datetime(2026, 11, 2, 9, 0, 0, tzinfo=UTC)
+
+    policy = SlaPolicyConfig(
+        policy_key="standard_concurrent",
+        warning_duration_seconds=3600,
+        breach_duration_seconds=7200,
+        escalation_actions=[],
+    )
+
+    def uow_factory() -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(session_factory)
+
+    service = WorkflowService(
+        workflow_adapter=AsyncMock(spec=WorkflowAdapterProtocol),
+        uow_factory=uow_factory,
+        persistence_mode="database",
+    )
+    service.register_sla_policy(policy)
+
+    # 1. Attach SLA and commit to PostgreSQL
+    await service.attach_task_sla(
+        tenant_id=tenant_id,
+        instance_id=instance_id,
+        task_id=task_id,
+        policy_key="standard_concurrent",
+        created_at=now,
+    )
+
+    # 2. Simulate 3 concurrent pause operations racing on the same task
+    async def run_concurrent_pause(pause_time: datetime) -> TaskSlaState:
+        return await service.pause_task_sla(
+            tenant_id=tenant_id,
+            task_id=task_id,
+            paused_at=pause_time,
+        )
+
+    pause_time = now + timedelta(minutes=15)
+    results = await asyncio.gather(
+        run_concurrent_pause(pause_time),
+        run_concurrent_pause(pause_time),
+        run_concurrent_pause(pause_time),
+    )
+
+    # All returned states must be PAUSED with identical remaining durations
+    assert len(results) == 3
+    for r in results:
+        assert r.status == SlaStatus.PAUSED
+        assert r.total_paused_seconds == 0
+        assert r.remaining_warning_seconds == 3600 - 900
+        assert r.remaining_breach_seconds == 7200 - 900
+
+    # Verify database state in PostgreSQL
+    async with session_factory() as session:
+        repo = SlaRepository(session)
+        rec = await repo.get_task_sla(tenant_id=tenant_id, task_id=task_id)
+        assert rec is not None
+        assert rec.status == "PAUSED"
+        assert rec.total_paused_seconds == 0
+        assert rec.remaining_warning_seconds == 2700
+
+    # 3. Simulate 3 concurrent resume operations racing on the same task
+    resume_time = pause_time + timedelta(minutes=30)
+
+    async def run_concurrent_resume(res_time: datetime) -> TaskSlaState:
+        return await service.resume_task_sla(
+            tenant_id=tenant_id,
+            task_id=task_id,
+            resumed_at=res_time,
+        )
+
+    resume_results = await asyncio.gather(
+        run_concurrent_resume(resume_time),
+        run_concurrent_resume(resume_time),
+        run_concurrent_resume(resume_time),
+    )
+
+    # Exactly 30 minutes (1800s) of paused duration should be accumulated, not multiplied!
+    assert len(resume_results) == 3
+    for r in resume_results:
+        assert r.status == SlaStatus.RUNNING
+        assert r.total_paused_seconds == 1800
+
+    # Verify database state in PostgreSQL
+    async with session_factory() as session:
+        repo = SlaRepository(session)
+        rec = await repo.get_task_sla(tenant_id=tenant_id, task_id=task_id)
+        assert rec is not None
+        assert rec.status == "RUNNING"
+        assert rec.total_paused_seconds == 1800
+        assert rec.paused_at is None
+
+    # 4. Cross-tenant negative isolation
+    with pytest.raises(SlaTaskStateNotFoundError):
+        await service.pause_task_sla(
+            tenant_id=other_tenant,
+            task_id=task_id,
+            paused_at=resume_time + timedelta(minutes=5),
+        )
+
+
+@pytest.mark.asyncio
+async def test_pg_external_session_rollback_authoritative_reloading(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """External session rollbacks evict cache and reload authoritative PostgreSQL state."""
+    tenant_id = f"tenant-rollback-{uuid4().hex[:8]}"
+    instance_id = uuid4()
+    task_attach_rb = uuid4()
+    task_pause_rb = uuid4()
+    now = datetime(2026, 11, 2, 9, 0, 0, tzinfo=UTC)
+
+    policy = SlaPolicyConfig(
+        policy_key="standard_rollback",
+        warning_duration_seconds=3600,
+        breach_duration_seconds=7200,
+        escalation_actions=[],
+    )
+
+    def uow_factory() -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(session_factory)
+
+    service = WorkflowService(
+        workflow_adapter=AsyncMock(spec=WorkflowAdapterProtocol),
+        uow_factory=uow_factory,
+        persistence_mode="database",
+    )
+    service.register_sla_policy(policy)
+
+    # Case 1: Caller attaches SLA in external session, then explicitly rolls back
+    async with session_factory() as ext_session_1:
+        await service.attach_task_sla(
+            tenant_id=tenant_id,
+            instance_id=instance_id,
+            task_id=task_attach_rb,
+            policy_key="standard_rollback",
+            created_at=now,
+            session=ext_session_1,
+        )
+        # Rollback externally without committing
+        await ext_session_1.rollback()
+
+    # In-memory cache must be evicted by session rollback listener
+    with pytest.raises(SlaTaskStateNotFoundError):
+        service._sla_service.get_task_sla(task_attach_rb)
+
+    # PostgreSQL must have zero records
+    async with session_factory() as verify_session:
+        repo = SlaRepository(verify_session)
+        rec = await repo.get_task_sla(tenant_id=tenant_id, task_id=task_attach_rb)
+        assert rec is None
+
+    # Subsequent public service operation must reload PostgreSQL and raise NotFoundError
+    with pytest.raises(SlaTaskStateNotFoundError):
+        await service.get_task_sla(tenant_id=tenant_id, task_id=task_attach_rb)
+
+    # Case 2: Committed RUNNING task, external session pauses and then rolls back
+    await service.attach_task_sla(
+        tenant_id=tenant_id,
+        instance_id=instance_id,
+        task_id=task_pause_rb,
+        policy_key="standard_rollback",
+        created_at=now,
+    )
+
+    async with session_factory() as ext_session_2:
+        await service.pause_task_sla(
+            tenant_id=tenant_id,
+            task_id=task_pause_rb,
+            paused_at=now + timedelta(minutes=10),
+            session=ext_session_2,
+        )
+        # External rollback
+        await ext_session_2.rollback()
+
+    # In-memory cache must be restored to RUNNING (previous state)
+    in_mem_state = service._sla_service.get_task_sla(task_pause_rb)
+    assert in_mem_state.status == SlaStatus.RUNNING
+
+    # PostgreSQL must remain in RUNNING state
+    async with session_factory() as verify_session:
+        repo = SlaRepository(verify_session)
+        rec = await repo.get_task_sla(tenant_id=tenant_id, task_id=task_pause_rb)
+        assert rec is not None
+        assert rec.status == "RUNNING"
+        assert rec.paused_at is None
+
+    # Public service query reloads authoritative RUNNING state from PostgreSQL
+    reloaded_state = await service.get_task_sla(tenant_id=tenant_id, task_id=task_pause_rb)
+    assert reloaded_state.status == SlaStatus.RUNNING
+
+    # Case 3: Committed PAUSED task, external session resumes and then rolls back
+    await service.pause_task_sla(
+        tenant_id=tenant_id,
+        task_id=task_pause_rb,
+        paused_at=now + timedelta(minutes=15),
+    )
+
+    async with session_factory() as ext_session_3:
+        await service.resume_task_sla(
+            tenant_id=tenant_id,
+            task_id=task_pause_rb,
+            resumed_at=now + timedelta(minutes=45),
+            session=ext_session_3,
+        )
+        # External rollback
+        await ext_session_3.rollback()
+
+    # In-memory cache must be restored to PAUSED (previous state)
+    in_mem_paused = service._sla_service.get_task_sla(task_pause_rb)
+    assert in_mem_paused.status == SlaStatus.PAUSED
+
+    # PostgreSQL must remain in PAUSED state
+    async with session_factory() as verify_session:
+        repo = SlaRepository(verify_session)
+        rec_paused = await repo.get_task_sla(tenant_id=tenant_id, task_id=task_pause_rb)
+        assert rec_paused is not None
+        assert rec_paused.status == "PAUSED"
+
+    # Public service query reloads authoritative PAUSED state from PostgreSQL
+    reloaded_paused = await service.get_task_sla(tenant_id=tenant_id, task_id=task_pause_rb)
+    assert reloaded_paused.status == SlaStatus.PAUSED

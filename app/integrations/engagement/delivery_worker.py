@@ -85,13 +85,14 @@ class NotificationDeliveryWorker:
                 # Step 2: Execute remote dispatch STRICTLY OUTSIDE any database session
                 await self.dispatcher.dispatch(command=cmd, session=None)
 
-                # Step 3: Mark dispatched enforcing lease ownership
+                # Step 3: Mark dispatched enforcing lease ownership and active lease validity
                 async with self.session_factory() as mark_session:
                     mark_repo = NotificationOutboxRepository(mark_session)
                     dispatched_ok = await mark_repo.mark_dispatched(
                         record.command_id,
                         lease_owner=self.worker_id,
                         tenant_id=record.tenant_id,
+                        enforce_lease_expiration=self.settings.enforce_lease_expiration,
                     )
                     if not dispatched_ok:
                         logger.warning(
@@ -144,6 +145,7 @@ class NotificationDeliveryWorker:
                         lease_owner=self.worker_id,
                         retry_backoff_seconds=self.settings.retry_backoff_seconds,
                         tenant_id=record.tenant_id,
+                        enforce_lease_expiration=self.settings.enforce_lease_expiration,
                     )
                     if not failed_ok:
                         logger.warning(
