@@ -8,9 +8,9 @@
 **Target Base Branch:** `master`  
 **Base Commit SHA:** `8936513ab70f3238db16843fe0b6bef0026c364b` (merged PR #3 into `master`)  
 **Existing Pull Request:** [PR #4](https://github.com/Itsbhavesh1101/Ops/pull/4) (Status: OPEN, unmerged)  
-**Reviewed GitHub Commit SHA:** `2a14dfcf64b74724c041890ff347c9293f110e5d`  
+**Reviewed GitHub Commit SHA:** `0410372df0dd72a0b16bbbc9c5889f641c6e5708`  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — intact and unaltered.  
-**Exit Gate Verdict:** `DQ4_RELIABILITY_CORRECTIONS_COMPLETE_ARCHITECTURAL_DECISION_PENDING`
+**Exit Gate Verdict:** `DQ4_DOCUMENTATION_RECONCILED_AWAITING_APPROVAL`
 
 ---
 
@@ -22,7 +22,7 @@ Phase DQ-4 completes the integration correctness, calendar synchronization, mess
 2. **RabbitMQ Topic Exchange Routing Key Alignment:** Fixed binding key mismatch between canonical publisher (`routing_key=envelope.event_type`) and notification worker bindings. Added direct canonical 2-word and 3-word event types (`schedule.published`, `schedule.changed`, `task.blocked`, `workflow.task.created`, `workflow.sla.warning`) alongside wildcard variants, eliminating silent message drops in RabbitMQ topic exchanges.
 3. **Cross-Tenant SLA Evaluation Isolation (Task 1):** `WorkflowService.evaluate_sla_triggers(tenant_id)` was corrected to validate `tenant_id` and explicitly forward it to `SlaService.evaluate_triggers(tenant_id=tenant_id)`. Evaluation is strictly tenant-scoped: Tenant A evaluates only Tenant A's SLA states; Tenant B's tasks are completely skipped; zero cross-tenant warning or breach events or audit records are emitted. Empty or whitespace-only tenant contexts fail closed with `ValueError`.
 4. **SLA Transaction Atomicity, Durability & Worker Restart Constraints (Task 2):** Implemented `SlaService.transaction(tenant_id)` context manager capturing a deep snapshot of task SLA states. If an outer database transaction (`uow.commit()`) fails, the snapshot is restored, preserving `warning_fired_at = None` and `breach_fired_at = None` so that subsequent evaluation retries succeed. The worker restart limitation of in-memory `_states` is formally documented, confirming that surviving service crashes requires an approved durable `task_sla_states` table.
-5. **Notification Blocking, Transactional Inbox Deduplication, and ACK Semantics (Task 3):** When recipient resolution is unavailable under `DEC-E8-02`, handlers append a durable append-only audit record (`event_type="notification.dispatch.blocked"`, `outcome=DENIED`) to PostgreSQL inside the transactional session and return cleanly. This commits the `inbox_messages` marker and triggers RabbitMQ `basic_ack`, preventing poison-message infinite retry loops while preserving audit evidence and enabling operational replay via audit logs.
+5. **Notification Blocking, Transactional Inbox Deduplication, and ACK Semantics (Task 3):** When recipient resolution is unavailable under `DEC-E8-02`, handlers append a durable append-only audit record (`event_type="notification.dispatch.blocked"`, `outcome=DENIED`) to PostgreSQL inside the transactional session and return cleanly. This commits the `inbox_messages` marker and triggers RabbitMQ `basic_ack`, preventing poison-message infinite retry loops while preserving diagnostic evidence in `audit_events`. Inbox deduplication permanently marks the event as consumed, preventing ordinary duplicate broker replay. No approved executable notification replay CLI, API route, or background recovery workflow currently exists; durable command persistence and authorized replay require architectural approval (`AD-DQ4-01` Option C, `DEC-E8-02`) and implementation.
 6. **Notification Policy Provenance & Authority Status (Task 4):** Formally distinguished approved architectural requirements from provisional defaults (`urn:e7:role:task_manager`, `urn:e7:role:workflow_assignee`, `urn:e7:role:escalation_manager`, `urn:e7:cohort:faculty`, `urn:e7:cohort:faculty-all`, `TASK_BLOCKED_ALERT`, `WORKFLOW_TASK_ASSIGNED`, `WORKFLOW_SLA_WARNING`), documenting their dependency on pending institutional governance decisions `DEC-E8-02` and `DEC-E8-04`.
 7. **Zero-PII Validation Errors via Model Config & Exception Sanitization (Task 5):** Configured `hide_input_in_errors=True` on `NotificationCommand` and removed all prohibited input string interpolation from `ValueError` messages in `app/integrations/engagement/models.py`. Rejected emails, phone numbers, SSNs, and MySQL IDs are completely redacted from exception text, verified by negative regression tests.
 8. **Real Integration Infrastructure & Limitations (Task 6):** Confirmed local environment status (Docker Desktop inactive, port 5672 not listening). Verified AMQP bindings and consumer pipelines using unit/component test doubles without claiming live broker connectivity.
@@ -48,7 +48,7 @@ Phase DQ-4 completes the integration correctness, calendar synchronization, mess
    - **URL:** `https://github.com/Itsbhavesh1101/Ops/pull/4`
    - **Target Branch:** `master`
    - **Source Branch:** `quality/dq4-integration-reliability`
-   - **Reviewed Commit SHA:** `b24786a9d5bb5c084a72c6f9947dacadc30b95df`
+   - **Reviewed Commit SHA:** `0410372df0dd72a0b16bbbc9c5889f641c6e5708`
    - **PR State:** `OPEN` (Must remain unmerged; no second PR created).
 4. **Phase-8 RC Tag Integrity:**
    - **Tag Name:** `phase8-rc-38d080fadab8`
@@ -231,7 +231,7 @@ In strict alignment with `E8_NOTIFICATION_ENGAGEMENT_CONTRACT.md` Section 7, `sc
      2. *Transactional Inbox Deduplication:* `ConsumerEventProcessor` commits the `(consumer_name, event_id)` marker in `inbox_messages`, preventing duplicate processing.
      3. *RabbitMQ Queue Retention & DLQ:* Message is cleanly ACKed (`basic_ack()`) and cleared from the broker queue. No unhandled exception means DLQ is not triggered.
      4. *Durable Audit Evidence:* The handlers append a canonical append-only audit event (`event_type="notification.dispatch.blocked"`, `outcome=AuditEventOutcome.DENIED`, `details={"reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02", ...}`) via `AuditRepository(session)`.
-     5. *Operational Replay Procedure:* Once governance authority is granted under `DEC-E8-02`, operators identify blocked notifications by querying the durable `audit_events` table for `notification.dispatch.blocked` within the tenant scope, and resubmit them via the approved outbox replay CLI or admin endpoint without needing message broker replays.
+     5. *Diagnostic Evidence vs. Replay Limitation:* Audit records in `audit_events` provide diagnostic evidence of blocked notification intent. Because `inbox_messages` commits the deduplication marker and ACKs the broker message, ordinary message broker replays are discarded as duplicates. **An executable notification replay CLI, API endpoint, or background recovery workflow is currently NOT IMPLEMENTED.** Replay cannot be performed merely by querying audit logs. Durable command persistence, operator authorization controls, and an administrative resubmission workflow require explicit architectural approval (`AD-DQ4-01` Option C, `DEC-E8-02`) and roadmap-approved implementation.
    - Verified via `test_schedule_published_handler_rejects_and_blocks_plaintext_emails`, `test_schedule_changed_handler_rejects_and_blocks_plaintext_emails`, and `test_schedule_handler_blocks_when_recipient_resolution_unavailable`.
 
 6. **Notification Policy Provenance & Authority Status (Task 4):**
@@ -312,7 +312,7 @@ In strict alignment with `E8_NOTIFICATION_ENGAGEMENT_CONTRACT.md` Section 7, `sc
 | **9. Operational Observability & Audit Evidence** | Moderate; blocked notifications append audit records to `audit_events`. | High; outbox table tracks pending, sent, failed states. | Highest; distinct lifecycle tracking for domain events vs notification delivery attempts. |
 | **10. Multi-Tenant Scalability & Head-of-Line Blocking** | Risk of connection pool starvation under slow E-8 responses. | Outbox worker can isolate tenants via tenant-aware polling. | Full tenant isolation with decoupled queues and concurrency controls per tenant. |
 
-**Architectural Decision Status:** `AD-DQ4-01` remains **PENDING** architectural board approval. Option C provides the cleanest long-term production architecture. Option A remains active for Phase DQ-4 development completion.
+**Architectural Decision Status:** `AD-DQ4-01` remains **PENDING** architectural board approval. Option C provides the cleanest long-term production architecture but is currently **PROPOSED** and requires formal ADR-012 amendment and explicit roadmap approval before implementation; it must not be automatically assumed for Phase DQ-5. Option A remains active for Phase DQ-4 development completion. Final DQ-4 acceptance depends on formal ARB decision on ADR-012 vs Option C.
 
 ---
 
@@ -411,21 +411,43 @@ All four approved canonical external blockers are documented and preserved:
 
 *Zero test mocks or synthetic stubs have been misrepresented as live production infrastructure.*
 
+### Distinct Operational & Durability Concerns (Non-Blockers)
+
+To maintain absolute fidelity with the canonical remediation plan (`docs/development-quality/E7_Development_Completion_Remediation_Plan.md`), the following items are tracked separately and MUST NOT repurpose or conflict with canonical blocker identifiers `BLK-01` through `BLK-04`:
+
+1. **Google Calendar Live Synchronization Boundary:**
+   - **Nature:** External boundary integration awaiting institutional Google Workspace service-account credentials, OAuth2 consent, and domain verification.
+   - **Status:** In-memory mocks and local test doubles verified; live enterprise sync remains non-operational pending credentials.
+   - **Governance:** Tracked under `docs/phase-4/PHASE_4_CALENDAR_SYNC.md`, distinct from canonical blockers.
+2. **SLA State Durability & Multi-Worker Concurrency (`AD-DQ4-02`):**
+   - **Nature:** Internal application state durability and concurrency architecture concern regarding in-memory `_states` and restart data loss.
+   - **Status:** Single-process rollback snapshot verified; durable `task_sla_states` PostgreSQL schema is **PROPOSED** and requires ARB approval and explicit roadmap authorization (not automatically assigned to DQ-5).
+   - **Governance:** Internal architecture decision, distinct from external enterprise blockers.
+
 ---
 
 ## 16. Test Evidence and Execution Boundaries
 
-### Test Count Dissection
+### Test Count Dissection (Verified Against GitHub Actions CI Run #40707712855)
 
 | Scope / Category | Discovered / Collected | Executed in CI | Passed | Skipped | Environment Requirements |
 |---|---|---|---|---|---|
-| **Unit & Contract Suites** (`tests/unit/`, `tests/contract/`) | 1,928 | 1,923 | 1,917 | 6 | Standard CI Linux runner with PostgreSQL 16 service container |
+| **Unit & Contract Suites** (`tests/unit/`, `tests/contract/`) | 1,928 | 1,929 | 1,923 | 6 | Standard CI Linux runner with PostgreSQL 16 service container |
 | **Task Intelligence Integration** (`tests/integration/task_intelligence/`) | 10 | 10 | 10 | 0 | Standard CI Linux runner with PostgreSQL 16 service container |
 | **Security Test Suite** (`tests/security/`) | 160 | 0 (specialized run) | N/A | 0 | Dedicated security test pipeline / testcontainers |
 | **Role-Based UAT Suite** (`tests/uat/`) | 52 | 0 (specialized run) | N/A | 0 | Dedicated UAT runner / multi-service environment |
-| **Live External Integration / E2E** (`tests/e2e/`, `tests/integration/scheduling/`) | 137 | 0 (skipped) | N/A | 6 | Requires live external credentials (Google, RabbitMQ cluster) |
-| **Total Global Test Discovery** | **2,293** | **1,939** | **1,933** | **6** | Full repository test collection |
+| **Live External Integration / E2E** (`tests/e2e/`, `tests/integration/scheduling/`) | 143 | 0 (skipped) | N/A | 6 | Requires live external credentials (Google, RabbitMQ cluster) |
+| **Total Global Test Discovery (Pytest)** | **2,293** | **1,939** | **1,933** | **6** | Full repository test collection (`pytest --collect-only -q`) |
 | **Frontend Test Suite** (Vitest) | 146 | 146 | 146 | 0 | Node.js 20+ / JSDOM environment (19 test files) |
+
+> [!IMPORTANT]
+> **Transparent Execution Boundary:**
+> - **2,293 tests** were collected during global test discovery.
+> - **1,933 backend tests** were executed and passed (1,923 unit/contract + 10 PostgreSQL integration).
+> - **6 backend tests** were skipped (requiring live external network environments).
+> - **354 collected tests** (security, UAT, live E2E) were collected but intentionally not executed in the standard CI baseline runner without dedicated multi-service infrastructure.
+> - **146 frontend tests** executed and passed in Vitest across 19 test files.
+> - **Do not claim all collected tests were executed.**
 
 ### Static Analysis & Verification
 
@@ -441,23 +463,20 @@ All four approved canonical external blockers are documented and preserved:
 ```
 ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                                ║
-║         VERDICT: DQ4_RELIABILITY_CORRECTIONS_COMPLETE_ARCHITECTURAL_DECISION_PENDING           ║
+║             VERDICT: DQ4_DOCUMENTATION_RECONCILED_AWAITING_APPROVAL                            ║
 ║                                                                                                ║
-║  1. Cross-Tenant SLA evaluation isolation verified (WorkflowService -> SlaService).            ║
-║  2. SLA transaction atomicity & rollback snapshot verified on DB commit failure.               ║
-║  3. Worker restart durability limitations documented (in-memory _states vs durable table).     ║
-║  4. Blocked notification audit events staged under DEC-E8-02 with safe inbox & broker ACK.     ║
-║  5. Recipient authorization status verified (canonical opaque vs provisional defaults vs PII). ║
-║  6. NotificationCommand validation error PII leakage eliminated (hide_input_in_errors=True).   ║
-║  7. RabbitMQ routing key alignment verified (canonical 2-word & wildcard bindings).            ║
-║  8. All 4 canonical source-verified E-8 events verified; schedule.changed correctly handled.  ║
-║  9. Real integration infrastructure limits documented (Docker inactive; mock double verified). ║
-║ 10. AD-DQ4-01 architectural alternatives evaluated across 10 dimensions (Status: PENDING).     ║
-║ 11. True active 11-table institutional ERP schema formally verified and documented.          ║
-║ 12. Test execution boundaries precisely documented: 2,293 collected vs 1,933+ passed in CI.   ║
-║ 13. PR #4 remains open at https://github.com/Itsbhavesh1101/Ops/pull/4 (unmerged).             ║
-║ 14. Frozen Phase-8 RC tag (phase8-rc-38d080fadab8) unaltered.                                  ║
-║ 15. Phase DQ-5 NOT started.                                                                    ║
+║  1. Canonical external blockers verified: BLK-01, BLK-02, BLK-03, BLK-04 intact.               ║
+║  2. Google Calendar and SLA durability concerns documented separately from canonical blockers. ║
+║  3. Blocked notification recovery audited & verified as NOT IMPLEMENTED (no replay CLI/API).   ║
+║  4. Audit logs documented as diagnostic evidence; inbox dedupe prevents duplicate replay.      ║
+║  5. AD-DQ4-01 Option C, AD-DQ4-02, DEC-E8-02, and DEC-E8-04 classified as requiring explicit   ║
+║     roadmap approval rather than automatically assigned to DQ-5.                               ║
+║  6. Proposal vs. implementation clearly distinguished across all components.                   ║
+║  7. Verified CI Run #40707712855: 2,293 collected; 1,933 passed backend; 6 skipped; 146 UI.     ║
+║  8. Static analysis: Ruff clean (0 errors), Mypy clean (265 source files checked).             ║
+║  9. PR #4 remains open at https://github.com/Itsbhavesh1101/Ops/pull/4 (unmerged).             ║
+║ 10. Frozen Phase-8 RC tag (phase8-rc-38d080fadab8) unaltered.                                  ║
+║ 11. Phase DQ-5 NOT started.                                                                    ║
 ║                                                                                                ║
 ╚════════════════════════════════════════════════════════════════════════════════════════════════╝
 ```

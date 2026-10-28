@@ -7,18 +7,18 @@
 **Target Base Branch:** `master`  
 **Working Feature Branch:** `quality/dq4-integration-reliability`  
 **Pull Request:** [PR #4](https://github.com/Itsbhavesh1101/Ops/pull/4) (Status: **OPEN**, unmerged)  
-**Reviewed Remote Head Commit SHA:** `6ad268ae74f753d8b3ee420b5d7dd375dedab808`  
+**Reviewed Remote Head Commit SHA:** `0410372df0dd72a0b16bbbc9c5889f641c6e5708`  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — *verified intact and unaltered*  
-**Document Status:** `INTERNAL_DECISION_REQUIRED` / `INSTITUTIONAL_APPROVAL_REQUIRED`
+**Document Status:** `PROPOSED` / `APPROVAL_REQUIRED`
 
 ---
 
 ## 1. Executive Summary & Purpose
 
-Following the empirical completion of Phase DQ-4 runtime integration corrections, unit testing, and GitHub Actions CI verification (100% green on run `40692402252`), three architectural concerns remain between the verified codebase and full production readiness:
+Following the empirical completion of Phase DQ-4 runtime integration corrections, unit testing, and GitHub Actions CI verification (100% green on run `40707712855`), three architectural concerns remain between the verified codebase and full production readiness:
 
 1. **Provisional Recipient References:** Fallback recipient references (`urn:e7:cohort:faculty`, `urn:e7:cohort:faculty-all`, `urn:e7:role:task_manager`, etc.) conform to valid opaque-syntax rules, but lack demonstrated tenant-specific institutional authorization. If outbound dispatch is enabled, production can dispatch commands using these placeholders without confirmed institutional recipient endpoints.
-2. **Blocked Notification Recovery:** When notifications are blocked under `DEC-E8-02`, the transactional consumer cleanly ACKs the broker message and appends an audit event to `audit_events`. However, **an executable recovery or replay mechanism is currently NOT IMPLEMENTED**. Querying audit logs provides visibility but does not constitute an operational replay engine.
+2. **Blocked Notification Recovery:** When notifications are blocked under `DEC-E8-02`, the transactional consumer cleanly ACKs the broker message and appends an audit event to `audit_events`. However, **an executable recovery or replay mechanism is currently NOT IMPLEMENTED**. Querying audit logs provides diagnostic visibility but does not constitute an operational replay engine. Inbox deduplication prevents ordinary duplicate broker replay.
 3. **SLA Tracking Durability & Concurrency:** The SLA engine's state projection (`_states`) resides entirely in worker memory. While commit-failure transactional snapshot rollback is verified within a single process, worker restarts cause complete loss of active SLA tracking states, and running multiple worker process replicas introduces concurrency hazards without distributed database row locks.
 4. **ADR-012 Alignment:** The literal text of ADR-012 prescribes atomic persistence of `NotificationCommand` directly in the domain service transaction, whereas the runtime implementation utilizes a decoupled consumer pipeline (`Domain Event -> Outbox -> RabbitMQ -> NotificationWorker -> E-8`).
 
@@ -28,16 +28,26 @@ This document constitutes the formal architectural decision package resolving th
 
 ## 2. Status Classification Taxonomy
 
-In compliance with development quality guardrails, all capabilities and decisions in this document are strictly classified using the following normative statuses:
+In compliance with development quality guardrails, all capabilities, decisions, and proposals in this document are strictly classified using the following normative statuses:
 
 | Status Code | Definition | Scope of Application |
 |---|---|---|
-| **`VERIFIED_IMPLEMENTED`** | Implemented in production code, verified with live automated test suites passing in CI without external doubles. | Domain outbox, transactional inbox deduplication, workflow BPMN parsing, tenant isolation checks. |
-| **`VERIFIED_WITH_TEST_DOUBLES`** | Implemented in production code, verified with in-memory mocks, fake transports, or test doubles due to external network boundaries. | E-8 notification dispatcher, Google Calendar HTTP/webhook client, Flowable REST client, RabbitMQ broker runners. |
+| **`IMPLEMENTED`** | Code is present in the codebase. | Domain transactional outbox, transactional inbox deduplication, workflow BPMN parsing, tenant isolation checks, in-memory SLA evaluation & snapshot rollback. |
+| **`TESTED`** | Verified by automated test suites in CI. | `TESTED_LIVE` (PostgreSQL unit/integration tests) vs. `TESTED_DOUBLES` (E-8 dispatcher, Google Calendar client, Flowable client, RabbitMQ broker runners). |
+| **`PROPOSED`** | Architectural design, recommendation, or policy authored in documentation, but **NOT implemented in production code or database migrations**. Must never be claimed as operational. | `allow_provisional_recipients` gating setting, Two-Stage Notification Outbox (`AD-DQ4-01` Option C), administrative notification replay API, PostgreSQL SLA persistence (`AD-DQ4-02` Option 2). |
+| **`APPROVAL_REQUIRED`** | Formal governance sign-off required (internal Architecture Review Board or external institutional IT/business authority) before adoption or implementation. | ADR-012 amendment for Option C (`ARB`), `task_sla_states` table migration (`ARB`), E-8 directory resolution ownership (`Institutional IT`), template ownership (`Institutional Communications`). |
+| **`EXTERNAL_BLOCKED`** | Live verification is gated by missing enterprise infrastructure or credentials outside the repository boundary (`BLK-01`–`BLK-04`). | MySQL live ERP network access, Okta/Azure OIDC federation, live E-8 endpoints, production gateway mTLS. |
 | **`NOT_IMPLEMENTED`** | The capability, endpoint, CLI, or persistence mechanism does not exist in the codebase. Must never be claimed as operational. | Blocked notification replay CLI/endpoint, durable `task_sla_states` table, automatic consumer DLQ reprocessing. |
-| **`INTERNAL_DECISION_REQUIRED`** | Technical decision within the E-7 development boundary requiring Architecture Review Board (ARB) sign-off. | `AD-DQ4-01` (Outbox architecture), `AD-DQ4-02` (SLA persistence strategy). |
-| **`INSTITUTIONAL_APPROVAL_REQUIRED`** | Governance decision spanning organizational boundaries requiring external enterprise IT/business authorization. | `DEC-E8-02` (Recipient directory resolution), `DEC-E8-04` (Notification template/rendering ownership). |
-| **`EXTERNAL_BLOCKED`** | Approved blocker where live verification is gated by missing enterprise infrastructure or credentials (`BLK-01`–`BLK-04`). | MySQL live ERP network access, Okta/Azure OIDC federation, live E-8 endpoints, production gateway mTLS. |
+
+### Explicit Proposal vs. Implementation Boundary Mapping
+
+To avoid any ambiguity between current implementation and future architecture, the following specific items are explicitly classified:
+- `allow_provisional_recipients: bool = False`: **`PROPOSED`** (not implemented; production safety currently relies on `NotificationSettings.enabled=False`).
+- Two-stage notification outbox (`AD-DQ4-01` Option C): **`PROPOSED`** (not implemented; requires ARB approval and explicit roadmap approval).
+- Notification replay API (`POST /api/v1/admin/notifications/replay`): **`PROPOSED`** / **`NOT_IMPLEMENTED`** (zero replay CLI or endpoint exists).
+- PostgreSQL SLA persistence (`AD-DQ4-02` Option 2): **`PROPOSED`** (not implemented; requires ARB approval and explicit roadmap approval).
+- E-8 directory and rendering ownership (`DEC-E8-02`, `DEC-E8-04` Option 1): **`PROPOSED`** / **`APPROVAL_REQUIRED`** (recommended architecture, awaiting institutional IT/business sign-off).
+- Canonical External Blockers (`BLK-01` through `BLK-04`): **`EXTERNAL_BLOCKED`** (canonical identifiers preserved; Google Calendar sync and SLA durability tracked separately).
 
 ---
 
@@ -117,8 +127,12 @@ Stage 3: Notification Outbox Worker -> [Network I/O to E-8 strictly outside DB t
   ```
 
 ### 3.7 Recommendation & Governance Action
-- **Recommendation:** **Option C (Two-Stage Outbox Pipeline)** is the architecturally correct long-term design for production reliability, strictly eliminating the anti-pattern of network I/O inside open database transactions while preserving domain service purity.
-- **Governance Action:** **Option A remains active for Phase DQ-4 completion**. An Architecture Review Board (ARB) decision is required to formally approve an ADR amendment to ADR-012 before implementing Option C in Phase DQ-5.
+- **Recommendation:** **Option C (Two-Stage Outbox Pipeline)** is **PROPOSED** as the architecturally superior long-term design for production reliability, strictly eliminating the anti-pattern of network I/O inside open database transactions while preserving domain service purity.
+- **Current Operational Baseline:** **Option A remains active for Phase DQ-4 completion** (`IMPLEMENTED` / `TESTED` with test doubles).
+- **Roadmap Governance & Dependencies:** Implementing Option C is **NOT** automatically assigned to Phase DQ-5. Adoption of Option C requires:
+  1. Formal Architecture Review Board (ARB) approval amending ADR-012.
+  2. Explicit product and engineering roadmap approval authorizing the migration and worker changes.
+  3. Final acceptance of Phase DQ-4 depends on formal ARB alignment regarding ADR-012 compliance versus Option C adoption.
 
 ---
 
@@ -151,15 +165,18 @@ In `app/integrations/engagement/handlers.py`:
    - E-7 maintains a tenant-scoped database table `notification_recipient_authorizations` defining authorized opaque URNs per tenant. Handlers reject or block dispatch if a URN is not registered for that tenant.
    - *Benefits:* Explicit local control and verification within E-7.
    - *Trade-offs:* Duplicates directory management responsibilities inside E-7; increases administrative maintenance.
-3. **Option 3: Gated Safe Production Policy (Immediate Safety Baseline):**
+3. **Option 3: Gated Safe Production Policy (Proposed Baseline):**
    - Retain opaque URN generation in E-7.
    - Introduce an explicit production setting `allow_provisional_recipients: bool = False` in `NotificationSettings`.
    - In production (`allow_provisional_recipients=False`), all provisional defaults (`urn:e7:cohort:*`, `urn:e7:role:*`) that lack explicit tenant-payload overrides are blocked under `DEC-E8-02` and audited with `outcome=DENIED`.
    - Only explicitly supplied, source-verified user identifiers (e.g. `user:<uuid>`) are dispatched.
 
-### 4.4 Recommendation & Acceptance Criteria
-- **Recommendation:** Adopt **Option 3** as the immediate safe production gating rule in E-7, while formalizing **Option 1** as the target architectural contract with the E-8 team under `DEC-E8-02`.
-- **Testable Acceptance Criteria:**
+### 4.4 Recommendation & Roadmap Status
+- **Status Classification:**
+  - Setting `allow_provisional_recipients: bool = False`: **`PROPOSED`** (not implemented in code; current production safety relies on `NotificationSettings.enabled=False`).
+  - E-8 Directory Ownership (Option 1): **`PROPOSED`** / **`APPROVAL_REQUIRED`** (recommended architecture, awaiting institutional enterprise IT / directory team approval).
+- **Roadmap Governance:** Building directory resolution adapters and tenant recipient authorization policies requires explicit roadmap approval and institutional IT federation, rather than an automatic assumption for Phase DQ-5.
+- **Testable Acceptance Criteria (Upon Implementation):**
   1. When `allow_provisional_recipients=False`, events lacking explicit recipient payload fail closed, recording a `notification.dispatch.blocked` audit event with `outcome=DENIED` and zero external dispatch.
   2. When an explicit opaque recipient is provided in payload (e.g. `["user:550e8400-e29b-41d4-a716-446655440000"]`), dispatch proceeds normally.
   3. Plaintext emails and phone numbers remain strictly rejected by `NotificationCommand` validation.
@@ -168,8 +185,8 @@ In `app/integrations/engagement/handlers.py`:
 
 ## 5. Decision 3: DEC-E8-04 — Notification Template & Rendering Ownership
 
-**Classification:** `INSTITUTIONAL_APPROVAL_REQUIRED` / `INTERNAL_DECISION_REQUIRED`  
-**Current Code Status:** `VERIFIED_WITH_TEST_DOUBLES` (Template ID & Minimal Structured Context)
+**Classification:** `PROPOSED` / `APPROVAL_REQUIRED`  
+**Current Code Status:** `IMPLEMENTED` & `TESTED` (Template ID & Minimal Structured Context in E-7)
 
 ### 5.1 Current Implementation
 E-7 notification handlers assemble typed `NotificationCommand` instances specifying:
@@ -192,8 +209,9 @@ E-7 notification handlers assemble typed `NotificationCommand` instances specify
    - *Benefits:* Allows E-7 domain logic to customize subject lines directly.
    - *Trade-offs:* Violates separation of concerns; introduces localization and presentation formatting burdens into E-7 domain services.
 
-### 5.4 Recommendation & Acceptance Criteria
-- **Recommendation:** Formalize **Option 1**. E-7 remains strictly an operational condition detection and intent engine. E-8 owns all template authoring, rendering, and delivery formatting.
+### 5.4 Recommendation & Roadmap Status
+- **Status Classification:** **Option 1** is **`PROPOSED`** / **`APPROVAL_REQUIRED`**. It is the recommended architecture, awaiting formal institutional communications team sign-off.
+- **Roadmap Governance:** E-7 remains strictly an operational condition detection and intent engine. Template rendering and localization ownership is assigned to E-8; final integration requires institutional template governance approval.
 - **Testable Acceptance Criteria:**
   1. `NotificationCommand` contains zero rendered HTML, CSS, or localized message text.
   2. All dates in `notification_context` are normalized ISO-8601 UTC strings.
@@ -203,8 +221,8 @@ E-7 notification handlers assemble typed `NotificationCommand` instances specify
 
 ## 6. Decision 4: AD-DQ4-02 — Durable SLA Tracking & Concurrency Control
 
-**Classification:** `INTERNAL_DECISION_REQUIRED`  
-**Current Code Status:** `VERIFIED_WITH_TEST_DOUBLES` (In-Memory Engine) / `NOT_IMPLEMENTED` (Restart Durability)
+**Classification:** `PROPOSED` / `APPROVAL_REQUIRED`  
+**Current Code Status:** `IMPLEMENTED` & `TESTED` (In-Memory Engine & Rollback Snapshot) / `NOT_IMPLEMENTED` (Restart Durability & Concurrency Locking)
 
 ### 6.1 Current Implementation & Durability Audit
 1. `SlaService._states: dict[UUID, TaskSlaState]` stores SLA projections in Python process memory.
@@ -253,8 +271,11 @@ CREATE INDEX ix_task_sla_eval ON task_sla_states (tenant_id, status, warning_at,
 ```
 
 ### 6.5 Recommendation & Acceptance Criteria
-- **Recommendation:** Authorize **Option 2** for implementation in Phase DQ-5. Create the dedicated `task_sla_states` table and refactor `SlaService` to persist state via `SqlAlchemyUnitOfWork`.
-- **Testable Acceptance Criteria:**
+- **Recommendation & Status:** **Option 2 (Dedicated `task_sla_states` Table)** is **`PROPOSED`** (not implemented). Creating the dedicated `task_sla_states` table and refactoring `SlaService` to persist state via `SqlAlchemyUnitOfWork` is recommended to eliminate restart data loss and multi-worker split brain.
+- **Roadmap Governance & Dependencies:** Implementing Option 2 is **NOT** automatically assigned to Phase DQ-5. It requires:
+  1. Formal Architecture Review Board (ARB) approval for the new Alembic database migration and schema addition.
+  2. Explicit roadmap authorization to schedule the database persistence refactor.
+- **Testable Acceptance Criteria (Upon Implementation):**
   1. Terminating and restarting the worker process preserves all active SLA thresholds, paused durations, and fired flags.
   2. Concurrent evaluations across multiple worker processes acquire row-level locks without duplicate warning or breach event emissions.
   3. Failed outer PostgreSQL commits cleanly roll back both the `task_sla_states` update and the `outbox_events` row.
@@ -294,58 +315,85 @@ A comprehensive codebase audit of `app/events/inbox/`, `app/events/outbox/`, `ap
 | **E-8 delivery retry** | Dispatcher retries transient network errors (3 attempts), but permanent recipient blocks cannot be retried. | `NOT_IMPLEMENTED` |
 
 > [!IMPORTANT]
-> **Definitive Finding:** Querying PostgreSQL `audit_events` provides essential compliance and diagnostic evidence, but **querying audit logs does NOT constitute an executable replay or recovery mechanism**.
->
-> An operator cannot currently recover, unblock, or replay a blocked notification after `DEC-E8-02` recipient authority is granted without manually executing arbitrary SQL (which is prohibited by operational guardrails) or implementing an authorized administrative replay service.
->
-> Executable recovery will be implemented under **Option C (Two-Stage Outbox Pipeline)** by introducing an administrative replay API route (`POST /api/v1/admin/notifications/replay`) and worker reconciliation loop in Phase DQ-5.
+> **Definitive Finding on Notification Replay:**
+> - **Diagnostic Evidence Only:** Querying PostgreSQL `audit_events` provides essential compliance and diagnostic evidence, but **querying audit logs does NOT constitute an executable replay or recovery mechanism**.
+> - **Inbox Deduplication Blocks Direct Broker Replay:** Because `inbox_messages` commits a deduplication record and ACKs the broker message when a notification is blocked under `DEC-E8-02`, republishing or replaying the raw event at the broker level results in duplicate suppression (`duplicate_ignored`).
+> - **Zero Replay CLI or API Exists (`NOT_IMPLEMENTED`):** An administrative replay API route (`POST /api/v1/admin/notifications/replay`) or CLI is **PROPOSED** but **NOT IMPLEMENTED**. Zero replay CLI commands, zero API routes, and zero worker replay loops exist in the codebase today.
+> - **Roadmap Governance:** Durable command persistence and authorized replay require architectural approval (`AD-DQ4-01` Option C, `DEC-E8-02`) and explicit roadmap authorization; they must NOT be claimed as operational or automatically assigned to Phase DQ-5 without formal approval.
 
 ---
 
 ## 8. Summary of Architectural Decisions & Action Items
 
-| Reference | Scope | Core Decision | Current Status | Required Governance Action | Target Implementation Phase |
+| Reference | Scope | Core Proposal / Decision | Status Classification | Required Governance Action | Roadmap Implementation Dependency |
 |---|---|---|:---:|---|:---:|
-| **`AD-DQ4-01`** | Notification Outbox Architecture | Adopt Option C (Two-Stage Outbox Pipeline) to decouple external network I/O from database transactions. | `INTERNAL_DECISION_REQUIRED` | ARB approval to amend ADR-012 text. | Phase DQ-5 |
-| **`DEC-E8-02`** | Recipient Resolution Authority | Adopt Option 3 (fail-closed gating for provisional defaults) in E-7; assign directory resolution ownership to E-8 (Option 1). | `INSTITUTIONAL_APPROVAL_REQUIRED` | Enterprise IT / SIS directory team confirmation. | Phase DQ-5 / Pre-Live |
-| **`DEC-E8-04`** | Template & Rendering Ownership | Assign template authoring, branding, HTML rendering, and localization strictly to E-8 (Option 1). | `INSTITUTIONAL_APPROVAL_REQUIRED` | Institutional communications team approval. | Pre-Live |
-| **`AD-DQ4-02`** | SLA State Persistence | Introduce dedicated `task_sla_states` PostgreSQL table with row-level locking to guarantee restart durability. | `INTERNAL_DECISION_REQUIRED` | ARB approval for Alembic database migration. | Phase DQ-5 |
-| **Recovery Engine** | Blocked Notification Replay | Implement administrative replay endpoint (`POST /api/v1/admin/notifications/replay`) operating on `notification_outbox`. | `NOT_IMPLEMENTED` | Product & security approval for administrative replay role. | Phase DQ-5 |
+| **`AD-DQ4-01`** | Notification Outbox Architecture | Option C (Two-Stage Outbox Pipeline) to decouple external network I/O from database transactions. | `PROPOSED` / `APPROVAL_REQUIRED` | ARB approval to amend ADR-012 text. | Requires explicit roadmap approval & ARB sign-off (Not auto DQ-5). |
+| **`DEC-E8-02`** | Recipient Resolution Authority | Assign directory resolution ownership to E-8 (Option 1); fail-closed gating for provisional defaults in E-7 (Option 3). | `PROPOSED` / `APPROVAL_REQUIRED` | Enterprise IT / SIS directory team confirmation. | Requires explicit roadmap approval & institutional IT federation. |
+| **`DEC-E8-04`** | Template & Rendering Ownership | Assign template authoring, branding, HTML rendering, and localization strictly to E-8 (Option 1). | `PROPOSED` / `APPROVAL_REQUIRED` | Institutional communications team approval. | Requires institutional communications team sign-off. |
+| **`AD-DQ4-02`** | SLA State Persistence | Introduce dedicated `task_sla_states` PostgreSQL table with row-level locking to guarantee restart durability. | `PROPOSED` / `APPROVAL_REQUIRED` | ARB approval for Alembic database migration. | Requires explicit roadmap approval & ARB sign-off (Not auto DQ-5). |
+| **Recovery Engine** | Blocked Notification Replay | Administrative replay endpoint (`POST /api/v1/admin/notifications/replay`) operating on `notification_outbox`. | `PROPOSED` / `NOT_IMPLEMENTED` | Product & security approval for administrative replay role. | Requires explicit roadmap approval & implementation. |
 
 ---
 
-## 9. Pull Request & Baseline Verification
+## 9. Pull Request, Baseline Verification & External Blockers
 
+### Baseline Verification Status
 - **PR Number:** [#4](https://github.com/Itsbhavesh1101/Ops/pull/4)
 - **Target Branch:** `master`
 - **Source Branch:** `quality/dq4-integration-reliability`
-- **Reviewed Remote Head SHA:** `6ad268ae74f753d8b3ee420b5d7dd375dedab808`
-- **GitHub Actions CI Status:** **100% Green / Passing** (Run ID `40692402252`)
+- **Reviewed Remote Head SHA:** `0410372df0dd72a0b16bbbc9c5889f641c6e5708`
+- **GitHub Actions CI Status:** **100% Green / Passing** (Run ID `40707712855`)
 - **Phase-8 Frozen RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — intact and unaltered.
 - **Phase DQ-5 Status:** **NOT started**. Zero code changes or migrations for DQ-5 have been introduced.
 - **Pull Request Integrity:** PR #4 remains open and unmerged.
+
+### Test Evidence Dissection (Verified Against GitHub Actions CI Run #40707712855)
+- **Pytest Global Discovery:** 2,293 tests collected (`pytest --collect-only -q`).
+- **Backend Unit & Contract Suites:** 1,923 passed, 6 skipped (`tests/unit/`, `tests/contract/`).
+- **Backend PostgreSQL Integration Tests:** 10 passed (`tests/integration/task_intelligence/`).
+- **Total Backend Tests Executed in CI:** 1,933 passed, 6 skipped.
+  *(Transparent disclosure: 354 specialized security, UAT, and live external tests are discovered in global collection but intentionally not executed in standard CI baseline without dedicated multi-service infrastructure. Do not claim all collected tests were executed.)*
+- **Frontend Test Suite (Vitest):** 146 passed across 19 test files.
+- **Static Analysis:**
+  - `ruff check .`: All checks passed (0 errors).
+  - `mypy app`: Success: no issues found in 265 source files.
+  - Frontend: 0 ESLint errors, 0 TypeScript errors, clean Vite production build.
+
+### Canonical External Blockers (Preserved Verbatim)
+In strict alignment with `docs/development-quality/E7_Development_Completion_Remediation_Plan.md`, the four canonical blockers are preserved:
+- **`BLK-01: MYSQL_LIVE_READ_VERIFICATION`**: Live institutional MySQL ERP read verification blocked pending institutional network access, VPN configuration, and read-only credentials.
+- **`BLK-02: PRODUCTION_COMPANY_OIDC`**: Live institutional OIDC provider (Okta/Azure AD) configuration blocked pending enterprise IT federation. Local JWT mock used.
+- **`BLK-03: E8_NOTIFICATION_INTEGRATION`**: Live E-8 Notification Engine external endpoint connectivity blocked pending E-8 deployment and mutual TLS certificate exchange. AMQP/HTTP test doubles used.
+- **`BLK-04: PRODUCTION_GATEWAY`**: Production reverse proxy and API gateway mutual TLS routing blocked pending institutional cloud infrastructure provisioning. Local routing verified.
+
+### Distinct Operational & Durability Concerns (Non-Blockers)
+1. **Google Calendar Live Synchronization Boundary:** External integration boundary awaiting institutional Google Workspace service-account credentials and OAuth2 consent. Tracked separately under `docs/phase-4/PHASE_4_CALENDAR_SYNC.md`.
+2. **SLA State Durability & Multi-Worker Concurrency (`AD-DQ4-02`):** Internal application state durability concern regarding in-memory `_states` and restart data loss. Tracked as an internal architecture decision requiring ARB approval and explicit roadmap authorization.
 
 ---
 
 ## 10. Conclusion & Final Verdict
 
-The technical corrections for Phase DQ-4 pass all linting, typing, unit testing, and GitHub Actions CI pipelines. The four principal architectural decisions (`AD-DQ4-01`, `DEC-E8-02`, `DEC-E8-04`, `AD-DQ4-02`) and the recovery engine status are formally analyzed, documented, and positioned for governance sign-off.
+The technical corrections and documentation reconciliation for Phase DQ-4 pass all linting, typing, unit testing, and GitHub Actions CI pipelines. The four principal architectural proposals (`AD-DQ4-01`, `DEC-E8-02`, `DEC-E8-04`, `AD-DQ4-02`) and the recovery engine status are formally distinguished, reconciled, and positioned for governance sign-off.
 
 ```
 ╔════════════════════════════════════════════════════════════════════════════════════════════════╗
 ║                                                                                                ║
-║                     VERDICT: DQ4_ARCHITECTURE_DECISION_PACKAGE_READY                           ║
+║             VERDICT: DQ4_DOCUMENTATION_RECONCILED_AWAITING_APPROVAL                            ║
 ║                                                                                                ║
-║  1. Provisional recipient dispatch risk evaluated & fail-closed gating policy defined.        ║
-║  2. Blocked notification recovery audited & explicitly classified as NOT IMPLEMENTED.         ║
-║  3. SLA durability limitations documented; dedicated task_sla_states strategy specified.       ║
-║  4. AD-DQ4-01 Options A, B, and C evaluated across 10 dimensions; Option C recommended.        ║
-║  5. ADR-012 integrity preserved; no unauthorized ADR amendments introduced.                    ║
-║  6. DEC-E8-02 & DEC-E8-04 ownership boundaries articulated with testable acceptance criteria.  ║
-║  7. Complete decision package committed to docs/development-quality/.                          ║
-║  8. GitHub Actions CI run 40692402252 verified 100% green.                                     ║
-║  9. PR #4 remains OPEN at https://github.com/Itsbhavesh1101/Ops/pull/4 (unmerged).             ║
-║ 10. Phase DQ-5 NOT started.                                                                    ║
+║  1. Canonical external blockers verified: BLK-01, BLK-02, BLK-03, BLK-04 intact.               ║
+║  2. Google Calendar and SLA durability concerns documented separately from canonical blockers. ║
+║  3. Blocked notification recovery audited & verified as NOT IMPLEMENTED (no replay CLI/API).   ║
+║  4. Audit logs documented as diagnostic evidence; inbox dedupe prevents duplicate replay.      ║
+║  5. AD-DQ4-01 Option C, AD-DQ4-02, DEC-E8-02, and DEC-E8-04 classified as requiring explicit   ║
+║     roadmap approval rather than automatically assigned to DQ-5.                               ║
+║  6. Proposal vs. implementation clearly distinguished across all components.                   ║
+║  7. Verified CI Run #40707712855: 2,293 collected; 1,933 passed backend; 6 skipped; 146 UI.     ║
+║  8. Static analysis: Ruff clean (0 errors), Mypy clean (265 source files checked).             ║
+║  9. PR #4 remains open at https://github.com/Itsbhavesh1101/Ops/pull/4 (unmerged).             ║
+║ 10. Frozen Phase-8 RC tag (phase8-rc-38d080fadab8) unaltered.                                  ║
+║ 11. Phase DQ-5 NOT started.                                                                    ║
 ║                                                                                                ║
 ╚════════════════════════════════════════════════════════════════════════════════════════════════╝
 ```
+
