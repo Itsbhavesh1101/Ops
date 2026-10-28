@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from datetime import timedelta
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -64,9 +65,16 @@ def _create_schedule_published_envelope(
     *,
     tenant_id: str,
     schedule_id: str,
-    recipients: list[str],
+    recipients: list[str] | None = None,
 ) -> EventEnvelope:
     """Construct canonical schedule.published event envelope."""
+    payload: dict[str, Any] = {
+        "schedule_id": schedule_id,
+        "version": 1,
+        "status": "PUBLISHED",
+    }
+    if recipients is not None:
+        payload["recipients"] = recipients
     return create_event_envelope(
         EventCreate(
             event_type="schedule.published",
@@ -76,12 +84,7 @@ def _create_schedule_published_envelope(
             causation_id=uuid4(),
             subject_type="schedule",
             subject_id=schedule_id,
-            payload={
-                "schedule_id": schedule_id,
-                "version": 1,
-                "status": "PUBLISHED",
-                "recipients": recipients,
-            },
+            payload=payload,
         )
     )
 
@@ -221,7 +224,7 @@ async def test_live_notification_pipeline_end_to_end(
     assert staged_command is not None
     assert staged_command.command_id == expected_command_id
     assert staged_command.dispatch_state == "PENDING"
-    assert staged_command.organization_scope_reference == tenant_id
+    assert staged_command.tenant_id == tenant_id
 
     # Verify inbox_messages recorded the message
     async with session_factory() as session:
@@ -327,11 +330,10 @@ async def test_live_notification_pipeline_provisional_recipient_fail_closed(
     await _wait_for_runner_running(runner)
 
     try:
-        # 1. Enqueue event with provisional recipient
+        # 1. Enqueue event without explicit recipients to trigger provisional default
         envelope = _create_schedule_published_envelope(
             tenant_id=tenant_id,
             schedule_id=schedule_id,
-            recipients=["provisional:student:cohort:10b"],
         )
 
         async with uow_factory() as uow:
