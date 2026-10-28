@@ -393,4 +393,4 @@ async def test_live_notification_pipeline_provisional_recipient_fail_closed(
     )
     processed = await delivery_worker.poll_and_deliver()
     assert processed == 0
-    assert len(fake_e8_dispatcher.sent_commands) == 0
+    assert len(fake_e8_dispatcher.receipts) == 0
