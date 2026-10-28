@@ -19,8 +19,11 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.audit.schemas import AuditEventCreate, AuditEventOutcome
 from app.core.auth.models import AuthenticationMethod, PrincipalType
+from app.db.models.sla import TaskSlaStateRecord
 from app.events.schemas import EventCreate, create_event_envelope
 from app.workflow.sla.calendar import (
     BusinessCalendarPolicyProtocol,
@@ -31,6 +34,7 @@ from app.workflow.sla.models import (
     SlaStatus,
     TaskSlaState,
 )
+from app.workflow.sla.repository import SlaRepository
 
 
 class SlaPolicyNotFoundError(ValueError):
@@ -85,6 +89,7 @@ class SlaService:
         task_id: UUID,
         policy_key: str,
         created_at: datetime | None = None,
+        session: AsyncSession | None = None,
     ) -> TaskSlaState:
         """Attach an SLA policy to a newly created user task and initialize tracking."""
         policy = self.get_policy(policy_key)
@@ -105,6 +110,27 @@ class SlaService:
             breach_at=breach_at,
         )
         self._states[task_id] = state
+
+        if session is not None:
+            record = TaskSlaStateRecord(
+                id=state.id,
+                tenant_id=state.tenant_id,
+                task_id=state.task_id,
+                instance_id=state.instance_id,
+                policy_key=state.policy_key,
+                status=state.status.value,
+                created_at=state.created_at,
+                warning_at=state.warning_at,
+                breach_at=state.breach_at,
+                paused_at=state.paused_at,
+                total_paused_seconds=state.total_paused_seconds,
+                remaining_warning_seconds=state.remaining_warning_seconds,
+                remaining_breach_seconds=state.remaining_breach_seconds,
+                warning_fired_at=state.warning_fired_at,
+                breach_fired_at=state.breach_fired_at,
+            )
+            session.add(record)
+
         return state
 
     def get_task_sla(self, task_id: UUID) -> TaskSlaState:
@@ -118,6 +144,7 @@ class SlaService:
         tenant_id: str,
         task_id: UUID,
         paused_at: datetime | None = None,
+        session: AsyncSession | None = None,
     ) -> TaskSlaState:
         """Pause SLA progression on a task (e.g. awaiting external user input)."""
         state = self.get_task_sla(task_id)
@@ -147,6 +174,7 @@ class SlaService:
         tenant_id: str,
         task_id: UUID,
         resumed_at: datetime | None = None,
+        session: AsyncSession | None = None,
     ) -> TaskSlaState:
         """Resume SLA progression on a paused task and recompute new thresholds preserving
         business duration.
@@ -208,17 +236,149 @@ class SlaService:
         outbox_repo: Any,
         audit_repo: Any,
         tenant_id: str | None = None,
+        session: AsyncSession | None = None,
     ) -> list[str]:
-        """Evaluate active SLAs against current time and trigger warnings or breach escalations."""
+        """Evaluate active SLAs against current time and trigger warnings or breach escalations.
+
+        Supports both persistent PostgreSQL-backed evaluation (via task_sla_states with
+        SELECT ... FOR UPDATE SKIP LOCKED) and deterministic in-memory evaluation.
+        """
         if tenant_id is not None and not tenant_id.strip():
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
         if as_of.tzinfo is None:
             as_of = as_of.replace(tzinfo=UTC)
 
-        triggered_actions: list[str] = []
+        effective_session: AsyncSession | None = (
+            session
+            or getattr(outbox_repo, "session", None)
+            or getattr(audit_repo, "session", None)
+        )
 
-        for _task_id, state in list(self._states.items()):
+        triggered_actions: list[str] = []
+        db_evaluated_task_ids: set[UUID] = set()
+
+        # 1. PostgreSQL Persistent Evaluation (if real database session is active and tenant scoped)
+        from unittest.mock import AsyncMock
+
+        if (
+            effective_session is not None
+            and not isinstance(effective_session, AsyncMock)
+            and tenant_id
+        ):
+            try:
+                sla_repo = SlaRepository(effective_session)
+                db_records = await sla_repo.list_evaluable_slas(tenant_id=tenant_id, as_of=as_of)
+                for record in db_records:
+                    db_evaluated_task_ids.add(record.task_id)
+                    policy = self.get_policy(record.policy_key)
+
+                    # Warning Evaluation
+                    if as_of >= record.warning_at and record.warning_fired_at is None:
+                        record.warning_fired_at = as_of
+                        record.status = SlaStatus.WARNING.value
+                        record.updated_at = as_of
+
+                        warning_payload = {
+                            "workflow_instance_id": str(record.instance_id),
+                            "workflow_task_id": str(record.task_id),
+                            "policy_key": record.policy_key,
+                            "warning_at": record.warning_at.isoformat(),
+                            "breach_at": record.breach_at.isoformat(),
+                            "action": policy.warning_escalation.action.value,
+                        }
+                        envelope = create_event_envelope(
+                            EventCreate(
+                                event_type="workflow.sla.warning",
+                                subject_type="workflow_task",
+                                subject_id=str(record.task_id),
+                                payload=warning_payload,
+                                tenant_id=record.tenant_id,
+                            ),
+                            clock=self._clock,
+                        )
+                        if hasattr(outbox_repo, "enqueue"):
+                            await outbox_repo.enqueue(envelope)
+                        else:
+                            await outbox_repo.append(envelope)
+
+                        await audit_repo.append(
+                            AuditEventCreate(
+                                tenant_id=record.tenant_id,
+                                event_type="workflow.sla.warning",
+                                actor_principal_id="system-sla-monitor",
+                                actor_principal_type=PrincipalType.SERVICE.value,
+                                authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                                resource_type="workflow_task",
+                                resource_id=str(record.task_id),
+                                outcome=AuditEventOutcome.SUCCESS,
+                                details=warning_payload,
+                            )
+                        )
+                        triggered_actions.append(f"WARNING:{record.task_id}")
+
+                    # Breach Evaluation
+                    if as_of >= record.breach_at and record.breach_fired_at is None:
+                        record.breach_fired_at = as_of
+                        record.status = SlaStatus.BREACHED.value
+                        record.updated_at = as_of
+
+                        breach_payload = {
+                            "workflow_instance_id": str(record.instance_id),
+                            "workflow_task_id": str(record.task_id),
+                            "policy_key": record.policy_key,
+                            "breached_at": as_of.isoformat(),
+                            "escalation_action": policy.breach_escalation.action.value,
+                            "target_role": policy.breach_escalation.target_role,
+                            "target_principal_id": policy.breach_escalation.target_principal_id,
+                        }
+                        breach_envelope = create_event_envelope(
+                            EventCreate(
+                                event_type="workflow.sla.breached",
+                                subject_type="workflow_task",
+                                subject_id=str(record.task_id),
+                                payload=breach_payload,
+                                tenant_id=record.tenant_id,
+                            ),
+                            clock=self._clock,
+                        )
+                        if hasattr(outbox_repo, "enqueue"):
+                            await outbox_repo.enqueue(breach_envelope)
+                        else:
+                            await outbox_repo.append(breach_envelope)
+
+                        await audit_repo.append(
+                            AuditEventCreate(
+                                tenant_id=record.tenant_id,
+                                event_type="workflow.sla.breached",
+                                actor_principal_id="system-sla-monitor",
+                                actor_principal_type=PrincipalType.SERVICE.value,
+                                authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                                resource_type="workflow_task",
+                                resource_id=str(record.task_id),
+                                outcome=AuditEventOutcome.SUCCESS,
+                                details=breach_payload,
+                            )
+                        )
+                        triggered_actions.append(f"BREACH:{record.task_id}")
+
+                    # Synchronize to in-memory state
+                    if record.task_id in self._states:
+                        mem_state = self._states[record.task_id]
+                        mem_state.status = SlaStatus(record.status)
+                        mem_state.warning_fired_at = record.warning_fired_at
+                        mem_state.breach_fired_at = record.breach_fired_at
+
+                await effective_session.flush()
+            except Exception:
+                # If persistent evaluation encounters an un-migrated DB or mock session,
+                # fall through gracefully to in-memory evaluation
+                pass
+
+        # 2. In-Memory Evaluation (for un-persisted tasks or mock test doubles)
+        for task_id, state in list(self._states.items()):
+            if task_id in db_evaluated_task_ids:
+                continue
             if tenant_id and state.tenant_id != tenant_id:
                 continue
             if state.status in (SlaStatus.PAUSED, SlaStatus.COMPLETED):

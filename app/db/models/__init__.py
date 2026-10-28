@@ -31,8 +31,9 @@ from app.db.models.scheduling import (
     ScheduleRecord,
     SolverProfileRecord,
 )
+from app.db.models.notification_outbox import NotificationOutboxCommandRecord
 from app.db.models.service_credential import ServiceApiKeyCredentialRecordModel
-from app.db.models.sla import SlaPolicyRecord
+from app.db.models.sla import SlaPolicyRecord, TaskSlaStateRecord
 from app.db.models.workflow import (
     WorkflowArtifactRecord,
     WorkflowDefinitionRecord,
@@ -52,6 +53,7 @@ __all__ = [
     "InboxMessageRecord",
     "JobModel",
     "MilestoneRecord",
+    "NotificationOutboxCommandRecord",
     "OutboxEventRecord",
     "PlanRecord",
     "ResourceAvailabilityRecord",
@@ -65,6 +67,7 @@ __all__ = [
     "TaskDependencyRecord",
     "TaskRecord",
     "TaskRiskRecord",
+    "TaskSlaStateRecord",
     "WorkflowArtifactRecord",
     "WorkflowDefinitionRecord",
     "WorkflowInstanceRecord",

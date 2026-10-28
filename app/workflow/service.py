@@ -1069,6 +1069,7 @@ class WorkflowService:
                     outbox_repo=outbox_repo,
                     audit_repo=audit_repo,
                     tenant_id=tenant_id,
+                    session=uow.session,
                 )
                 await uow.commit()
             return actions
