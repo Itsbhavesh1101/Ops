@@ -96,16 +96,21 @@ jobs:
 
       - name: Start Disposable RabbitMQ Container
         run: |
-          docker run -d --name e7-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.13-management-alpine
+          docker run -d --name e7-rabbitmq --hostname e7-rabbitmq -p 5672:5672 -p 15672:15672 -e RABBITMQ_DEFAULT_USER=guest -e RABBITMQ_DEFAULT_PASS=guest rabbitmq:3.13-management
           for i in $(seq 1 30); do
-            if docker exec e7-rabbitmq rabbitmq-diagnostics -q ping; then
+            if docker exec e7-rabbitmq rabbitmqctl status >/dev/null 2>&1; then
               echo "RabbitMQ is ready"
               break
             fi
             echo "Waiting for RabbitMQ... ($i/30)"
             sleep 2
           done
-          docker exec e7-rabbitmq rabbitmq-diagnostics -q ping
+          if ! docker ps | grep e7-rabbitmq; then
+            echo "=== RabbitMQ container stopped! Container logs: ==="
+            docker logs e7-rabbitmq
+            exit 1
+          fi
+          docker exec e7-rabbitmq rabbitmqctl status
 
       - name: Run RabbitMQ Live Integration Tests
         env:
@@ -125,6 +130,7 @@ jobs:
       - name: Stop Disposable RabbitMQ Container
         if: always()
         run: |
+          docker logs e7-rabbitmq || true
           docker rm -f e7-rabbitmq || true
 
   frontend-quality-gates:
