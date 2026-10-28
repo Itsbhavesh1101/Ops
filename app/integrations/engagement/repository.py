@@ -223,24 +223,21 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
     ) -> bool:
         """Mark a notification command as successfully dispatched.
 
-        Requires that the record is in 'PROCESSING' state and owned by lease_owner.
-        Enforces tenant isolation if tenant_id is provided.
+        Requires that the record is in 'PROCESSING' state, owned by lease_owner,
+        and matches tenant_id. Missing lease_owner or tenant_id fails closed (returns False).
         Returns True if the record was updated, False if lease was lost, state changed,
         or record was already completed by another worker.
         """
+        if not lease_owner or not lease_owner.strip() or not tenant_id or not tenant_id.strip():
+            return False
+
         now = datetime.now(UTC)
         conditions = [
             NotificationOutboxCommandRecord.command_id == command_id,
+            NotificationOutboxCommandRecord.tenant_id == tenant_id.strip(),
+            NotificationOutboxCommandRecord.lease_owner == lease_owner.strip(),
+            NotificationOutboxCommandRecord.dispatch_state == "PROCESSING",
         ]
-        if lease_owner is not None:
-            conditions.append(NotificationOutboxCommandRecord.lease_owner == lease_owner)
-            conditions.append(NotificationOutboxCommandRecord.dispatch_state == "PROCESSING")
-        else:
-            conditions.append(
-                NotificationOutboxCommandRecord.dispatch_state.in_(["PROCESSING", "PENDING"])
-            )
-        if tenant_id is not None:
-            conditions.append(NotificationOutboxCommandRecord.tenant_id == tenant_id)
 
         stmt = select(NotificationOutboxCommandRecord).where(and_(*conditions))
         bind = getattr(self.session, "bind", None)
@@ -272,23 +269,21 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
     ) -> bool:
         """Record dispatch failure, increment retry count, and calculate backoff.
 
-        Requires that the record is in 'PROCESSING' state and owned by lease_owner.
+        Requires that the record is in 'PROCESSING' state, owned by lease_owner,
+        and matches tenant_id. Missing lease_owner or tenant_id fails closed (returns False).
         Sanitizes error text before persisting.
         Returns True if the record was updated, False if lease was lost, state changed,
         or record was already completed by another worker.
         """
+        if not lease_owner or not lease_owner.strip() or not tenant_id or not tenant_id.strip():
+            return False
+
         conditions = [
             NotificationOutboxCommandRecord.command_id == command_id,
+            NotificationOutboxCommandRecord.tenant_id == tenant_id.strip(),
+            NotificationOutboxCommandRecord.lease_owner == lease_owner.strip(),
+            NotificationOutboxCommandRecord.dispatch_state == "PROCESSING",
         ]
-        if lease_owner is not None:
-            conditions.append(NotificationOutboxCommandRecord.lease_owner == lease_owner)
-            conditions.append(NotificationOutboxCommandRecord.dispatch_state == "PROCESSING")
-        else:
-            conditions.append(
-                NotificationOutboxCommandRecord.dispatch_state.in_(["PROCESSING", "PENDING"])
-            )
-        if tenant_id is not None:
-            conditions.append(NotificationOutboxCommandRecord.tenant_id == tenant_id)
 
         stmt = select(NotificationOutboxCommandRecord).where(and_(*conditions))
         bind = getattr(self.session, "bind", None)

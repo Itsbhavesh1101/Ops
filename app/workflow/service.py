@@ -141,6 +141,7 @@ class WorkflowService:
         self._form_validator = form_validator or FormValidator()
         self._approval_compiler = approval_compiler or ApprovalBpmnCompiler()
         self._delegation_policy = delegation_policy or DefaultDelegationPolicy()
+        self.persistence_mode = persistence_mode
         self._sla_service = sla_service or SlaService(persistence_mode=persistence_mode)
 
     # ==========================================================================
@@ -1048,26 +1049,34 @@ class WorkflowService:
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
         if session is not None:
-            return await self._sla_service.attach_task_sla_async(
-                tenant_id=tenant_id,
-                instance_id=instance_id,
-                task_id=task_id,
-                policy_key=policy_key,
-                created_at=created_at,
-                session=session,
-            )
+            try:
+                return await self._sla_service.attach_task_sla_async(
+                    tenant_id=tenant_id,
+                    instance_id=instance_id,
+                    task_id=task_id,
+                    policy_key=policy_key,
+                    created_at=created_at,
+                    session=session,
+                )
+            except Exception:
+                self._sla_service.evict_task_sla(task_id)
+                raise
 
         async with self._uow_factory() as uow:
-            state = await self._sla_service.attach_task_sla_async(
-                tenant_id=tenant_id,
-                instance_id=instance_id,
-                task_id=task_id,
-                policy_key=policy_key,
-                created_at=created_at,
-                session=uow.session,
-            )
-            await uow.commit()
-            return state
+            try:
+                state = await self._sla_service.attach_task_sla_async(
+                    tenant_id=tenant_id,
+                    instance_id=instance_id,
+                    task_id=task_id,
+                    policy_key=policy_key,
+                    created_at=created_at,
+                    session=uow.session,
+                )
+                await uow.commit()
+                return state
+            except Exception:
+                self._sla_service.evict_task_sla(task_id)
+                raise
 
     def attach_task_sla_sync(
         self,
@@ -1078,6 +1087,12 @@ class WorkflowService:
         created_at: datetime | None = None,
     ) -> TaskSlaState:
         """Synchronous backwards-compatibility entry point (in-memory tracking only)."""
+        if self.persistence_mode == "database":
+            raise RuntimeError(
+                "Synchronous legacy SLA operations cannot be used when "
+                "persistence_mode='database'. "
+                "Use async attach_task_sla instead to ensure PostgreSQL persistence."
+            )
         return self._sla_service.attach_task_sla(
             tenant_id=tenant_id,
             instance_id=instance_id,
@@ -1098,22 +1113,30 @@ class WorkflowService:
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
         if session is not None:
-            return await self._sla_service.pause_task_sla_async(
-                tenant_id=tenant_id,
-                task_id=task_id,
-                paused_at=paused_at,
-                session=session,
-            )
+            try:
+                return await self._sla_service.pause_task_sla_async(
+                    tenant_id=tenant_id,
+                    task_id=task_id,
+                    paused_at=paused_at,
+                    session=session,
+                )
+            except Exception:
+                self._sla_service.evict_task_sla(task_id)
+                raise
 
         async with self._uow_factory() as uow:
-            state = await self._sla_service.pause_task_sla_async(
-                tenant_id=tenant_id,
-                task_id=task_id,
-                paused_at=paused_at,
-                session=uow.session,
-            )
-            await uow.commit()
-            return state
+            try:
+                state = await self._sla_service.pause_task_sla_async(
+                    tenant_id=tenant_id,
+                    task_id=task_id,
+                    paused_at=paused_at,
+                    session=uow.session,
+                )
+                await uow.commit()
+                return state
+            except Exception:
+                self._sla_service.evict_task_sla(task_id)
+                raise
 
     def pause_task_sla_sync(
         self,
@@ -1122,6 +1145,12 @@ class WorkflowService:
         paused_at: datetime | None = None,
     ) -> TaskSlaState:
         """Synchronous backwards-compatibility entry point (in-memory tracking only)."""
+        if self.persistence_mode == "database":
+            raise RuntimeError(
+                "Synchronous legacy SLA operations cannot be used when "
+                "persistence_mode='database'. "
+                "Use async pause_task_sla instead to ensure PostgreSQL persistence."
+            )
         return self._sla_service.pause_task_sla(
             tenant_id=tenant_id,
             task_id=task_id,
@@ -1140,22 +1169,30 @@ class WorkflowService:
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
         if session is not None:
-            return await self._sla_service.resume_task_sla_async(
-                tenant_id=tenant_id,
-                task_id=task_id,
-                resumed_at=resumed_at,
-                session=session,
-            )
+            try:
+                return await self._sla_service.resume_task_sla_async(
+                    tenant_id=tenant_id,
+                    task_id=task_id,
+                    resumed_at=resumed_at,
+                    session=session,
+                )
+            except Exception:
+                self._sla_service.evict_task_sla(task_id)
+                raise
 
         async with self._uow_factory() as uow:
-            state = await self._sla_service.resume_task_sla_async(
-                tenant_id=tenant_id,
-                task_id=task_id,
-                resumed_at=resumed_at,
-                session=uow.session,
-            )
-            await uow.commit()
-            return state
+            try:
+                state = await self._sla_service.resume_task_sla_async(
+                    tenant_id=tenant_id,
+                    task_id=task_id,
+                    resumed_at=resumed_at,
+                    session=uow.session,
+                )
+                await uow.commit()
+                return state
+            except Exception:
+                self._sla_service.evict_task_sla(task_id)
+                raise
 
     def resume_task_sla_sync(
         self,
@@ -1164,6 +1201,12 @@ class WorkflowService:
         resumed_at: datetime | None = None,
     ) -> TaskSlaState:
         """Synchronous backwards-compatibility entry point (in-memory tracking only)."""
+        if self.persistence_mode == "database":
+            raise RuntimeError(
+                "Synchronous legacy SLA operations cannot be used when "
+                "persistence_mode='database'. "
+                "Use async resume_task_sla instead to ensure PostgreSQL persistence."
+            )
         return self._sla_service.resume_task_sla(
             tenant_id=tenant_id,
             task_id=task_id,

@@ -149,17 +149,25 @@ class SlaService:
         session: AsyncSession | None = None,
     ) -> TaskSlaState:
         """Attach an SLA policy and flush to database if session is provided."""
-        state = self.attach_task_sla(
-            tenant_id=tenant_id,
-            instance_id=instance_id,
-            task_id=task_id,
-            policy_key=policy_key,
-            created_at=created_at,
-            session=session,
-        )
-        if session is not None:
-            await session.flush()
-        return state
+        try:
+            state = self.attach_task_sla(
+                tenant_id=tenant_id,
+                instance_id=instance_id,
+                task_id=task_id,
+                policy_key=policy_key,
+                created_at=created_at,
+                session=session,
+            )
+            if session is not None:
+                await session.flush()
+            return state
+        except Exception:
+            self._states.pop(task_id, None)
+            raise
+
+    def evict_task_sla(self, task_id: UUID) -> None:
+        """Evict a task SLA state from in-memory cache on rollback or eviction."""
+        self._states.pop(task_id, None)
 
     def get_task_sla(self, task_id: UUID) -> TaskSlaState:
         """Retrieve the SLA state for a task."""
@@ -208,41 +216,52 @@ class SlaService:
         if not tenant_id or not tenant_id.strip():
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
-        state = self._states.get(task_id)
-        if state is None and session is not None:
+        state: TaskSlaState
+        if session is not None:
+            # PostgreSQL is authoritative: always reload latest state from database
             sla_repo = SlaRepository(session)
             db_record = await sla_repo.get_task_sla(tenant_id=tenant_id, task_id=task_id)
-            if db_record is not None:
-                state = SlaRepository.to_model(db_record)
-                self._states[task_id] = state
-
-        if state is None:
-            raise SlaTaskStateNotFoundError(f"No SLA state found for task '{task_id}'.")
-        if state.tenant_id != tenant_id:
-            raise SlaTaskStateNotFoundError(f"Task '{task_id}' not found in tenant '{tenant_id}'.")
+            if db_record is None:
+                raise SlaTaskStateNotFoundError(
+                    f"No SLA state found for task '{task_id}' in tenant '{tenant_id}'."
+                )
+            state = SlaRepository.to_model(db_record)
+        else:
+            in_mem_state = self._states.get(task_id)
+            if in_mem_state is None:
+                raise SlaTaskStateNotFoundError(f"No SLA state found for task '{task_id}'.")
+            if in_mem_state.tenant_id != tenant_id:
+                raise SlaTaskStateNotFoundError(
+                    f"Task '{task_id}' not found in tenant '{tenant_id}'."
+                )
+            state = in_mem_state
 
         if state.status == SlaStatus.PAUSED:
+            self._states[task_id] = state
             return state
 
         now = paused_at or datetime.now(UTC)
         if now.tzinfo is None:
             now = now.replace(tzinfo=UTC)
 
-        state.status = SlaStatus.PAUSED
-        state.paused_at = now
-        policy = self.get_policy(state.policy_key)
-        state.remaining_warning_seconds = self._calendar.get_remaining_business_duration(
-            now, state.warning_at, policy.calendar_ref
+        new_state = state.model_copy(deep=True)
+        new_state.status = SlaStatus.PAUSED
+        new_state.paused_at = now
+        policy = self.get_policy(new_state.policy_key)
+        new_state.remaining_warning_seconds = self._calendar.get_remaining_business_duration(
+            now, new_state.warning_at, policy.calendar_ref
         )
-        state.remaining_breach_seconds = self._calendar.get_remaining_business_duration(
-            now, state.breach_at, policy.calendar_ref
+        new_state.remaining_breach_seconds = self._calendar.get_remaining_business_duration(
+            now, new_state.breach_at, policy.calendar_ref
         )
 
         if session is not None:
             sla_repo = SlaRepository(session)
-            await sla_repo.update_task_sla(state)
+            await sla_repo.update_task_sla(new_state)
+            await session.flush()
 
-        return state
+        self._states[task_id] = new_state
+        return new_state
 
     def resume_task_sla(
         self,
@@ -293,49 +312,61 @@ class SlaService:
         if not tenant_id or not tenant_id.strip():
             raise ValueError("tenant_id must not be empty or whitespace-only")
 
-        state = self._states.get(task_id)
-        if state is None and session is not None:
+        state: TaskSlaState
+        if session is not None:
+            # PostgreSQL is authoritative: always reload latest state from database
             sla_repo = SlaRepository(session)
             db_record = await sla_repo.get_task_sla(tenant_id=tenant_id, task_id=task_id)
-            if db_record is not None:
-                state = SlaRepository.to_model(db_record)
-                self._states[task_id] = state
-
-        if state is None:
-            raise SlaTaskStateNotFoundError(f"No SLA state found for task '{task_id}'.")
-        if state.tenant_id != tenant_id:
-            raise SlaTaskStateNotFoundError(f"Task '{task_id}' not found in tenant '{tenant_id}'.")
+            if db_record is None:
+                raise SlaTaskStateNotFoundError(
+                    f"No SLA state found for task '{task_id}' in tenant '{tenant_id}'."
+                )
+            state = SlaRepository.to_model(db_record)
+        else:
+            in_mem_state = self._states.get(task_id)
+            if in_mem_state is None:
+                raise SlaTaskStateNotFoundError(f"No SLA state found for task '{task_id}'.")
+            if in_mem_state.tenant_id != tenant_id:
+                raise SlaTaskStateNotFoundError(
+                    f"Task '{task_id}' not found in tenant '{tenant_id}'."
+                )
+            state = in_mem_state
 
         if state.status != SlaStatus.PAUSED or not state.paused_at:
+            self._states[task_id] = state
             return state
 
         now = resumed_at or datetime.now(UTC)
         if now.tzinfo is None:
             now = now.replace(tzinfo=UTC)
 
-        paused_duration = int((now - state.paused_at).total_seconds())
+        new_state = state.model_copy(deep=True)
+        assert new_state.paused_at is not None
+        paused_duration = int((now - new_state.paused_at).total_seconds())
         if paused_duration > 0:
-            state.total_paused_seconds += paused_duration
-            policy = self.get_policy(state.policy_key)
-            if state.remaining_warning_seconds is not None:
-                state.warning_at = self._calendar.add_business_duration(
-                    now, state.remaining_warning_seconds, policy.calendar_ref
+            new_state.total_paused_seconds += paused_duration
+            policy = self.get_policy(new_state.policy_key)
+            if new_state.remaining_warning_seconds is not None:
+                new_state.warning_at = self._calendar.add_business_duration(
+                    now, new_state.remaining_warning_seconds, policy.calendar_ref
                 )
-            if state.remaining_breach_seconds is not None:
-                state.breach_at = self._calendar.add_business_duration(
-                    now, state.remaining_breach_seconds, policy.calendar_ref
+            if new_state.remaining_breach_seconds is not None:
+                new_state.breach_at = self._calendar.add_business_duration(
+                    now, new_state.remaining_breach_seconds, policy.calendar_ref
                 )
 
-        state.status = SlaStatus.RUNNING
-        state.paused_at = None
-        state.remaining_warning_seconds = None
-        state.remaining_breach_seconds = None
+        new_state.status = SlaStatus.RUNNING
+        new_state.paused_at = None
+        new_state.remaining_warning_seconds = None
+        new_state.remaining_breach_seconds = None
 
         if session is not None:
             sla_repo = SlaRepository(session)
-            await sla_repo.update_task_sla(state)
+            await sla_repo.update_task_sla(new_state)
+            await session.flush()
 
-        return state
+        self._states[task_id] = new_state
+        return new_state
 
     @contextmanager
     def transaction(self, tenant_id: str | None = None) -> Generator[None, None, None]:
@@ -361,13 +392,8 @@ class SlaService:
     async def _dispatch_to_outbox(outbox_repo: Any, envelope: Any) -> None:
         if hasattr(outbox_repo, "enqueue"):
             await outbox_repo.enqueue(envelope)
-        if hasattr(outbox_repo, "append"):
-            if not hasattr(outbox_repo, "enqueue") or (
-                hasattr(outbox_repo.append, "call_count")
-                and not getattr(outbox_repo.append, "_mock_side_effect", None)
-                and not getattr(outbox_repo.enqueue, "_mock_side_effect", None)
-            ):
-                await outbox_repo.append(envelope)
+        elif hasattr(outbox_repo, "append"):
+            await outbox_repo.append(envelope)
 
     async def evaluate_triggers(
         self,

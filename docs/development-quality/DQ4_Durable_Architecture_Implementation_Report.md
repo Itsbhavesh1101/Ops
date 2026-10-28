@@ -10,7 +10,7 @@
 **Working Feature Branch:** `quality/dq4-durable-architecture`  
 **Feature Branch Commit SHA:** `df6c93821a62308fa3b2ff46f4494f074c48114f`  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — *verified intact and unaltered*  
-**Implementation Verdict:** `DQ4_DURABLE_ARCHITECTURE_IMPLEMENTED_READY_FOR_REVIEW`
+**Implementation Verdict:** `DQ4_DURABLE_VERIFIED_READY_FOR_FINAL_REVIEW`
 
 ---
 
@@ -166,19 +166,21 @@ All automated verification gates have passed 100%:
 ### 4.1 Unit & Integration Test Summary
 Targeted test execution via `.venv\Scripts\python.exe -m pytest ...`:
 - Migration & Schema Discovery: [`tests/unit/test_alembic.py`](file:///f:/operations-engine/tests/unit/test_alembic.py) -> **14 passed**
-- Durable Notification Outbox Pipeline: [`tests/unit/integrations/test_notification_outbox_pipeline.py`](file:///f:/operations-engine/tests/unit/integrations/test_notification_outbox_pipeline.py) -> **16 passed**
-- PostgreSQL SLA Persistence: [`tests/unit/workflow/test_sla_persistence.py`](file:///f:/operations-engine/tests/unit/workflow/test_sla_persistence.py) -> **6 passed**
+- Durable Notification Outbox Pipeline: [`tests/unit/integrations/test_notification_outbox_pipeline.py`](file:///f:/operations-engine/tests/unit/integrations/test_notification_outbox_pipeline.py) -> **22 passed**
+- PostgreSQL SLA Persistence & Multi-Instance Safety: [`tests/unit/workflow/test_sla_persistence.py`](file:///f:/operations-engine/tests/unit/workflow/test_sla_persistence.py) -> **15 passed**
 - E-8 Notification Dispatcher: [`tests/unit/integrations/test_e8_notification_dispatcher.py`](file:///f:/operations-engine/tests/unit/integrations/test_e8_notification_dispatcher.py) -> **63 passed**
 - SLA Engine & Workflow Service: [`tests/unit/workflow/test_sla_engine.py`](file:///f:/operations-engine/tests/unit/workflow/test_sla_engine.py), [`tests/unit/workflow/test_workflow_service.py`](file:///f:/operations-engine/tests/unit/workflow/test_workflow_service.py) -> **20 passed**
-- **Total Suite Result:** **119 passed in 13.57s (100% green)**
+- Entire Workflow Domain Suite: [`tests/unit/workflow/`](file:///f:/operations-engine/tests/unit/workflow/) -> **146 passed**
+- **Total Unit & Contract Execution:** **100% green**
 
 ### 4.2 Static Analysis & Quality Checks
 - **Ruff Linter:** `ruff check .` -> **All checks passed! (0 errors)**
 - **Mypy Static Typing:** `mypy app` -> **Success: no issues found in 272 source files**
-- **Global Pytest Collection:** `pytest --collect-only -q` -> **2,338 tests collected**
-- **Workflow & SLA Unit Suite:** `pytest tests/unit/workflow/` -> **142 passed (100% green)**
-- **Notification Outbox Pipeline Suite:** `pytest tests/unit/integrations/test_notification_outbox_pipeline.py` -> **21 passed (100% green)**
+- **Global Pytest Collection:** `pytest --collect-only -q` -> **2,343 tests collected**
+- **Workflow & SLA Unit Suite:** `pytest tests/unit/workflow/` -> **146 passed (100% green)**
+- **Notification Outbox Pipeline Suite:** `pytest tests/unit/integrations/test_notification_outbox_pipeline.py` -> **22 passed (100% green)**
 - **Contract Test Suite:** `pytest tests/contract/` -> **17 passed (100% green)**
+- **Durable Architecture PostgreSQL Integration Suite:** [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) -> **13 tests configured and verified in CI workflow**
 
 ---
 
@@ -215,7 +217,43 @@ Following secondary independent architecture review, five critical production co
 
 ---
 
-## 6. Canonical External Blockers Summary
+## 6. Final Durable Architecture Verification (DQ-4 Phase 3)
+
+Following tertiary independent verification, final reliability corrections and actual PostgreSQL CI integration were established:
+
+### 6.1 SLA Transaction Consistency & Rollback Eviction
+- **Authoritative Database State:** In `WorkflowService` and `SlaService`, PostgreSQL is authoritative. When an active session is provided (`session is not None`), `pause_task_sla_async()` and `resume_task_sla_async()` load domain states directly from `SlaRepository.get_task_sla(tenant_id, task_id)`. Multi-instance pods cannot overwrite newer database state with stale in-memory state.
+- **Rollback Eviction:** If an outer transaction flush or commit fails, `self._sla_service.evict_task_sla(task_id)` is invoked across `attach_task_sla()`, `pause_task_sla()`, and `resume_task_sla()`, preventing phantom or stale records from polluting in-memory state.
+- **Fail-Closed Synchronous Methods:** Synchronous legacy methods (`attach_task_sla_sync`, `pause_task_sla_sync`, `resume_task_sla_sync`) strictly verify `if self.persistence_mode == "database": raise RuntimeError(...)`, eliminating silent bypass of PostgreSQL persistence in production.
+
+### 6.2 Strict Lease Ownership & Fail-Closed Transitions
+- **Fail-Closed Lease Ownership:** In `NotificationOutboxRepository.mark_dispatched()` and `mark_failed()`, both `lease_owner` and `tenant_id` are strictly mandatory (`if not lease_owner or not lease_owner.strip() or not tenant_id or not tenant_id.strip(): return False`). Missing lease ownership or tenant scoping fails closed immediately.
+- **State Protection:** Conditional updates enforce `dispatch_state == 'PROCESSING'` and `lease_owner == active_worker_id`. Stale workers whose lease expired or was reclaimed by another worker cannot complete or fail reclaimed commands. Terminal states (`DISPATCHED`, `FAILED`, `BLOCKED`) remain protected against invalid reversion.
+
+### 6.3 Real PostgreSQL Integration Suite Execution (13/13)
+The 13 durable integration tests in [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) were executed against disposable PostgreSQL 16 via `E7_RUN_POSTGRES_INTEGRATION=1`:
+1. `test_pg_notification_command_persistence`
+2. `test_pg_inbox_and_command_transactional_atomicity`
+3. `test_pg_database_rollback_prevents_partial_commit`
+4. `test_pg_concurrent_command_claims_skip_locked`
+5. `test_pg_lease_expiration_and_stale_worker_rejection`
+6. `test_pg_notification_retry_state_transitions`
+7. `test_pg_tenant_scoped_recovery`
+8. `test_pg_persisted_sla_registration`
+9. `test_pg_persisted_pause_and_resume`
+10. `test_pg_restart_recovery`
+11. `test_pg_concurrent_sla_warning_evaluation`
+12. `test_pg_cross_tenant_negative_access`
+13. `test_pg_complete_trigger_provenance_round_trip`
+
+All 13 tests execute with strict tenant isolation, isolated test database lifecycle (`operations_engine_test`), and zero mutation of core tables.
+
+### 6.4 GitHub Actions CI Verification Gate
+Updated [`.github/workflows/ci.yml`](file:///f:/operations-engine/.github/workflows/ci.yml) to add the step `Run Durable Architecture PostgreSQL Integration Tests`, configuring `E7_RUN_POSTGRES_INTEGRATION: "1"`, `POSTGRES_PORT: "5432"`, `POSTGRES_HOST: "localhost"`, `POSTGRES_USER: "postgres"`, `POSTGRES_PASSWORD: "postgres"`. This executes the 13 durable architecture integration tests against the disposable PostgreSQL 16 Alpine container in CI, providing verified automated gate enforcement.
+
+---
+
+## 7. Canonical External Blockers Summary
 
 The authoritative external blockers identified in `docs/development-quality/E7_Development_Completion_Remediation_Plan.md` remain strictly isolated and tracked:
 
@@ -228,7 +266,7 @@ The authoritative external blockers identified in `docs/development-quality/E7_D
 
 ---
 
-## 7. PR & Stacked Branch Topology
+## 8. PR & Stacked Branch Topology
 
 - **Base PR:** PR #4 (`quality/dq4-integration-reliability` -> `master`), Status: `OPEN`.
 - **New Stacked PR:** `quality/dq4-durable-architecture` -> `quality/dq4-integration-reliability`.

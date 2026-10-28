@@ -788,3 +788,210 @@ async def test_sla_repository_update_task_sla_fails_closed_cross_tenant() -> Non
     assert rec_a is not None
     assert rec_a.status == "RUNNING"
 
+
+# ==============================================================================
+# 9. SLA Transaction Consistency, Rollback Eviction & Multi-Instance Safety
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_attach_task_sla_rollback_evicts_in_memory_state() -> None:
+    """Commit failure in attach_task_sla rolls back DB and evicts in-memory state."""
+    session = InMemorySlaDbSession()
+
+    class FailingUow(SlaTestUnitOfWork):
+        async def commit(self) -> None:
+            raise RuntimeError("Simulated PostgreSQL commit conflict")
+
+    adapter = AsyncMock(spec=WorkflowAdapterProtocol)
+    service = WorkflowService(
+        uow_factory=lambda: FailingUow(session),  # type: ignore[arg-type]
+        adapter=adapter,
+        persistence_mode="database",
+    )
+    policy = SlaPolicyConfig(
+        policy_key="rollback_policy",
+        name="Rollback Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    service.register_sla_policy(policy)
+
+    task_id = uuid4()
+    inst_id = uuid4()
+    with pytest.raises(RuntimeError, match="Simulated PostgreSQL commit conflict"):
+        await service.attach_task_sla(
+            tenant_id="tenant-rollback",
+            instance_id=inst_id,
+            task_id=task_id,
+            policy_key="rollback_policy",
+        )
+
+    # In-memory cache must NOT retain phantom state
+    assert task_id not in service._sla_service._states
+    with pytest.raises(SlaTaskStateNotFoundError):
+        service._sla_service.get_task_sla(task_id)
+
+
+@pytest.mark.asyncio
+async def test_pause_and_resume_task_sla_rollback_evicts_in_memory_state() -> None:
+    """Commit failure in pause or resume evicts in-memory state and does not leave stale state."""
+    session = InMemorySlaDbSession()
+    adapter = AsyncMock(spec=WorkflowAdapterProtocol)
+
+    should_fail_commit = False
+
+    class MaybeFailingUow(SlaTestUnitOfWork):
+        async def commit(self) -> None:
+            if should_fail_commit:
+                raise RuntimeError("Simulated PostgreSQL commit error on pause")
+            await super().commit()
+
+    service = WorkflowService(
+        uow_factory=lambda: MaybeFailingUow(session),  # type: ignore[arg-type]
+        adapter=adapter,
+        persistence_mode="database",
+    )
+    policy = SlaPolicyConfig(
+        policy_key="pr_rollback_policy",
+        name="PR Rollback Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    service.register_sla_policy(policy)
+
+    task_id = uuid4()
+    inst_id = uuid4()
+    # Initial attach succeeds
+    await service.attach_task_sla(
+        tenant_id="tenant-pr-rb",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="pr_rollback_policy",
+    )
+    assert task_id in service._sla_service._states
+
+    # Fail pause commit
+    should_fail_commit = True
+    with pytest.raises(RuntimeError, match="Simulated PostgreSQL commit error on pause"):
+        await service.pause_task_sla(
+            tenant_id="tenant-pr-rb",
+            task_id=task_id,
+        )
+
+    # In-memory state was evicted on failed commit
+    assert task_id not in service._sla_service._states
+
+
+@pytest.mark.asyncio
+async def test_multi_instance_sla_cannot_overwrite_newer_database_state_with_stale_memory() -> None:
+    """Pod 1 with stale in-memory state cannot overwrite Pod 2's authoritative DB state."""
+    session = InMemorySlaDbSession()
+    adapter = AsyncMock(spec=WorkflowAdapterProtocol)
+
+    # Pod 1
+    pod1 = WorkflowService(
+        uow_factory=lambda: SlaTestUnitOfWork(session),  # type: ignore[arg-type]
+        adapter=adapter,
+        persistence_mode="database",
+    )
+    # Pod 2
+    pod2 = WorkflowService(
+        uow_factory=lambda: SlaTestUnitOfWork(session),  # type: ignore[arg-type]
+        adapter=adapter,
+        persistence_mode="database",
+    )
+
+    policy = SlaPolicyConfig(
+        policy_key="multi_inst_policy",
+        name="Multi Instance Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    pod1.register_sla_policy(policy)
+    pod2.register_sla_policy(policy)
+
+    t0 = datetime(2026, 10, 28, 10, 0, 0, tzinfo=UTC)
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    # Step 1: Pod 1 attaches SLA (status RUNNING)
+    await pod1.attach_task_sla(
+        tenant_id="tenant-multi",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="multi_inst_policy",
+        created_at=t0,
+    )
+    assert pod1._sla_service.get_task_sla(task_id).status == SlaStatus.RUNNING
+
+    # Step 2: Pod 2 pauses the SLA in PostgreSQL
+    t_pause = t0 + timedelta(minutes=10)
+    paused_state = await pod2.pause_task_sla(
+        tenant_id="tenant-multi",
+        task_id=task_id,
+        paused_at=t_pause,
+    )
+    assert paused_state.status == SlaStatus.PAUSED
+
+    # Authoritative record in PostgreSQL is PAUSED
+    repo = SlaRepository(session)
+    rec = await repo.get_task_sla("tenant-multi", task_id)
+    assert rec is not None
+    assert rec.status == "PAUSED"
+
+    # Step 3: Pod 1 attempts an operation with DB session.
+    # Because PostgreSQL is authoritative, Pod 1 reloads from DB rather than
+    # using its stale RUNNING memory!
+    t_resume = t0 + timedelta(minutes=20)
+    resumed = await pod1.resume_task_sla(
+        tenant_id="tenant-multi",
+        task_id=task_id,
+        resumed_at=t_resume,
+    )
+    assert resumed.status == SlaStatus.RUNNING
+    # Paused duration correctly calculated from Pod 2's pause timestamp
+    assert resumed.total_paused_seconds == 600
+
+
+@pytest.mark.asyncio
+async def test_synchronous_legacy_methods_fail_closed_in_database_persistence_mode() -> None:
+    """When persistence_mode='database', synchronous SLA methods raise RuntimeError."""
+    adapter = AsyncMock(spec=WorkflowAdapterProtocol)
+    session = InMemorySlaDbSession()
+    service = WorkflowService(
+        uow_factory=lambda: SlaTestUnitOfWork(session),  # type: ignore[arg-type]
+        adapter=adapter,
+        persistence_mode="database",
+    )
+    policy = SlaPolicyConfig(
+        policy_key="sync_closed_policy",
+        name="Sync Closed Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    service.register_sla_policy(policy)
+
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    with pytest.raises(RuntimeError, match="persistence_mode='database'"):
+        service.attach_task_sla_sync(
+            tenant_id="tenant-sc",
+            instance_id=inst_id,
+            task_id=task_id,
+            policy_key="sync_closed_policy",
+        )
+
+    with pytest.raises(RuntimeError, match="persistence_mode='database'"):
+        service.pause_task_sla_sync(
+            tenant_id="tenant-sc",
+            task_id=task_id,
+        )
+
+    with pytest.raises(RuntimeError, match="persistence_mode='database'"):
+        service.resume_task_sla_sync(
+            tenant_id="tenant-sc",
+            task_id=task_id,
+        )
+

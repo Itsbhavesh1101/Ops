@@ -299,24 +299,132 @@ async def test_outbox_repository_mark_failed_with_exponential_backoff() -> None:
     )
     rec = await repo.stage_command(command=cmd, max_retries=3)
 
+    # Claim 1st time
+    claimed1 = await repo.claim_pending_batch(limit=1, lease_owner="worker-retry")
+    assert len(claimed1) == 1
+    assert claimed1[0].dispatch_state == "PROCESSING"
+
     # First failure -> retry 1, backoff = 1.0s, state returns to PENDING
-    await repo.mark_failed("cmd-retry-001", error="E-8 timeout", retry_backoff_seconds=1.0)
+    ok1 = await repo.mark_failed(
+        "cmd-retry-001",
+        error="E-8 timeout",
+        lease_owner="worker-retry",
+        tenant_id="tenant-alpha",
+        retry_backoff_seconds=1.0,
+    )
+    assert ok1 is True
     assert rec.retry_count == 1
     assert rec.dispatch_state == "PENDING"
     assert rec.last_error == "E-8 timeout"
     assert rec.lease_owner is None
 
+    # Reset next_attempt_at for immediate re-claim
+    rec.next_attempt_at = datetime.now(UTC)
+    claimed2 = await repo.claim_pending_batch(limit=1, lease_owner="worker-retry")
+    assert len(claimed2) == 1
+
     # Second failure -> retry 2, backoff = 2.0s
-    await repo.mark_failed(
-        "cmd-retry-001", error="E-8 connection refused", retry_backoff_seconds=1.0
+    ok2 = await repo.mark_failed(
+        "cmd-retry-001",
+        error="E-8 connection refused",
+        lease_owner="worker-retry",
+        tenant_id="tenant-alpha",
+        retry_backoff_seconds=1.0,
     )
+    assert ok2 is True
     assert rec.retry_count == 2
     assert rec.dispatch_state == "PENDING"
 
+    # Reset next_attempt_at for 3rd attempt
+    rec.next_attempt_at = datetime.now(UTC)
+    claimed3 = await repo.claim_pending_batch(limit=1, lease_owner="worker-retry")
+    assert len(claimed3) == 1
+
     # Third failure -> retry 3 >= max_retries (3) -> terminal FAILED
-    await repo.mark_failed("cmd-retry-001", error="E-8 503 unavailable", retry_backoff_seconds=1.0)
+    ok3 = await repo.mark_failed(
+        "cmd-retry-001",
+        error="E-8 503 unavailable",
+        lease_owner="worker-retry",
+        tenant_id="tenant-alpha",
+        retry_backoff_seconds=1.0,
+    )
+    assert ok3 is True
     assert rec.retry_count == 3
     assert rec.dispatch_state == "FAILED"
+
+
+@pytest.mark.asyncio
+async def test_outbox_repository_missing_lease_owner_fails_closed() -> None:
+    """Missing or empty lease_owner / tenant_id fails closed for dispatch and failure."""
+    session = InMemoryOutboxDbSession()
+    repo = NotificationOutboxRepository(session)
+
+    cmd = NotificationCommand(
+        command_id="cmd-fail-closed-01",
+        correlation_reference="corr-fc",
+        organization_scope_reference="tenant-fc",
+        trigger=NotificationTrigger(
+            trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+            source_event_name="task.blocked",
+        ),
+        recipient_references=["urn:e7:cohort:faculty"],
+        notification_context={"task_id": "t1"},
+    )
+    await repo.stage_command(command=cmd)
+    claimed = await repo.claim_pending_batch(limit=1, lease_owner="worker-valid")
+    assert len(claimed) == 1
+
+    # mark_dispatched without lease_owner -> False
+    assert (
+        await repo.mark_dispatched("cmd-fail-closed-01", lease_owner=None, tenant_id="tenant-fc")
+        is False
+    )
+    assert (
+        await repo.mark_dispatched("cmd-fail-closed-01", lease_owner="", tenant_id="tenant-fc")
+        is False
+    )
+    assert (
+        await repo.mark_dispatched("cmd-fail-closed-01", lease_owner="   ", tenant_id="tenant-fc")
+        is False
+    )
+
+    # mark_dispatched without tenant_id -> False
+    assert (
+        await repo.mark_dispatched(
+            "cmd-fail-closed-01", lease_owner="worker-valid", tenant_id=None
+        )
+        is False
+    )
+    assert (
+        await repo.mark_dispatched("cmd-fail-closed-01", lease_owner="worker-valid", tenant_id="")
+        is False
+    )
+
+    # mark_failed without lease_owner -> False
+    assert (
+        await repo.mark_failed("cmd-fail-closed-01", lease_owner=None, tenant_id="tenant-fc")
+        is False
+    )
+    assert (
+        await repo.mark_failed("cmd-fail-closed-01", lease_owner="", tenant_id="tenant-fc")
+        is False
+    )
+
+    # mark_failed without tenant_id -> False
+    assert (
+        await repo.mark_failed(
+            "cmd-fail-closed-01", lease_owner="worker-valid", tenant_id=None
+        )
+        is False
+    )
+    assert (
+        await repo.mark_failed("cmd-fail-closed-01", lease_owner="worker-valid", tenant_id="")
+        is False
+    )
+
+    # Still in PROCESSING owned by worker-valid
+    assert claimed[0].dispatch_state == "PROCESSING"
+    assert claimed[0].lease_owner == "worker-valid"
 
 
 # ==============================================================================
