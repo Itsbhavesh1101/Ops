@@ -12,6 +12,7 @@ In Task 1I.4B, active models are strictly:
 from app.audit.models import AuditEventRecord
 from app.core.idempotency.models import IdempotencyRecord
 from app.core.jobs.models import JobModel
+from app.db.models.notification_outbox import NotificationOutboxCommandRecord
 from app.db.models.planning import (
     GoalRecord,
     MilestoneRecord,
@@ -31,7 +32,6 @@ from app.db.models.scheduling import (
     ScheduleRecord,
     SolverProfileRecord,
 )
-from app.db.models.notification_outbox import NotificationOutboxCommandRecord
 from app.db.models.service_credential import ServiceApiKeyCredentialRecordModel
 from app.db.models.sla import SlaPolicyRecord, TaskSlaStateRecord
 from app.db.models.workflow import (
