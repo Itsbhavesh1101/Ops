@@ -2,15 +2,16 @@
 ## Phase DQ-4: Durable Architecture Implementation Report
 ### Option C Two-Stage Notification Outbox, PostgreSQL-Backed SLA Persistence, Fail-Closed Recipient Governance, and Administrative Recovery
 
-**Date:** 28 October 2026  
+**Date:** 29 October 2026  
 **Repository:** `F:\operations-engine`  
 **Base Branch:** `quality/dq4-integration-reliability`  
 **Existing Base PR:** [PR #4](https://github.com/Itsbhavesh1101/Ops/pull/4) (Status: **OPEN**, unmerged)  
 **Verified Base Commit SHA:** `e97ec8a66402f54beb4e56bc1824b61fe7096af5`  
 **Working Feature Branch:** `quality/dq4-durable-architecture`  
-**Feature Branch Commit SHA:** `3622aa48d3db096c1df348f94eb95a86a60e039e`  
+**Stacked PR:** [PR #5](https://github.com/Itsbhavesh1101/Ops/pull/5) (Status: **OPEN**, unmerged)  
+**Feature Branch Baseline SHA:** `f01b8d76648e998d72ef58aea284957065b573f0`  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — *verified intact and unaltered*  
-**Implementation Verdict:** `DQ4_DURABLE_VERIFIED_READY_FOR_FINAL_REVIEW`
+**Implementation Verdict:** `DQ4_ENGINEERING_DECISIONS_RECORDED_FORMAL_APPROVAL_PENDING`
 
 ---
 
@@ -307,19 +308,19 @@ The PostgreSQL integration test suite in [`tests/integration/postgres/test_durab
 15. `test_pg_concurrent_sla_pause_resume_row_locking`
 16. `test_pg_external_session_rollback_authoritative_reloading`
 
-### 7.5 Verified GitHub Actions CI Evidence (Runs 40757140210 & 40757128773)
-- **Pull Request CI Run:** [Run 40757140210](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757140210) — **SUCCESS** (3m21s)
-  - `Phase-1 Foundation & CI Baseline`: **SUCCESS** (3m17s)
+### 7.5 Verified GitHub Actions CI Evidence (Runs 40757937011 & 40757925636)
+- **Pull Request CI Run:** [Run 40757937011](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757937011) — **SUCCESS** (2m44s)
+  - `Phase-1 Foundation & CI Baseline`: **SUCCESS** (2m40s)
   - `Compile python source files`: **SUCCESS** (0 syntax/compilation errors)
   - `Run Ruff (linter & format checks)`: **SUCCESS** (`All checks passed!`)
   - `Run Mypy (type check)`: **SUCCESS** (`Success: no issues found in 272 source files`)
-  - `Verify Global Pytest Collection`: **2,348 tests collected** in 10.87s
+  - `Verify Global Pytest Collection`: **2,348 tests collected** in 11.45s
   - `Apply Database Migrations`: **SUCCESS** (Alembic upgraded head on PostgreSQL 16 container)
-  - `Run Pytest (unit & contract test suites)`: **1,962 passed, 6 skipped** in 46.85s
-  - `Run Task Intelligence PostgreSQL Integration Tests`: **10 passed** in 4.19s
-  - `Run Durable Architecture PostgreSQL Integration Tests`: **16 passed in 3.89s (100% green)**
-  - `Frontend Quality Gates & Tests`: **146 passed** in 1m3s
-- **Branch Push CI Run:** [Run 40757128773](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757128773) — **SUCCESS** (3m26s)
+  - `Run Pytest (unit & contract test suites)`: **1,962 passed, 6 skipped** in 47.12s
+  - `Run Task Intelligence PostgreSQL Integration Tests`: **10 passed** in 4.12s
+  - `Run Durable Architecture PostgreSQL Integration Tests`: **16 passed in 3.12s (100% green)**
+  - `Frontend Quality Gates & Tests`: **146 passed** in 1m1s
+- **Branch Push CI Run:** [Run 40757925636](https://github.com/Itsbhavesh1101/Ops/actions/runs/40757925636) — **SUCCESS** (3m16s)
 
 ---
 
@@ -343,3 +344,32 @@ The authoritative external blockers identified in `docs/development-quality/E7_D
 - **Targeting Strategy:** By stacking this engineering PR against `quality/dq4-integration-reliability`, PR #4 remains clean and reviewable with its accepted baseline, while the durable architecture additions are isolated for dedicated Architecture Review Board evaluation.
 - Neither PR #4 nor PR #5 is merged.
 - Phase DQ-5 has not been started.
+
+---
+
+## 10. Engineering Decision Ratification & Governance Separation
+
+Under delegation from the project owner, the engineering reviewer has ratified the technical architecture selections for integration durability and governance. The complete rationale, implementation references, automated test evidence, and operational limits are recorded in:
+- **Engineering Decision Record:** [`docs/development-quality/DQ4_Engineering_Decision_Record.md`](file:///f:/operations-engine/docs/development-quality/DQ4_Engineering_Decision_Record.md)
+- **Proposed ADR-012 Amendment:** [`docs/adr/ADR-012-AMENDMENT-PROPOSED.md`](file:///f:/operations-engine/docs/adr/ADR-012-AMENDMENT-PROPOSED.md)
+- **E-8 Governance Handoff Specification:** [`docs/development-quality/E8_Governance_Handoff_Specification.md`](file:///f:/operations-engine/docs/development-quality/E8_Governance_Handoff_Specification.md)
+
+### 10.1 Four-Tier Governance Separation
+
+To prevent governance ambiguity or accidental production deployment, four discrete governance tiers are strictly enforced:
+
+| Governance Tier | Meaning & Boundaries | Current Code & Architecture State |
+|---|---|---|
+| **`ENGINEERING_DESIGN_APPROVED`** | The engineering reviewer has approved the technical architecture, code implementations, and unit/integration test suites for design and verification purposes. | • AD-DQ4-01: Option C two-stage outbox (`notification_outbox_commands`)<br>• AD-DQ4-02: PostgreSQL SLA state persistence (`task_sla_states`)<br>• DEC-E8-02: Fail-closed recipient governance<br>• DEC-E8-04: Structured context and provenance preservation<br>• REC-E8-01: Authenticated administrative recovery (`NotificationRecoveryService`)<br>• GOV-E8-01: Default-disabled delivery safeguard<br>• 16/16 PostgreSQL integration tests passing in CI. |
+| **`FORMAL_ARB_APPROVAL_PENDING`** | The internal Architecture Review Board (ARB) must formally convene to review and accept the proposed ADR-012 amendment and database migrations before formal merge. | • Accepted `ADR-012-e8-notification-boundary.md` remains unmodified.<br>• Proposed amendment drafted in `docs/adr/ADR-012-AMENDMENT-PROPOSED.md`.<br>• Neither PR #4 nor PR #5 is merged. |
+| **`INSTITUTIONAL_APPROVAL_PENDING`** | External university IT, Communications, and Registrar stakeholders must formally sign off on recipient directory resolution schemas and message template catalogues. | • Specification drafted in `docs/development-quality/E8_Governance_Handoff_Specification.md`.<br>• Institutional confirmation is explicitly disclosed as outstanding.<br>• Zero PII is persisted in E-7. |
+| **`PRODUCTION_ACTIVATION_BLOCKED`** | Live external dispatch to E-8 endpoints remains completely disabled and runtime-gated. | • Enforced by fail-closed default `NotificationSettings.enabled = False`.<br>• Enforced by `allow_provisional_recipients = False`.<br>• Gated by canonical external blocker `BLK-03: E8_NOTIFICATION_INTEGRATION`. |
+
+---
+
+## 11. Final Status & Exit Verdict
+
+```
+DQ4_ENGINEERING_DECISIONS_RECORDED_FORMAL_APPROVAL_PENDING
+```
+*(Neither PR #4 nor PR #5 is merged. Phase DQ-5 has not been started. Production deployment remains blocked.)*
