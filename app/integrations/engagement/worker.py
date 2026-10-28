@@ -94,6 +94,9 @@ class NotificationWorker:
                 rabbitmq_consumer_binding_keys=(
                     "*.schedule.published",
                     "*.schedule.changed",
+                    "*.task.blocked",
+                    "*.workflow.task.created",
+                    "*.workflow.sla.warning",
                 ),
                 rabbitmq_dead_letter_exchange_name=os.getenv(
                     "E7_NOTIFICATION_DLX", "e7.notifications.dlx"

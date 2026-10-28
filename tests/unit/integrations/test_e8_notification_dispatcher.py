@@ -96,7 +96,7 @@ def create_test_command(command_id: str = "cmd-pub-101") -> NotificationCommand:
             source_event_name="schedule.published",
             source_entity_reference="sch-101",
         ),
-        recipient_references=["faculty-lead@school.edu"],
+        recipient_references=["urn:e7:cohort:faculty"],
         notification_context={"schedule_id": "sch-101", "version": 1},
     )
 
@@ -550,6 +550,140 @@ def test_privacy_boundary_rejects_plaintext_phone_numbers() -> None:
         )
 
 
+def test_privacy_boundary_rejects_plaintext_email_addresses() -> None:
+    """Enforces strict rejection of plaintext email addresses in recipient_references."""
+    prohibited_emails = [
+        "faculty-lead@school.edu",
+        "student.alpha@university.ac.in",
+        "admin@irinfotech.com",
+        "user.name+tag@domain.co.uk",
+    ]
+    for email in prohibited_emails:
+        with pytest.raises(ValueError, match="Plaintext email address"):
+            NotificationCommand(
+                command_id="cmd-email-privacy",
+                correlation_reference="corr-204",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[email],
+                notification_context={"schedule_id": "sch-01"},
+            )
+
+
+def test_privacy_boundary_rejects_unauthorized_personal_identifiers() -> None:
+    """Enforces rejection of personal identifiers (SSNs, names, DOBs) in recipient_references."""
+    prohibited_pii = [
+        "student_name:Alice Smith",
+        "student_ssn:123-45-6789",
+        "ssn:987654321",
+        "social_security:000112222",
+        "student_dob:2005-01-15",
+        "national_id:IN-445566",
+        "passport:Z1234567",
+        "first_name:John",
+        "last_name:Doe",
+    ]
+    for pii in prohibited_pii:
+        with pytest.raises(ValueError, match="Unauthorized personal identifier"):
+            NotificationCommand(
+                command_id="cmd-pii-privacy",
+                correlation_reference="corr-205",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[pii],
+                notification_context={"schedule_id": "sch-01"},
+            )
+
+
+def test_privacy_boundary_rejects_raw_institutional_mysql_identifiers() -> None:
+    """Enforces strict rejection of raw upstream MySQL primary keys and entity prefixes."""
+    prohibited_mysql = [
+        "104",
+        "42",
+        "students.id: 104",
+        "staff.id:20",
+        "mysql:staff:5",
+        "iredu:student:99",
+        "mysql_id:501",
+    ]
+    raw_pattern = r"(Raw numeric/MySQL primary key|Raw institutional MySQL identifier)"
+    for raw_id in prohibited_mysql:
+        with pytest.raises(ValueError, match=raw_pattern):
+            NotificationCommand(
+                command_id="cmd-mysql-privacy",
+                correlation_reference="corr-206",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[raw_id],
+                notification_context={"schedule_id": "sch-01"},
+            )
+
+
+def test_privacy_boundary_rejects_malformed_recipient_references() -> None:
+    """Enforces rejection of malformed, control character, or injection strings in recipients."""
+    malformed_refs = [
+        "",
+        "   ",
+        "usr\nfake",
+        "usr\tfake",
+        "usr\x00malicious",
+        "usr; DROP TABLE users;",
+        "usr--comment",
+        "usr/*comment*/",
+        "x" * 257,
+    ]
+    for malformed in malformed_refs:
+        with pytest.raises(ValueError):
+            NotificationCommand(
+                command_id="cmd-malformed-privacy",
+                correlation_reference="corr-207",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[malformed],
+                notification_context={"schedule_id": "sch-01"},
+            )
+
+
+def test_privacy_boundary_accepts_valid_opaque_recipient_formats() -> None:
+    """Enforces successful acceptance of all authorized canonical opaque recipient formats."""
+    valid_opaque_refs = [
+        "urn:e7:cohort:faculty",
+        "urn:e7:cohort:faculty-all",
+        "urn:e7:role:student_representative",
+        "urn:e7:role:task_manager",
+        "urn:e7:role:escalation_manager",
+        "usr-101",
+        "user:principal_alpha",
+        "invigilator-001",
+        "<opaque_recipient_ref_1>",
+        "c56a4180-65aa-42ec-a945-5fd21dec0538",
+    ]
+    cmd = NotificationCommand(
+        command_id="cmd-valid-opaque",
+        correlation_reference="corr-208",
+        organization_scope_reference="tenant-alpha",
+        trigger=NotificationTrigger(
+            trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+            source_event_name="schedule.published",
+        ),
+        recipient_references=valid_opaque_refs,
+        notification_context={"schedule_id": "sch-01"},
+    )
+    assert cmd.recipient_references == valid_opaque_refs
+
+
 def test_handlers_support_default_dispatcher_resolution() -> None:
     """Handlers default to get_notification_dispatcher() when dispatcher is not passed."""
     from app.integrations.engagement.dispatcher import NotificationDispatcherProtocol
@@ -590,7 +724,7 @@ async def test_notification_consumer_handler_routes_published_and_changed() -> N
     assert call_cmd.trigger.source_event_name == "schedule.published"
     assert call_cmd.notification_context["schedule_id"] == "sch-101"
 
-    # 2. schedule.changed
+    # 2. schedule.changed (source-backed business condition)
     envelope_chg = EventEnvelope(
         event_id=uuid4(),
         event_type="schedule.changed",
@@ -607,10 +741,83 @@ async def test_notification_consumer_handler_routes_published_and_changed() -> N
     await handler.handle(envelope=envelope_chg, session=mock_session)
     assert mock_dispatcher.dispatch.call_count == 2
     call_cmd_chg = mock_dispatcher.dispatch.call_args[1]["command"]
-    assert call_cmd_chg.trigger.source_event_name == "schedule.changed"
+    assert call_cmd_chg.trigger.trigger_kind == TriggerKind.SOURCE_BACKED_BUSINESS_CONDITION
+    assert call_cmd_chg.trigger.business_condition == "SCHEDULE_CHANGE_NOTICE"
+    assert call_cmd_chg.trigger.source_entity_reference == "sch-101"
     assert call_cmd_chg.notification_context["new_version"] == 2
 
-    # 3. Unrelated event is safely ignored
+    # 3. task.blocked (source-verified event)
+    envelope_blk = EventEnvelope(
+        event_id=uuid4(),
+        event_type="task.blocked",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        correlation_id="corr-3",
+        payload={
+            "task_id": "task-77",
+            "plan_id": "plan-1",
+            "blocked_reason": "resource conflict on room 101",
+        },
+    )
+    await handler.handle(envelope=envelope_blk, session=mock_session)
+    assert mock_dispatcher.dispatch.call_count == 3
+    call_cmd_blk = mock_dispatcher.dispatch.call_args[1]["command"]
+    assert call_cmd_blk.trigger.trigger_kind == TriggerKind.SOURCE_VERIFIED_EVENT
+    assert call_cmd_blk.trigger.source_event_name == "task.blocked"
+    assert call_cmd_blk.trigger.source_entity_reference == "task-77"
+    assert call_cmd_blk.recipient_references == ["urn:e7:role:task_manager"]
+    assert call_cmd_blk.notification_context["template_id"] == "TASK_BLOCKED_ALERT"
+    assert call_cmd_blk.notification_context["blocked_reason"] == "resource conflict on room 101"
+
+    # 4. workflow.task.created (source-verified event)
+    envelope_wfc = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.task.created",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        correlation_id="corr-4",
+        payload={
+            "workflow_task_id": "wt-88",
+            "task_name": "Review Timetable Draft",
+            "assignee": "invigilator-01",
+            "due_at": "2026-10-29T10:00:00Z",
+        },
+    )
+    await handler.handle(envelope=envelope_wfc, session=mock_session)
+    assert mock_dispatcher.dispatch.call_count == 4
+    call_cmd_wfc = mock_dispatcher.dispatch.call_args[1]["command"]
+    assert call_cmd_wfc.trigger.trigger_kind == TriggerKind.SOURCE_VERIFIED_EVENT
+    assert call_cmd_wfc.trigger.source_event_name == "workflow.task.created"
+    assert call_cmd_wfc.trigger.source_entity_reference == "wt-88"
+    assert call_cmd_wfc.recipient_references == ["user:invigilator-01"]
+    assert call_cmd_wfc.notification_context["template_id"] == "WORKFLOW_TASK_ASSIGNED"
+    assert call_cmd_wfc.notification_context["task_name"] == "Review Timetable Draft"
+
+    # 5. workflow.sla.warning (source-verified event)
+    envelope_sla = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.sla.warning",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        correlation_id="corr-5",
+        payload={
+            "workflow_task_id": "wt-88",
+            "policy_key": "exam_scheduling_sla",
+            "breach_at": "2026-10-29T12:00:00Z",
+            "action": "ESCALATE_TO_SUPERVISOR",
+        },
+    )
+    await handler.handle(envelope=envelope_sla, session=mock_session)
+    assert mock_dispatcher.dispatch.call_count == 5
+    call_cmd_sla = mock_dispatcher.dispatch.call_args[1]["command"]
+    assert call_cmd_sla.trigger.trigger_kind == TriggerKind.SOURCE_VERIFIED_EVENT
+    assert call_cmd_sla.trigger.source_event_name == "workflow.sla.warning"
+    assert call_cmd_sla.trigger.source_entity_reference == "wt-88"
+    assert call_cmd_sla.recipient_references == ["urn:e7:role:escalation_manager"]
+    assert call_cmd_sla.notification_context["template_id"] == "WORKFLOW_SLA_WARNING"
+    assert call_cmd_sla.notification_context["policy_key"] == "exam_scheduling_sla"
+
+    # 6. Unrelated event is safely ignored
     envelope_unrelated = EventEnvelope(
         event_id=uuid4(),
         event_type="user.created",
@@ -619,7 +826,7 @@ async def test_notification_consumer_handler_routes_published_and_changed() -> N
         payload={"user_id": "u-1"},
     )
     await handler.handle(envelope=envelope_unrelated, session=mock_session)
-    assert mock_dispatcher.dispatch.call_count == 2  # unchanged
+    assert mock_dispatcher.dispatch.call_count == 5  # unchanged
 
 
 @pytest.mark.asyncio
