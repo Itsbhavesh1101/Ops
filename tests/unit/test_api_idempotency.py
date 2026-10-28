@@ -746,7 +746,7 @@ class TestDatabaseSchemaStability:
         heads = script.get_heads()
 
         assert len(heads) == 1
-        assert heads[0] == "0014"
+        assert heads[0] == "0016"
         rev_0008 = script.get_revision("0008")
         assert rev_0008 is not None
         assert rev_0008.down_revision == "0007"
@@ -773,6 +773,14 @@ class TestDatabaseSchemaStability:
         assert rev_0014 is not None
         assert rev_0014.down_revision == "0013"
 
+        rev_0015 = script.get_revision("0015")
+        assert rev_0015 is not None
+        assert rev_0015.down_revision == "0014"
+
+        rev_0016 = script.get_revision("0016")
+        assert rev_0016 is not None
+        assert rev_0016.down_revision == "0015"
+
     def test_no_migration_0008_exists(self) -> None:
         versions_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
@@ -785,7 +793,7 @@ class TestDatabaseSchemaStability:
             versions_dir = os.path.join("app", "db", "migrations", "versions")
 
         version_files = os.listdir(versions_dir)
-        has_0014 = any(vf.startswith("0014") for vf in version_files)
-        assert has_0014, "Migration 0014 must exist for Phase 8D"
+        has_0016 = any(vf.startswith("0016") for vf in version_files)
+        assert has_0016, "Migration 0016 must exist for Phase DQ-4"
         for vf in version_files:
-            assert not vf.startswith("0015"), f"Unexpected migration file found beyond 0014: {vf}"
+            assert not vf.startswith("0017"), f"Unexpected migration file found beyond 0016: {vf}"

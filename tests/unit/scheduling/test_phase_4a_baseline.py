@@ -84,11 +84,23 @@ def test_flowable_and_alembic_internal_tables_absent_from_orm() -> None:
 
 
 def test_alembic_head_and_migration_lineage() -> None:
-    """Verify Alembic head is exactly '0014' with down_revision '0013' and correct filename."""
+    """Verify Alembic head is exactly '0016' with down_revision '0015' and correct filename."""
     cfg = Config(str(ALEMBIC_INI))
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    assert heads == ["0014"], f"Expected single head ['0014'], got {heads}"
+    assert heads == ["0016"], f"Expected single head ['0016'], got {heads}"
+
+    rev_0016 = script.get_revision("0016")
+    assert rev_0016 is not None
+    assert rev_0016.down_revision == "0015"
+    assert rev_0016.path is not None
+    assert rev_0016.path.endswith("0016_create_task_sla_states.py")
+
+    rev_0015 = script.get_revision("0015")
+    assert rev_0015 is not None
+    assert rev_0015.down_revision == "0014"
+    assert rev_0015.path is not None
+    assert rev_0015.path.endswith("0015_create_notification_outbox.py")
 
     rev_0014 = script.get_revision("0014")
     assert rev_0014 is not None
@@ -115,7 +127,7 @@ def test_alembic_head_and_migration_lineage() -> None:
     assert rev_0011.path.endswith("0011_create_generic_scheduling_core.py")
 
     all_revs = [rev.revision for rev in script.walk_revisions()]
-    assert not any("0015" in r for r in all_revs), "Migration 0015 must not exist"
+    assert not any("0017" in r for r in all_revs), "Migration 0017 must not exist"
 
 
 def test_rtm_source_requirements_present_once_each() -> None:

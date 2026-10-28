@@ -26,7 +26,7 @@ def test_migration_0007_revision_chain() -> None:
     script_dir = ScriptDirectory.from_config(config)
 
     head = script_dir.get_current_head()
-    assert head == "0014"
+    assert head == "0016"
 
     rev_0007 = script_dir.get_revision("0007")
     assert rev_0007 is not None
@@ -61,7 +61,7 @@ def test_migration_0007_revision_chain() -> None:
 
 
 def test_no_migration_beyond_0007_exists() -> None:
-    """Verify migration 0014 exists and zero migration beyond 0014 exists."""
+    """Verify migration 0016 exists and zero migration beyond 0016 exists."""
     versions_dir = Path("app/db/migrations/versions")
     migration_files = [f.name for f in versions_dir.glob("*.py")]
     assert any(f.startswith("0007") for f in migration_files)
@@ -71,7 +71,9 @@ def test_no_migration_beyond_0007_exists() -> None:
     assert any(f.startswith("0012") for f in migration_files)
     assert any(f.startswith("0013") for f in migration_files)
     assert any(f.startswith("0014") for f in migration_files)
-    assert not any(f.startswith("0015") for f in migration_files)
+    assert any(f.startswith("0015") for f in migration_files)
+    assert any(f.startswith("0016") for f in migration_files)
+    assert not any(f.startswith("0017") for f in migration_files)
 
 
 def test_migration_0007_ast_operations() -> None:
