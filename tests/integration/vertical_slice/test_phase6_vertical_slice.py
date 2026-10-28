@@ -464,7 +464,7 @@ async def test_phase6_unified_semester_exam_vertical_slice() -> None:
             }
             for asgn in assignments
         ],
-        "recipients": ["faculty-all@school.edu", "students-grade10@school.edu"],
+        "recipients": ["urn:e7:cohort:faculty", "urn:e7:cohort:students-grade10"],
     }
     schedule_published_envelope = create_event_envelope(
         EventCreate(
@@ -530,7 +530,7 @@ async def test_phase6_unified_semester_exam_vertical_slice() -> None:
     notification_dispatcher = MockNotificationDispatcher()
     pub_notif_handler = SchedulePublishedNotificationHandler(
         dispatcher=notification_dispatcher,
-        default_recipients=["faculty-all@school.edu", "students-grade10@school.edu"],
+        default_recipients=["urn:e7:cohort:faculty", "urn:e7:cohort:students-grade10"],
     )
     pub_notif_processor = ConsumerEventProcessor(
         consumer_name="notification.schedule_published_consumer",
@@ -717,7 +717,7 @@ async def test_phase6_unified_semester_exam_vertical_slice() -> None:
                 "old_version": 1,
                 "new_version": 2,
                 "repair_reason": "resource.unavailable",
-                "recipients": ["faculty-all@school.edu"],
+                "recipients": ["urn:e7:cohort:faculty"],
             },
         )
     )
@@ -728,7 +728,7 @@ async def test_phase6_unified_semester_exam_vertical_slice() -> None:
 
     chg_notif_handler = ScheduleChangedNotificationHandler(
         dispatcher=notification_dispatcher,
-        default_recipients=["faculty-all@school.edu"],
+        default_recipients=["urn:e7:cohort:faculty"],
     )
     chg_notif_processor = ConsumerEventProcessor(
         consumer_name="notification.schedule_changed_consumer",
@@ -907,7 +907,7 @@ async def test_phase6_unified_semester_exam_vertical_slice() -> None:
             source_event_name="schedule.published",
             source_entity_reference=str(schedule_v1_id),
         ),
-        recipient_references=["faculty-all@school.edu"],
+        recipient_references=["urn:e7:cohort:faculty"],
         notification_context={"template_id": "EXAM_SCHEDULE_PUBLISHED"},
     )
     dup_disp = await notification_dispatcher.dispatch(command=dup_notif_cmd)
