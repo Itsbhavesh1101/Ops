@@ -70,7 +70,7 @@ jobs:
 
       - name: Run Pytest (unit & contract test suites)
         run: |
-          pytest tests/unit/ -q --tb=short
+          pytest tests/unit/ tests/contract/ -q --tb=short
 
       - name: Run Task Intelligence PostgreSQL Integration Tests
         env:

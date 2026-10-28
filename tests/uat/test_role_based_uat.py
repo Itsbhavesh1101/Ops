@@ -1572,7 +1572,7 @@ class TestUatExpandedCrossTenant:
         """UAT-ISOLATION-AUDIT-001: Foreign tenant auditor queries audit log and
         receives zero Alpha records.
         """
-        foreign_auditor_headers = uat_context.get_auth_headers("foreign_user", UAT_TENANT_BETA)
+        foreign_auditor_headers = uat_context.get_auth_headers("foreign_auditor", UAT_TENANT_BETA)
         res = client.get("/api/v1/audit", headers=foreign_auditor_headers)
         assert res.status_code == 200
         events = res.json()

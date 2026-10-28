@@ -125,9 +125,20 @@ def create_calendar_router(
     return router
 
 
-def register_calendar_routes(parent_router: APIRouter) -> None:
+def register_calendar_routes(
+    parent_router: APIRouter,
+    session_dependency: Callable[..., Any] = get_db_session,
+    webhook_handler: GoogleCalendarWebhookHandler | None = None,
+    adapter: CalendarAdapter | None = None,
+    sync_service: InboundCalendarSyncService | None = None,
+) -> None:
     """Register Google Calendar webhook integration routes onto a parent router."""
-    calendar_router = create_calendar_router()
+    calendar_router = create_calendar_router(
+        session_dependency=session_dependency,
+        webhook_handler=webhook_handler,
+        adapter=adapter,
+        sync_service=sync_service,
+    )
     parent_router.include_router(
         calendar_router, prefix="/integrations/calendar", tags=["Calendar"]
     )
