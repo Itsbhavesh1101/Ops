@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.sla import TaskSlaStateRecord
 from app.db.repositories.base import SqlAlchemyRepository
-from app.workflow.sla.models import SlaStatus, TaskSlaState
+from app.workflow.sla.models import SlaStatus, SlaTaskStateNotFoundError, TaskSlaState
 
 
 class SlaRepository(SqlAlchemyRepository):
@@ -60,17 +60,6 @@ class SlaRepository(SqlAlchemyRepository):
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def get_by_task_id(
-        self,
-        task_id: UUID,
-    ) -> TaskSlaStateRecord | None:
-        """Retrieve task SLA state by task_id across tenants (system lookup)."""
-        stmt = select(TaskSlaStateRecord).where(
-            TaskSlaStateRecord.task_id == task_id,
-        )
-        result = await self.session.execute(stmt)
-        return result.scalars().first()
-
     async def create_task_sla(
         self,
         state: TaskSlaState,
@@ -101,14 +90,17 @@ class SlaRepository(SqlAlchemyRepository):
         self,
         state: TaskSlaState,
     ) -> TaskSlaStateRecord:
-        """Update existing task SLA state in place."""
+        """Update existing task SLA state in place.
+
+        Strictly tenant-scoped. Raises SlaTaskStateNotFoundError if the SLA state
+        record does not exist in the specified tenant. Never falls back across tenants.
+        """
         record = await self.get_task_sla(tenant_id=state.tenant_id, task_id=state.task_id)
         if record is None:
-            # If not found by tenant, attempt by task_id
-            record = await self.get_by_task_id(task_id=state.task_id)
-
-        if record is None:
-            return await self.create_task_sla(state)
+            raise SlaTaskStateNotFoundError(
+                f"Task SLA state for task '{state.task_id}' not found in "
+                f"tenant '{state.tenant_id}'."
+            )
 
         record.status = state.status.value
         record.warning_at = state.warning_at

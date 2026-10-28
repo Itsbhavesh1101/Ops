@@ -7,6 +7,8 @@ Enforces:
 - Automatic exponential retry backoff on recoverable delivery failures.
 - Append-only audit logging for dispatch successes and failures.
 - Clean shutdown via asyncio.Event.
+- Strict lease ownership enforcement: only the active lease owner can transition PROCESSING records.
+- Fail-closed activation: poll_and_deliver is a no-op when NotificationSettings.enabled=False.
 """
 
 import asyncio
@@ -23,12 +25,10 @@ from app.integrations.engagement.dispatcher import (
     NotificationDispatcherProtocol,
     get_notification_dispatcher,
 )
-from app.integrations.engagement.models import (
-    NotificationCommand,
-    NotificationTrigger,
-    TriggerKind,
+from app.integrations.engagement.repository import (
+    NotificationOutboxRepository,
+    sanitize_notification_error,
 )
-from app.integrations.engagement.repository import NotificationOutboxRepository
 
 logger = structlog.get_logger(__name__)
 
@@ -49,7 +49,14 @@ class NotificationDeliveryWorker:
         self.worker_id = worker_id or f"notif-worker-{uuid4().hex[:8]}"
 
     async def poll_and_deliver(self) -> int:
-        """Poll a batch of pending commands and deliver them to E-8 outside DB transactions."""
+        """Poll a batch of pending commands and deliver them to E-8 outside DB transactions.
+
+        If NotificationSettings.enabled is False, this method immediately returns 0 without
+        claiming records or initiating external dispatch (fail-closed governance).
+        """
+        if not self.settings.enabled:
+            return 0
+
         # Step 1: Claim batch in a short transactional block
         async with self.session_factory() as session:
             repo = NotificationOutboxRepository(session)
@@ -72,28 +79,29 @@ class NotificationDeliveryWorker:
         delivered_count = 0
         for record in records:
             try:
-                # Reconstruct typed canonical command
-                cmd = NotificationCommand(
-                    command_id=record.command_id,
-                    correlation_reference=record.correlation_reference,
-                    causation_reference=record.causation_reference,
-                    organization_scope_reference=record.tenant_id,
-                    trigger=NotificationTrigger(
-                        trigger_kind=TriggerKind(record.trigger_kind),
-                        source_event_name=record.source_event_name,
-                        source_entity_reference=record.source_entity_reference,
-                    ),
-                    recipient_references=record.recipient_references,
-                    notification_context=record.notification_context,
-                )
+                # Reconstruct typed canonical command preserving business_condition
+                cmd = NotificationOutboxRepository.to_command(record)
 
                 # Step 2: Execute remote dispatch STRICTLY OUTSIDE any database session
                 await self.dispatcher.dispatch(command=cmd, session=None)
 
-                # Step 3: Mark dispatched in a dedicated short transaction
+                # Step 3: Mark dispatched enforcing lease ownership
                 async with self.session_factory() as mark_session:
                     mark_repo = NotificationOutboxRepository(mark_session)
-                    await mark_repo.mark_dispatched(record.command_id)
+                    dispatched_ok = await mark_repo.mark_dispatched(
+                        record.command_id,
+                        lease_owner=self.worker_id,
+                        tenant_id=record.tenant_id,
+                    )
+                    if not dispatched_ok:
+                        logger.warning(
+                            "notification_delivery_lease_lost_or_state_changed",
+                            worker_id=self.worker_id,
+                            command_id=record.command_id,
+                            tenant_id=record.tenant_id,
+                        )
+                        await mark_session.rollback()
+                        continue
 
                     audit_repo = AuditRepository(mark_session)
                     await audit_repo.append(
@@ -112,6 +120,7 @@ class NotificationDeliveryWorker:
                                 "transport": self.settings.transport,
                                 "trigger_kind": record.trigger_kind,
                                 "source_event": record.source_event_name,
+                                "business_condition": record.business_condition,
                                 "recipient_count": len(record.recipient_references),
                             },
                         )
@@ -120,19 +129,31 @@ class NotificationDeliveryWorker:
                 delivered_count += 1
 
             except Exception as exc:
+                sanitized = sanitize_notification_error(str(exc))
                 logger.error(
                     "notification_delivery_failed",
                     worker_id=self.worker_id,
                     command_id=record.command_id,
-                    error=str(exc),
+                    error=sanitized,
                 )
                 async with self.session_factory() as fail_session:
                     fail_repo = NotificationOutboxRepository(fail_session)
-                    await fail_repo.mark_failed(
+                    failed_ok = await fail_repo.mark_failed(
                         record.command_id,
                         error=str(exc),
+                        lease_owner=self.worker_id,
                         retry_backoff_seconds=self.settings.retry_backoff_seconds,
+                        tenant_id=record.tenant_id,
                     )
+                    if not failed_ok:
+                        logger.warning(
+                            "notification_delivery_lease_lost_on_failure",
+                            worker_id=self.worker_id,
+                            command_id=record.command_id,
+                            tenant_id=record.tenant_id,
+                        )
+                        await fail_session.rollback()
+                        continue
 
                     audit_repo = AuditRepository(fail_session)
                     await audit_repo.append(
@@ -148,7 +169,7 @@ class NotificationDeliveryWorker:
                             correlation_id=record.correlation_reference,
                             details={
                                 "command_id": record.command_id,
-                                "error": str(exc),
+                                "error": sanitized,
                                 "retry_count": record.retry_count + 1,
                             },
                         )
@@ -159,6 +180,23 @@ class NotificationDeliveryWorker:
 
     async def run(self, stop_event: asyncio.Event) -> None:
         """Run delivery worker loop until stop_event is set."""
+        if not self.settings.enabled:
+            logger.info(
+                "notification_delivery_worker_disabled_passive",
+                worker_id=self.worker_id,
+            )
+            while not stop_event.is_set():
+                try:
+                    await asyncio.wait_for(
+                        stop_event.wait(),
+                        timeout=self.settings.poll_interval_seconds,
+                    )
+                    break
+                except TimeoutError:
+                    continue
+            logger.info("notification_delivery_worker_stopped", worker_id=self.worker_id)
+            return
+
         logger.info("notification_delivery_worker_starting", worker_id=self.worker_id)
         while not stop_event.is_set():
             try:
@@ -179,7 +217,7 @@ class NotificationDeliveryWorker:
                 logger.error(
                     "notification_delivery_worker_loop_error",
                     worker_id=self.worker_id,
-                    error=str(exc),
+                    error=sanitize_notification_error(str(exc)),
                 )
                 try:
                     await asyncio.wait_for(

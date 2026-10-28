@@ -6,8 +6,11 @@ Enforces:
 - Atomic staging within the same transaction as domain mutation / inbox deduplication.
 - Concurrency-safe batch claiming using SELECT ... FOR UPDATE SKIP LOCKED.
 - Lease management, exponential retry backoff, and fail-closed block states under DEC-E8-02.
+- Lease ownership enforcement: only active lease owner can transition PROCESSING records.
+- Error sanitization: credential masking and length truncation on failed records.
 """
 
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -17,7 +20,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.notification_outbox import NotificationOutboxCommandRecord
 from app.db.repositories.base import SqlAlchemyRepository
-from app.integrations.engagement.models import NotificationCommand
+from app.integrations.engagement.models import (
+    NotificationCommand,
+    NotificationTrigger,
+    TriggerKind,
+)
+
+
+def sanitize_notification_error(error: str | None) -> str | None:
+    """Sanitize error messages before logging or persistence.
+
+    Masks sensitive credentials (bearer tokens, passwords, API keys, secrets)
+    and truncates message length to prevent unbounded storage or leakage.
+    """
+    if not error:
+        return None
+    text = str(error)[:1000]
+    text = re.sub(r"(?i)bearer\s+[a-zA-Z0-9_\-\.]+", "Bearer [REDACTED]", text)
+    text = re.sub(
+        r"(?i)(api[_-]?key|secret|password|token)\s*[:=]\s*[^\s,;&]+",
+        r"\1=[REDACTED]",
+        text,
+    )
+    return text
 
 
 class NotificationOutboxRepository(SqlAlchemyRepository):
@@ -26,6 +51,24 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
     def __init__(self, session: AsyncSession) -> None:
         """Initialize repository with session."""
         super().__init__(session)
+
+    @staticmethod
+    def to_command(record: NotificationOutboxCommandRecord) -> NotificationCommand:
+        """Reconstruct canonical NotificationCommand from a persisted outbox record."""
+        return NotificationCommand(
+            command_id=record.command_id,
+            correlation_reference=record.correlation_reference,
+            causation_reference=record.causation_reference,
+            organization_scope_reference=record.tenant_id,
+            trigger=NotificationTrigger(
+                trigger_kind=TriggerKind(record.trigger_kind),
+                source_event_name=record.source_event_name,
+                business_condition=record.business_condition,
+                source_entity_reference=record.source_entity_reference,
+            ),
+            recipient_references=record.recipient_references,
+            notification_context=record.notification_context,
+        )
 
     async def get_by_command_id(
         self,
@@ -50,6 +93,7 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
         causation_reference: str | None = None,
         trigger_kind: str | None = None,
         source_event_name: str | None = None,
+        business_condition: str | None = None,
         source_entity_reference: str | None = None,
         recipient_references: list[str] | None = None,
         notification_context: dict[str, Any] | None = None,
@@ -69,6 +113,7 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
             caus = command.causation_reference
             t_kind = command.trigger.trigger_kind.value
             s_event = command.trigger.source_event_name
+            b_cond = command.trigger.business_condition
             s_entity = command.trigger.source_entity_reference
             recipients = command.recipient_references
             ctx = command.notification_context
@@ -81,6 +126,7 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
             caus = causation_reference
             t_kind = trigger_kind
             s_event = source_event_name
+            b_cond = business_condition
             s_entity = source_entity_reference
             recipients = recipient_references or []
             ctx = notification_context or {}
@@ -98,6 +144,7 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
             causation_reference=caus,
             trigger_kind=t_kind,
             source_event_name=s_event,
+            business_condition=b_cond,
             source_entity_reference=s_entity,
             recipient_references=recipients,
             notification_context=ctx,
@@ -167,66 +214,137 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
         await self.session.flush()
         return records
 
-    async def mark_dispatched(self, command_id: str) -> None:
-        """Mark a notification command as successfully dispatched."""
-        stmt = select(NotificationOutboxCommandRecord).where(
-            NotificationOutboxCommandRecord.command_id == command_id
-        )
+    async def mark_dispatched(
+        self,
+        command_id: str,
+        *,
+        lease_owner: str | None = None,
+        tenant_id: str | None = None,
+    ) -> bool:
+        """Mark a notification command as successfully dispatched.
+
+        Requires that the record is in 'PROCESSING' state and owned by lease_owner.
+        Enforces tenant isolation if tenant_id is provided.
+        Returns True if the record was updated, False if lease was lost, state changed,
+        or record was already completed by another worker.
+        """
+        now = datetime.now(UTC)
+        conditions = [
+            NotificationOutboxCommandRecord.command_id == command_id,
+        ]
+        if lease_owner is not None:
+            conditions.append(NotificationOutboxCommandRecord.lease_owner == lease_owner)
+            conditions.append(NotificationOutboxCommandRecord.dispatch_state == "PROCESSING")
+        else:
+            conditions.append(
+                NotificationOutboxCommandRecord.dispatch_state.in_(["PROCESSING", "PENDING"])
+            )
+        if tenant_id is not None:
+            conditions.append(NotificationOutboxCommandRecord.tenant_id == tenant_id)
+
+        stmt = select(NotificationOutboxCommandRecord).where(and_(*conditions))
+        bind = getattr(self.session, "bind", None)
+        dialect_name = getattr(bind.dialect, "name", "") if bind is not None else ""
+        if dialect_name == "postgresql":
+            stmt = stmt.with_for_update()
+
         result = await self.session.execute(stmt)
         record = result.scalars().first()
-        if record is not None:
-            now = datetime.now(UTC)
-            record.dispatch_state = "DISPATCHED"
-            record.dispatched_at = now
-            record.lease_owner = None
-            record.lease_expires_at = None
-            record.updated_at = now
-            await self.session.flush()
+        if record is None:
+            return False
+
+        record.dispatch_state = "DISPATCHED"
+        record.dispatched_at = now
+        record.lease_owner = None
+        record.lease_expires_at = None
+        record.updated_at = now
+        await self.session.flush()
+        return True
 
     async def mark_failed(
         self,
         command_id: str,
-        error: str,
+        error: str = "",
+        *,
+        lease_owner: str | None = None,
         retry_backoff_seconds: float = 1.0,
-    ) -> None:
-        """Record dispatch failure, increment retry count, and calculate backoff."""
-        stmt = select(NotificationOutboxCommandRecord).where(
-            NotificationOutboxCommandRecord.command_id == command_id
-        )
+        tenant_id: str | None = None,
+    ) -> bool:
+        """Record dispatch failure, increment retry count, and calculate backoff.
+
+        Requires that the record is in 'PROCESSING' state and owned by lease_owner.
+        Sanitizes error text before persisting.
+        Returns True if the record was updated, False if lease was lost, state changed,
+        or record was already completed by another worker.
+        """
+        conditions = [
+            NotificationOutboxCommandRecord.command_id == command_id,
+        ]
+        if lease_owner is not None:
+            conditions.append(NotificationOutboxCommandRecord.lease_owner == lease_owner)
+            conditions.append(NotificationOutboxCommandRecord.dispatch_state == "PROCESSING")
+        else:
+            conditions.append(
+                NotificationOutboxCommandRecord.dispatch_state.in_(["PROCESSING", "PENDING"])
+            )
+        if tenant_id is not None:
+            conditions.append(NotificationOutboxCommandRecord.tenant_id == tenant_id)
+
+        stmt = select(NotificationOutboxCommandRecord).where(and_(*conditions))
+        bind = getattr(self.session, "bind", None)
+        dialect_name = getattr(bind.dialect, "name", "") if bind is not None else ""
+        if dialect_name == "postgresql":
+            stmt = stmt.with_for_update()
+
         result = await self.session.execute(stmt)
         record = result.scalars().first()
-        if record is not None:
-            now = datetime.now(UTC)
-            record.retry_count += 1
-            record.last_error = error[:2000] if error else None
-            record.lease_owner = None
-            record.lease_expires_at = None
-            record.updated_at = now
+        if record is None:
+            return False
 
-            if record.retry_count >= record.max_retries:
-                record.dispatch_state = "FAILED"
-            else:
-                record.dispatch_state = "PENDING"
-                backoff = retry_backoff_seconds * (2 ** (record.retry_count - 1))
-                record.next_attempt_at = now + timedelta(seconds=backoff)
+        now = datetime.now(UTC)
+        sanitized_error = sanitize_notification_error(error)
+        record.retry_count += 1
+        record.last_error = sanitized_error
+        record.lease_owner = None
+        record.lease_expires_at = None
+        record.updated_at = now
 
-            await self.session.flush()
+        if record.retry_count >= record.max_retries:
+            record.dispatch_state = "FAILED"
+        else:
+            record.dispatch_state = "PENDING"
+            backoff = retry_backoff_seconds * (2 ** (record.retry_count - 1))
+            record.next_attempt_at = now + timedelta(seconds=backoff)
 
-    async def mark_blocked(self, command_id: str, block_reason: str) -> None:
+        await self.session.flush()
+        return True
+
+    async def mark_blocked(
+        self,
+        command_id: str,
+        block_reason: str,
+        *,
+        tenant_id: str | None = None,
+    ) -> bool:
         """Mark a notification command as blocked under DEC-E8-02."""
-        stmt = select(NotificationOutboxCommandRecord).where(
-            NotificationOutboxCommandRecord.command_id == command_id
-        )
+        conditions = [NotificationOutboxCommandRecord.command_id == command_id]
+        if tenant_id is not None:
+            conditions.append(NotificationOutboxCommandRecord.tenant_id == tenant_id)
+
+        stmt = select(NotificationOutboxCommandRecord).where(and_(*conditions))
         result = await self.session.execute(stmt)
         record = result.scalars().first()
-        if record is not None:
-            now = datetime.now(UTC)
-            record.dispatch_state = "BLOCKED"
-            record.block_reason = block_reason
-            record.lease_owner = None
-            record.lease_expires_at = None
-            record.updated_at = now
-            await self.session.flush()
+        if record is None:
+            return False
+
+        now = datetime.now(UTC)
+        record.dispatch_state = "BLOCKED"
+        record.block_reason = block_reason
+        record.lease_owner = None
+        record.lease_expires_at = None
+        record.updated_at = now
+        await self.session.flush()
+        return True
 
     async def recover_blocked_command(
         self,
@@ -242,14 +360,16 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
         )
         result = await self.session.execute(stmt)
         record = result.scalars().first()
-        if record is not None:
-            now = datetime.now(UTC)
-            record.recipient_references = resolved_recipients
-            record.dispatch_state = "PENDING"
-            record.block_reason = None
-            record.next_attempt_at = now
-            record.updated_at = now
-            await self.session.flush()
+        if record is None:
+            return None
+
+        now = datetime.now(UTC)
+        record.recipient_references = list(resolved_recipients)
+        record.dispatch_state = "PENDING"
+        record.block_reason = None
+        record.next_attempt_at = now
+        record.updated_at = now
+        await self.session.flush()
         return record
 
     async def list_by_state(
@@ -272,5 +392,13 @@ class NotificationOutboxRepository(SqlAlchemyRepository):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def list_by_tenant(
+        self,
+        tenant_id: str,
+        limit: int = 100,
+    ) -> list[NotificationOutboxCommandRecord]:
+        """List all notification outbox records for a given tenant."""
+        return await self.list_by_state(tenant_id=tenant_id, limit=limit)
 
-__all__ = ["NotificationOutboxRepository"]
+
+__all__ = ["NotificationOutboxRepository", "sanitize_notification_error"]

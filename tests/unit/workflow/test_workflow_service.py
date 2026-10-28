@@ -114,6 +114,7 @@ def workflow_service(fake_uow_factory, mock_adapter):
         adapter=mock_adapter,
         eligibility_policy=DefaultTaskEligibilityPolicy(),
         variable_policy=WorkflowVariablePolicy(allowed_keys=PHASE_3A_FIXTURE_ALLOWED_VARIABLES),
+        persistence_mode="memory",
     )
 
 
@@ -680,6 +681,7 @@ async def test_evaluate_sla_triggers_transaction_rollback_on_commit_failure(mock
     service = WorkflowService(
         uow_factory=uow_factory,
         adapter=mock_adapter,
+        persistence_mode="memory",
     )
 
     policy = SlaPolicyConfig(
@@ -771,6 +773,7 @@ async def test_evaluate_sla_triggers_breach_rollback_on_commit_failure(mock_adap
     service = WorkflowService(
         uow_factory=uow_factory,
         adapter=mock_adapter,
+        persistence_mode="memory",
     )
 
     policy = SlaPolicyConfig(

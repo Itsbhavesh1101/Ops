@@ -80,6 +80,10 @@ class NotificationOutboxCommandRecord(DurableIntegrationBase):
         String(128),
         nullable=True,
     )
+    business_condition: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
     source_entity_reference: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,

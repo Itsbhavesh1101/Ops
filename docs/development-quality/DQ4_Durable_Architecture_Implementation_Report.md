@@ -173,14 +173,49 @@ Targeted test execution via `.venv\Scripts\python.exe -m pytest ...`:
 - **Total Suite Result:** **119 passed in 13.57s (100% green)**
 
 ### 4.2 Static Analysis & Quality Checks
-- **Ruff Linter:** `ruff check app/integrations/engagement app/workflow/sla app/db/models/notification_outbox.py app/db/models/sla.py tests/unit/integrations/test_notification_outbox_pipeline.py tests/unit/workflow/test_sla_persistence.py tests/unit/test_alembic.py`  
-  -> **All checks passed! (0 errors)**
-- **Mypy Static Typing:** `mypy app/integrations/engagement app/workflow/sla app/db/models/notification_outbox.py app/db/models/sla.py`  
-  -> **Success: no issues found in 17 source files**
+- **Ruff Linter:** `ruff check .` -> **All checks passed! (0 errors)**
+- **Mypy Static Typing:** `mypy app` -> **Success: no issues found in 272 source files**
+- **Global Pytest Collection:** `pytest --collect-only -q` -> **2,338 tests collected**
+- **Workflow & SLA Unit Suite:** `pytest tests/unit/workflow/` -> **142 passed (100% green)**
+- **Notification Outbox Pipeline Suite:** `pytest tests/unit/integrations/test_notification_outbox_pipeline.py` -> **21 passed (100% green)**
+- **Contract Test Suite:** `pytest tests/contract/` -> **17 passed (100% green)**
 
 ---
 
-## 5. Canonical External Blockers Summary
+## 5. Critical Correctness Corrections (DQ-4 Phase 2)
+
+Following secondary independent architecture review, five critical production correctness defects in the durable architecture were identified and resolved:
+
+### 5.1 SLA Persistence Call Chain Correction
+- **Defect:** Public `WorkflowService.attach_task_sla()`, `pause_task_sla()`, and `resume_task_sla()` accepted calls without opening an async Unit of Work, keeping SLA tracking in memory.
+- **Resolution:** Re-implemented `attach_task_sla()`, `pause_task_sla()`, and `resume_task_sla()` on `WorkflowService` as asynchronous methods that open `self._uow_factory()`, query/persist via `SlaRepository` within an active transaction, and commit changes. Added `attach_task_sla_sync`, `pause_task_sla_sync`, and `resume_task_sla_sync` methods for backwards compatibility with synchronous call sites.
+
+### 5.2 Elimination of Silent SLA Database Fallback
+- **Defect:** `SlaService.evaluate_triggers()` caught database exceptions with `except Exception: pass`, silently falling back to in-memory evaluation and hiding DB connectivity/locking faults.
+- **Resolution:** Removed silent fallback and mock-type introspection. Database exceptions now propagate immediately to the caller, triggering rollback of the surrounding Unit of Work without creating partial audit or outbox events. In-memory evaluation is restricted to explicit test mode (`persistence_mode == 'memory'`) and authorized legacy test runners (`persistence_mode == 'authorized_legacy'` when no DB session is present).
+
+### 5.3 Notification Trigger Provenance (`business_condition`)
+- **Defect:** `SOURCE_BACKED_BUSINESS_CONDITION` trigger kinds require a distinct `business_condition` (e.g., `SCHEDULE_CHANGE_NOTICE` for `schedule.changed`) to prevent trigger ambiguity downstream.
+- **Resolution:** Added `business_condition` column to Alembic migration `0015_create_notification_outbox.py`, mapped it on `NotificationOutboxCommandRecord`, updated `NotificationOutboxRepository.stage_command()` and `to_command()` mapping, ensuring round-trip preservation across the outbox lifecycle.
+
+### 5.4 Notification Lease Ownership Enforcement & Error Sanitization
+- **Defect:** Stale workers could mark outbox commands as dispatched or failed after lease expiration, potentially clobbering work claimed by active replacement workers; error logs risked leaking internal connection details.
+- **Resolution:** Conditional state updates in `NotificationOutboxRepository.mark_dispatched()` and `mark_failed()` strictly check `lease_owner == worker_id`, `dispatch_state == 'PROCESSING'`, and tenant scoping. Unsanitized raw error messages are scrubbed via `sanitize_notification_error()` prior to persistence.
+
+### 5.5 Strict Cross-Tenant SLA Isolation
+- **Defect:** `SlaRepository.update_task_sla()` contained a cross-tenant fallback query by `task_id` without filtering by `tenant_id`.
+- **Resolution:** Removed cross-tenant fallback. All lookups and mutations require `(tenant_id, task_id)`. Missing records raise `SlaTaskStateNotFoundError`.
+
+### 5.6 Fail-Closed Delivery Worker Activation & Worker Integration
+- **Defect:** `NotificationDeliveryWorker` lacked explicit fail-closed verification under `NotificationSettings.enabled=False` and was not started in `NotificationWorker.start_background_tasks()`.
+- **Resolution:** Added top-level guard `if not self.settings.enabled: return 0` in `NotificationDeliveryWorker.poll_and_deliver()`. Updated `NotificationWorker.start_background_tasks(stop_event)` to instantiate and start `NotificationDeliveryWorker` when `pipeline_mode == 'outbox'`.
+
+### 5.7 Real PostgreSQL Integration Verification
+- Added comprehensive PostgreSQL integration test suite: [`tests/integration/postgres/test_durable_integration_postgres.py`](file:///f:/operations-engine/tests/integration/postgres/test_durable_integration_postgres.py) covering 13 production scenarios including concurrent claims, lease expiration, crash recovery, tenant isolation, and trigger provenance round-trip.
+
+---
+
+## 6. Canonical External Blockers Summary
 
 The authoritative external blockers identified in `docs/development-quality/E7_Development_Completion_Remediation_Plan.md` remain strictly isolated and tracked:
 
@@ -193,7 +228,7 @@ The authoritative external blockers identified in `docs/development-quality/E7_D
 
 ---
 
-## 6. PR & Stacked Branch Topology
+## 7. PR & Stacked Branch Topology
 
 - **Base PR:** PR #4 (`quality/dq4-integration-reliability` -> `master`), Status: `OPEN`.
 - **New Stacked PR:** `quality/dq4-durable-architecture` -> `quality/dq4-integration-reliability`.

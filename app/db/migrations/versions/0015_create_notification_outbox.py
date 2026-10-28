@@ -41,6 +41,7 @@ def upgrade() -> None:
         sa.Column("causation_reference", sa.String(length=255), nullable=True),
         sa.Column("trigger_kind", sa.String(length=64), nullable=False),
         sa.Column("source_event_name", sa.String(length=128), nullable=True),
+        sa.Column("business_condition", sa.String(length=255), nullable=True),
         sa.Column("source_entity_reference", sa.String(length=255), nullable=True),
         sa.Column(
             "recipient_references",

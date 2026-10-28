@@ -55,7 +55,11 @@ from app.integrations.engagement.models import (
     TriggerKind,
 )
 from app.integrations.engagement.recovery import NotificationRecoveryService
-from app.integrations.engagement.repository import NotificationOutboxRepository
+from app.integrations.engagement.repository import (
+    NotificationOutboxRepository,
+    sanitize_notification_error,
+)
+from app.integrations.engagement.worker import NotificationWorker
 
 # ==============================================================================
 # In-Memory Session Double for Outbox & Audit Tests
@@ -97,12 +101,27 @@ class InMemoryOutboxDbSession:
         result_mock = MagicMock()
         compiled = stmt.compile()
 
-        # Handle queries filtering by command_id (point lookups)
+        # Handle queries filtering by command_id (point lookups with lease/state enforcement)
         command_id_param = next((v for k, v in compiled.params.items() if "command_id" in k), None)
         if command_id_param is not None:
             matched = [self.records[command_id_param]] if command_id_param in self.records else []
-            result_mock.scalars.return_value.first.return_value = matched[0] if matched else None
-            result_mock.scalars.return_value.all.return_value = matched
+            owner_param = next((v for k, v in compiled.params.items() if "lease_owner" in k), None)
+            tenant_param = next((v for k, v in compiled.params.items() if "tenant_id" in k), None)
+            filtered = []
+            for r in matched:
+                if owner_param and r.lease_owner != owner_param:
+                    continue
+                if tenant_param and r.tenant_id != tenant_param:
+                    continue
+                if (
+                    "PROCESSING" in stmt_str
+                    and r.dispatch_state in ("DISPATCHED", "FAILED")
+                    and r.dispatch_state != "PROCESSING"
+                ):
+                    continue
+                filtered.append(r)
+            result_mock.scalars.return_value.first.return_value = filtered[0] if filtered else None
+            result_mock.scalars.return_value.all.return_value = filtered
             return result_mock
 
         # Handle batch poll query
@@ -315,7 +334,7 @@ async def test_delivery_worker_successful_poll_and_deliver() -> None:
     worker = NotificationDeliveryWorker(
         session_factory=session_factory,  # type: ignore[arg-type]
         dispatcher=mock_dispatcher,
-        settings=NotificationSettings(pipeline_mode="outbox"),
+        settings=NotificationSettings(pipeline_mode="outbox", enabled=True),
         worker_id="worker-del-01",
     )
 
@@ -359,7 +378,7 @@ async def test_delivery_worker_error_retries_and_terminal_failure() -> None:
     worker = NotificationDeliveryWorker(
         session_factory=session_factory,  # type: ignore[arg-type]
         dispatcher=failing_dispatcher,
-        settings=NotificationSettings(pipeline_mode="outbox", max_retries=2),
+        settings=NotificationSettings(pipeline_mode="outbox", max_retries=2, enabled=True),
         worker_id="worker-fail-01",
     )
 
@@ -586,7 +605,7 @@ async def test_recovery_service_unblocks_command_and_delivers() -> None:
     worker = NotificationDeliveryWorker(
         session_factory=session_factory,  # type: ignore[arg-type]
         dispatcher=mock_dispatcher,
-        settings=NotificationSettings(pipeline_mode="outbox"),
+        settings=NotificationSettings(pipeline_mode="outbox", enabled=True),
         worker_id="worker-post-rec",
     )
     processed = await worker.poll_and_deliver()
@@ -804,4 +823,214 @@ async def test_consumer_processor_transactional_atomicity_and_deduplication() ->
         outcome2 = await processor.process(envelope)
         assert outcome2.outcome.value == "DUPLICATE"
         assert len(session.records) == 1
+
+
+# ==============================================================================
+# 5. Provenance Round-Trip, Lease Ownership & Worker Startup (Tasks 3, 4, 6)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_notification_business_condition_persistence_and_provenance_round_trip() -> None:
+    """SOURCE_BACKED_BUSINESS_CONDITION retains business_condition through delivery."""
+    session = InMemoryOutboxDbSession()
+    repo = NotificationOutboxRepository(session)  # type: ignore[arg-type]
+
+    cmd = NotificationCommand(
+        command_id="cmd-bcond-001",
+        correlation_reference="corr-bcond-01",
+        organization_scope_reference="tenant-bcond",
+        trigger=NotificationTrigger(
+            trigger_kind=TriggerKind.SOURCE_BACKED_BUSINESS_CONDITION,
+            business_condition="SCHEDULE_CHANGE_NOTICE",
+        ),
+        recipient_references=["urn:e7:cohort:students"],
+        notification_context={
+            "template_id": "EXAM_SCHEDULE_CHANGED",
+            "schedule_id": "sch-001",
+            "old_version": 1,
+            "new_version": 2,
+            "repair_reason": "Room conflict",
+            "effective_date": "2026-11-01",
+        },
+    )
+
+    rec = await repo.stage_command(command=cmd)
+    assert rec.business_condition == "SCHEDULE_CHANGE_NOTICE"
+    assert rec.trigger_kind == "SOURCE_BACKED_BUSINESS_CONDITION"
+
+    # Reconstruct back to NotificationCommand
+    reconstructed = NotificationOutboxRepository.to_command(rec)
+    assert reconstructed.command_id == "cmd-bcond-001"
+    assert reconstructed.organization_scope_reference == "tenant-bcond"
+    assert reconstructed.trigger.trigger_kind == TriggerKind.SOURCE_BACKED_BUSINESS_CONDITION
+    assert reconstructed.trigger.business_condition == "SCHEDULE_CHANGE_NOTICE"
+
+    # Deliver via NotificationDeliveryWorker
+    session_factory = InMemorySessionFactory(session)
+    mock_dispatcher = MockNotificationDispatcher()
+    worker = NotificationDeliveryWorker(
+        session_factory=session_factory,  # type: ignore[arg-type]
+        dispatcher=mock_dispatcher,
+        settings=NotificationSettings(pipeline_mode="outbox", enabled=True),
+        worker_id="worker-bcond",
+    )
+    delivered = await worker.poll_and_deliver()
+    assert delivered == 1
+    assert len(mock_dispatcher.received_commands) == 1
+    dispatched_cmd = mock_dispatcher.received_commands[0]
+    assert dispatched_cmd.trigger.business_condition == "SCHEDULE_CHANGE_NOTICE"
+
+
+@pytest.mark.asyncio
+async def test_notification_lease_ownership_enforcement() -> None:
+    """Only the active lease owner can mark a PROCESSING command as dispatched or failed."""
+    session = InMemoryOutboxDbSession()
+    repo = NotificationOutboxRepository(session)  # type: ignore[arg-type]
+
+    cmd = NotificationCommand(
+        command_id="cmd-lease-001",
+        correlation_reference="corr-lease-01",
+        organization_scope_reference="tenant-lease",
+        trigger=NotificationTrigger(
+            trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+            source_event_name="task.blocked",
+        ),
+        recipient_references=["urn:e7:user:admin1"],
+        notification_context={
+            "template_id": "TASK_BLOCKED_ALERT",
+            "task_id": "task-01",
+            "plan_id": "plan-01",
+            "temporary_id": "temp-01",
+            "blocked_reason": "Pre-requisite pending",
+        },
+    )
+    await repo.stage_command(command=cmd)
+
+    # Worker 1 claims command
+    claimed = await repo.claim_pending_batch(limit=1, lease_owner="worker-owner-1")
+    assert len(claimed) == 1
+    rec = claimed[0]
+    assert rec.dispatch_state == "PROCESSING"
+    assert rec.lease_owner == "worker-owner-1"
+
+    # Stale worker 2 attempts mark_dispatched -> rejected!
+    dispatched_stale = await repo.mark_dispatched(
+        "cmd-lease-001",
+        lease_owner="worker-stale-2",
+        tenant_id="tenant-lease",
+    )
+    assert dispatched_stale is False
+    assert rec.dispatch_state == "PROCESSING"
+
+    # Stale worker 2 attempts mark_failed -> rejected!
+    failed_stale = await repo.mark_failed(
+        "cmd-lease-001",
+        lease_owner="worker-stale-2",
+        error="Stale worker failure",
+        tenant_id="tenant-lease",
+    )
+    assert failed_stale is False
+    assert rec.retry_count == 0
+
+    # Legitimate Worker 1 marks dispatched -> succeeds!
+    dispatched_ok = await repo.mark_dispatched(
+        "cmd-lease-001",
+        lease_owner="worker-owner-1",
+        tenant_id="tenant-lease",
+    )
+    assert dispatched_ok is True
+    assert rec.dispatch_state == "DISPATCHED"
+    assert rec.lease_owner is None
+
+    # Subsequent attempt to mark_dispatched again -> rejected (terminal state cannot revert)
+    dispatched_again = await repo.mark_dispatched(
+        "cmd-lease-001",
+        lease_owner="worker-owner-1",
+        tenant_id="tenant-lease",
+    )
+    assert dispatched_again is False
+
+
+def test_notification_error_sanitization() -> None:
+    """sanitize_notification_error redacts tokens, secrets, passwords and truncates length."""
+    raw_error = (
+        "Connect failed to https://e8.internal/api?api_key=super_secret_key&token=xyz "
+        "Bearer my-jwt-token"
+    )
+    sanitized = sanitize_notification_error(raw_error)
+    assert "super_secret_key" not in sanitized
+    assert "my-jwt-token" not in sanitized
+    assert "Bearer [REDACTED]" in sanitized
+    assert "api_key=[REDACTED]" in sanitized
+
+    # Length truncation to 1000 chars
+    long_msg = "A" * 2000
+    assert len(sanitize_notification_error(long_msg)) == 1000
+
+
+@pytest.mark.asyncio
+async def test_notification_disabled_mode_prevents_dispatch() -> None:
+    """NotificationSettings.enabled=False immediately suppresses external dispatch."""
+    session = InMemoryOutboxDbSession()
+    repo = NotificationOutboxRepository(session)  # type: ignore[arg-type]
+
+    cmd = NotificationCommand(
+        command_id="cmd-disabled-001",
+        correlation_reference="corr-disabled-01",
+        organization_scope_reference="tenant-disabled",
+        trigger=NotificationTrigger(
+            trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+            source_event_name="schedule.published",
+        ),
+        recipient_references=["urn:e7:cohort:faculty"],
+        notification_context={
+            "template_id": "EXAM_SCHEDULE_PUBLISHED",
+            "schedule_id": "sch-01",
+            "version": 1,
+        },
+    )
+    await repo.stage_command(command=cmd)
+
+    session_factory = InMemorySessionFactory(session)
+    mock_dispatcher = MockNotificationDispatcher()
+    worker = NotificationDeliveryWorker(
+        session_factory=session_factory,  # type: ignore[arg-type]
+        dispatcher=mock_dispatcher,
+        settings=NotificationSettings(enabled=False, pipeline_mode="outbox"),
+    )
+
+    # Delivery worker returns 0 and does not dispatch when disabled
+    delivered = await worker.poll_and_deliver()
+    assert delivered == 0
+    assert len(mock_dispatcher.received_commands) == 0
+    assert session.records["cmd-disabled-001"].dispatch_state == "PENDING"
+
+
+@pytest.mark.asyncio
+async def test_notification_worker_starts_delivery_worker_in_outbox_mode() -> None:
+    """NotificationWorker starts consumer runner and NotificationDeliveryWorker in outbox mode."""
+    db_manager = MagicMock()
+    mock_runner = MagicMock()
+    mock_runner.run = AsyncMock()
+
+    worker = NotificationWorker(
+        db_manager=db_manager,
+        settings=NotificationSettings(pipeline_mode="outbox", enabled=False),
+        consumer_runner=mock_runner,
+    )
+
+    stop_event = asyncio.Event()
+    stop_event.set()  # Stop immediately
+
+    tasks = worker.start_background_tasks(stop_event)
+    assert len(tasks) == 2  # Consumer runner + Delivery worker
+    task_names = [t.get_name() for t in tasks]
+    assert "notification_consumer_runner_loop" in task_names
+    assert any("notification_delivery_worker" in n for n in task_names)
+
+    # Cancel tasks to clean up event loop
+    for t in tasks:
+        t.cancel()
+
 

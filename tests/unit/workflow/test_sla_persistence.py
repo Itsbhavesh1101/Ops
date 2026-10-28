@@ -28,11 +28,14 @@ import pytest
 
 from app.db.models.sla import TaskSlaStateRecord
 from app.events.schemas import EventEnvelope
+from app.workflow.adapters.protocol import WorkflowAdapterProtocol
+from app.workflow.service import WorkflowService
 from app.workflow.sla.models import (
     EscalationAction,
     SlaEscalationRule,
     SlaPolicyConfig,
     SlaStatus,
+    SlaTaskStateNotFoundError,
     TaskSlaState,
 )
 from app.workflow.sla.repository import SlaRepository
@@ -69,12 +72,30 @@ class InMemorySlaDbSession:
         res = MagicMock()
         compiled = stmt.compile()
 
+        # Handle point lookups filtering by task_id (get_task_sla)
+        has_task_id = any("task_id" in k for k in compiled.params)
+        if has_task_id:
+            t_id = next((v for k, v in compiled.params.items() if "tenant_id" in k), None)
+            t_uuid = next((v for k, v in compiled.params.items() if "task_id" in k), None)
+            matched = []
+            for (tenant, task_id), rec in self.records.items():
+                if t_id and tenant != t_id:
+                    continue
+                if t_uuid and task_id != t_uuid:
+                    continue
+                matched.append(rec)
+
+            res.scalars.return_value.first.return_value = matched[0] if matched else None
+            res.scalars.return_value.all.return_value = matched
+            return res
+
         # Handle list_evaluable_slas:
-        # WHERE tenant_id = :tenant_id AND status IN ('RUNNING', 'WARNING')
-        # AND (warning_at <= :as_of OR breach_at <= :as_of)
-        if "warning_at" in stmt_str or "breach_at" in stmt_str:
-            t_id = compiled.params.get("tenant_id_1") or compiled.params.get("tenant_id")
-            as_of = compiled.params.get("warning_at_1") or compiled.params.get("as_of")
+        if "dispatch_state" in stmt_str or "status" in stmt_str or "warning_at" in stmt_str:
+            t_id = next((v for k, v in compiled.params.items() if "tenant_id" in k), None)
+            as_of = next(
+                (v for k, v in compiled.params.items() if "warning_at" in k or "breach_at" in k),
+                None,
+            )
             evaluable = []
             for (tenant, _task_id), rec in self.records.items():
                 if t_id and tenant != t_id:
@@ -86,19 +107,9 @@ class InMemorySlaDbSession:
             res.scalars.return_value.first.return_value = evaluable[0] if evaluable else None
             return res
 
-        # Handle get_task_sla / get_by_task_id
-        t_id = compiled.params.get("tenant_id_1") or compiled.params.get("tenant_id")
-        t_uuid = compiled.params.get("task_id_1") or compiled.params.get("task_id")
-        matched = []
-        for (tenant, task_id), rec in self.records.items():
-            if t_id and tenant != t_id:
-                continue
-            if t_uuid and task_id != t_uuid:
-                continue
-            matched.append(rec)
-
-        res.scalars.return_value.first.return_value = matched[0] if matched else None
-        res.scalars.return_value.all.return_value = matched
+        all_records = list(self.records.values())
+        res.scalars.return_value.all.return_value = all_records
+        res.scalars.return_value.first.return_value = all_records[0] if all_records else None
         return res
 
 
@@ -473,3 +484,307 @@ async def test_sla_pause_and_resume_durations() -> None:
     assert state.warning_at == t_resume + timedelta(seconds=1800)
     # New breach_at = t_resume + 90m = t0 + 3h
     assert state.breach_at == t_resume + timedelta(seconds=5400)
+
+
+# ==============================================================================
+# 6. Public WorkflowService Entry Points & Persistence Call Chain (Task 1)
+# ==============================================================================
+
+
+class SlaTestUnitOfWork:
+    """UoW wrapping InMemorySlaDbSession for WorkflowService integration testing."""
+
+    def __init__(self, session: InMemorySlaDbSession) -> None:
+        self.session = session
+        self.committed = False
+        self.rolled_back = False
+
+    async def __aenter__(self) -> "SlaTestUnitOfWork":
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if exc_type is not None:
+            self.rolled_back = True
+            await self.session.rollback()
+
+    async def commit(self) -> None:
+        self.committed = True
+        await self.session.commit()
+
+    async def rollback(self) -> None:
+        self.rolled_back = True
+        await self.session.rollback()
+
+
+@pytest.mark.asyncio
+async def test_workflow_service_public_sla_persistence_and_restart_recovery() -> None:
+    """WorkflowService.attach_task_sla persists through UoW and survives restart."""
+    shared_session = InMemorySlaDbSession()
+
+    def uow_factory() -> SlaTestUnitOfWork:
+        return SlaTestUnitOfWork(shared_session)
+
+    adapter = AsyncMock(spec=WorkflowAdapterProtocol)
+    sla_svc_1 = SlaService(persistence_mode="database")
+    wf_service_1 = WorkflowService(
+        uow_factory=uow_factory,  # type: ignore[arg-type]
+        adapter=adapter,
+        sla_service=sla_svc_1,
+    )
+
+    policy = SlaPolicyConfig(
+        policy_key="wf_pub_policy",
+        name="Workflow Public Policy",
+        warning_duration_seconds=3600,
+        breach_duration_seconds=7200,
+    )
+    wf_service_1.register_sla_policy(policy)
+
+    t0 = datetime(2026, 10, 28, 9, 0, 0, tzinfo=UTC)
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    # 1. Attach task SLA through public entry point
+    state = await wf_service_1.attach_task_sla(
+        tenant_id="tenant-wf-sla",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="wf_pub_policy",
+        created_at=t0,
+    )
+    assert state.task_id == task_id
+    assert state.status == SlaStatus.RUNNING
+
+    # Verify persisted in database session
+    db_rec = shared_session.records.get(("tenant-wf-sla", task_id))
+    assert db_rec is not None
+    assert db_rec.task_id == task_id
+    assert db_rec.status == "RUNNING"
+
+    # 2. Pause through public entry point
+    t_pause = t0 + timedelta(minutes=20)
+    paused = await wf_service_1.pause_task_sla(
+        tenant_id="tenant-wf-sla",
+        task_id=task_id,
+        paused_at=t_pause,
+    )
+    assert paused.status == SlaStatus.PAUSED
+    assert db_rec.status == "PAUSED"
+    assert db_rec.paused_at == t_pause
+
+    # 3. Resume through public entry point
+    t_resume = t_pause + timedelta(minutes=40)
+    resumed = await wf_service_1.resume_task_sla(
+        tenant_id="tenant-wf-sla",
+        task_id=task_id,
+        resumed_at=t_resume,
+    )
+    assert resumed.status == SlaStatus.RUNNING
+    assert db_rec.status == "RUNNING"
+    assert db_rec.total_paused_seconds == 2400
+
+    # 4. Service Restart Recovery: Brand new WorkflowService with cold SLA cache
+    sla_svc_2 = SlaService(persistence_mode="database")
+    sla_svc_2.register_policy(policy)
+    assert task_id not in sla_svc_2._states
+
+    wf_service_2 = WorkflowService(
+        uow_factory=uow_factory,  # type: ignore[arg-type]
+        adapter=adapter,
+        sla_service=sla_svc_2,
+    )
+
+    # Evaluate SLA triggers using authoritative database records
+    t_eval = resumed.warning_at + timedelta(seconds=1)
+    actions = await wf_service_2.evaluate_sla_triggers(
+        tenant_id="tenant-wf-sla",
+        as_of=t_eval,
+    )
+    assert len(actions) == 1
+    assert actions[0] == f"WARNING:{task_id}"
+    assert db_rec.status == "WARNING"
+    assert db_rec.warning_fired_at == t_eval
+
+
+@pytest.mark.asyncio
+async def test_workflow_service_sync_backwards_compatibility_methods() -> None:
+    """Synchronous backwards-compatibility entry points continue functioning in-memory."""
+    adapter = AsyncMock(spec=WorkflowAdapterProtocol)
+    shared_session = InMemorySlaDbSession()
+    service = WorkflowService(
+        uow_factory=lambda: SlaTestUnitOfWork(shared_session),  # type: ignore[arg-type]
+        adapter=adapter,
+        persistence_mode="memory",
+    )
+    policy = SlaPolicyConfig(
+        policy_key="sync_policy",
+        name="Sync Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    service.register_sla_policy(policy)
+
+    t0 = datetime(2026, 10, 28, 10, 0, 0, tzinfo=UTC)
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    # Sync attach
+    state = service.attach_task_sla_sync(
+        tenant_id="tenant-sync",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="sync_policy",
+        created_at=t0,
+    )
+    assert state.task_id == task_id
+    assert state.status == SlaStatus.RUNNING
+
+    # Sync pause
+    paused = service.pause_task_sla_sync(
+        tenant_id="tenant-sync",
+        task_id=task_id,
+        paused_at=t0 + timedelta(minutes=10),
+    )
+    assert paused.status == SlaStatus.PAUSED
+
+    # Sync resume
+    resumed = service.resume_task_sla_sync(
+        tenant_id="tenant-sync",
+        task_id=task_id,
+        resumed_at=t0 + timedelta(minutes=20),
+    )
+    assert resumed.status == SlaStatus.RUNNING
+
+
+# ==============================================================================
+# 7. Failure Propagation & Removal of Unsafe DB Fallback (Task 2)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_sla_database_error_propagates_and_rolls_back_uow() -> None:
+    """Database query failure during SLA evaluation propagates and rolls back without fallback."""
+    session = InMemorySlaDbSession()
+
+    async def failing_execute(stmt: Any) -> Any:
+        raise RuntimeError("PostgreSQL connection timeout during SLA lock query")
+
+    session.execute = failing_execute  # type: ignore[method-assign]
+
+    service = SlaService(persistence_mode="database")
+    policy = SlaPolicyConfig(
+        policy_key="err_policy",
+        name="Error Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    service.register_policy(policy)
+
+    mock_outbox = AsyncMock()
+    mock_audit = AsyncMock()
+
+    with pytest.raises(RuntimeError, match="PostgreSQL connection timeout"):
+        await service.evaluate_triggers(
+            as_of=datetime.now(UTC),
+            outbox_repo=mock_outbox,
+            audit_repo=mock_audit,
+            tenant_id="tenant-fail",
+            session=session,  # type: ignore[arg-type]
+        )
+
+    # Confirm no outbox or audit events emitted
+    mock_outbox.enqueue.assert_not_called()
+    mock_audit.append.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sla_flush_failure_propagates_without_silent_suppression() -> None:
+    """Database flush failure during SLA evaluation propagates and prevents commit."""
+    session = InMemorySlaDbSession()
+
+    async def failing_flush() -> None:
+        raise RuntimeError("IntegrityError on task_sla_states flush")
+
+    session.flush = failing_flush  # type: ignore[method-assign]
+
+    service = SlaService(persistence_mode="database")
+    policy = SlaPolicyConfig(
+        policy_key="flush_err_policy",
+        name="Flush Error Policy",
+        warning_duration_seconds=1800,
+        breach_duration_seconds=3600,
+    )
+    service.register_policy(policy)
+
+    t0 = datetime(2026, 10, 28, 8, 0, 0, tzinfo=UTC)
+    task_id = uuid4()
+    service.attach_task_sla(
+        tenant_id="tenant-flush-fail",
+        instance_id=uuid4(),
+        task_id=task_id,
+        policy_key="flush_err_policy",
+        created_at=t0,
+        session=session,  # type: ignore[arg-type]
+    )
+
+    mock_outbox = AsyncMock()
+    mock_audit = AsyncMock()
+
+    with pytest.raises(RuntimeError, match="IntegrityError on task_sla_states flush"):
+        await service.evaluate_triggers(
+            as_of=t0 + timedelta(hours=1),
+            outbox_repo=mock_outbox,
+            audit_repo=mock_audit,
+            tenant_id="tenant-flush-fail",
+            session=session,  # type: ignore[arg-type]
+        )
+
+
+# ==============================================================================
+# 8. Removal of Cross-Tenant SLA Update Fallback (Task 5)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_sla_repository_update_task_sla_fails_closed_cross_tenant() -> None:
+    """update_task_sla raises SlaTaskStateNotFoundError when targeting another tenant."""
+    session = InMemorySlaDbSession()
+    repo = SlaRepository(session)  # type: ignore[arg-type]
+
+    now = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    # Create record in Tenant A
+    state_a = TaskSlaState(
+        task_id=task_id,
+        instance_id=inst_id,
+        tenant_id="tenant-A",
+        policy_key="policy_1",
+        status=SlaStatus.RUNNING,
+        created_at=now,
+        warning_at=now + timedelta(hours=1),
+        breach_at=now + timedelta(hours=2),
+    )
+    await repo.create_task_sla(state_a)
+
+    # Attempt to update the same task_id under Tenant B -> MUST FAIL CLOSED
+    state_b_attempt = TaskSlaState(
+        task_id=task_id,
+        instance_id=inst_id,
+        tenant_id="tenant-B",  # Malicious or confused tenant
+        policy_key="policy_1",
+        status=SlaStatus.PAUSED,
+        created_at=now,
+        warning_at=now + timedelta(hours=1),
+        breach_at=now + timedelta(hours=2),
+    )
+
+    with pytest.raises(SlaTaskStateNotFoundError, match="not found in tenant 'tenant-B'"):
+        await repo.update_task_sla(state_b_attempt)
+
+    # Verify Tenant A record was NOT mutated
+    rec_a = await repo.get_task_sla(tenant_id="tenant-A", task_id=task_id)
+    assert rec_a is not None
+    assert rec_a.status == "RUNNING"
+

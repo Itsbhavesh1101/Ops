@@ -17,6 +17,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.audit.repository import AuditRepository
 from app.audit.schemas import AuditEventCreate, AuditEventOutcome
 from app.core.auth.models import (
@@ -128,6 +130,7 @@ class WorkflowService:
         approval_compiler: ApprovalBpmnCompiler | None = None,
         delegation_policy: DelegationPolicyProtocol | None = None,
         sla_service: SlaService | None = None,
+        persistence_mode: str = "database",
     ) -> None:
         self._uow_factory = uow_factory
         self._adapter = adapter
@@ -138,7 +141,7 @@ class WorkflowService:
         self._form_validator = form_validator or FormValidator()
         self._approval_compiler = approval_compiler or ApprovalBpmnCompiler()
         self._delegation_policy = delegation_policy or DefaultDelegationPolicy()
-        self._sla_service = sla_service or SlaService()
+        self._sla_service = sla_service or SlaService(persistence_mode=persistence_mode)
 
     # ==========================================================================
     # 1. Definition Management & Deployment
@@ -1026,7 +1029,47 @@ class WorkflowService:
         """Register an SLA policy specification."""
         self._sla_service.register_policy(policy)
 
-    def attach_task_sla(
+    async def attach_task_sla(
+        self,
+        tenant_id: str,
+        instance_id: UUID,
+        task_id: UUID,
+        policy_key: str,
+        created_at: datetime | None = None,
+        session: AsyncSession | None = None,
+    ) -> TaskSlaState:
+        """Attach an SLA policy to a canonical task with PostgreSQL persistence.
+
+        When session is provided, stages the SLA state record in that session.
+        When session is None, wraps the registration in an active Unit of Work
+        and commits it to PostgreSQL.
+        """
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError("tenant_id must not be empty or whitespace-only")
+
+        if session is not None:
+            return await self._sla_service.attach_task_sla_async(
+                tenant_id=tenant_id,
+                instance_id=instance_id,
+                task_id=task_id,
+                policy_key=policy_key,
+                created_at=created_at,
+                session=session,
+            )
+
+        async with self._uow_factory() as uow:
+            state = await self._sla_service.attach_task_sla_async(
+                tenant_id=tenant_id,
+                instance_id=instance_id,
+                task_id=task_id,
+                policy_key=policy_key,
+                created_at=created_at,
+                session=uow.session,
+            )
+            await uow.commit()
+            return state
+
+    def attach_task_sla_sync(
         self,
         tenant_id: str,
         instance_id: UUID,
@@ -1034,7 +1077,7 @@ class WorkflowService:
         policy_key: str,
         created_at: datetime | None = None,
     ) -> TaskSlaState:
-        """Attach an SLA policy to a canonical task."""
+        """Synchronous backwards-compatibility entry point (in-memory tracking only)."""
         return self._sla_service.attach_task_sla(
             tenant_id=tenant_id,
             instance_id=instance_id,
@@ -1043,13 +1086,89 @@ class WorkflowService:
             created_at=created_at,
         )
 
-    def pause_task_sla(self, tenant_id: str, task_id: UUID) -> TaskSlaState:
-        """Pause SLA progression for a task."""
-        return self._sla_service.pause_task_sla(tenant_id=tenant_id, task_id=task_id)
+    async def pause_task_sla(
+        self,
+        tenant_id: str,
+        task_id: UUID,
+        paused_at: datetime | None = None,
+        session: AsyncSession | None = None,
+    ) -> TaskSlaState:
+        """Pause SLA progression for a task with database persistence."""
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError("tenant_id must not be empty or whitespace-only")
 
-    def resume_task_sla(self, tenant_id: str, task_id: UUID) -> TaskSlaState:
-        """Resume SLA progression for a task."""
-        return self._sla_service.resume_task_sla(tenant_id=tenant_id, task_id=task_id)
+        if session is not None:
+            return await self._sla_service.pause_task_sla_async(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                paused_at=paused_at,
+                session=session,
+            )
+
+        async with self._uow_factory() as uow:
+            state = await self._sla_service.pause_task_sla_async(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                paused_at=paused_at,
+                session=uow.session,
+            )
+            await uow.commit()
+            return state
+
+    def pause_task_sla_sync(
+        self,
+        tenant_id: str,
+        task_id: UUID,
+        paused_at: datetime | None = None,
+    ) -> TaskSlaState:
+        """Synchronous backwards-compatibility entry point (in-memory tracking only)."""
+        return self._sla_service.pause_task_sla(
+            tenant_id=tenant_id,
+            task_id=task_id,
+            paused_at=paused_at,
+        )
+
+    async def resume_task_sla(
+        self,
+        tenant_id: str,
+        task_id: UUID,
+        resumed_at: datetime | None = None,
+        session: AsyncSession | None = None,
+    ) -> TaskSlaState:
+        """Resume SLA progression for a task with database persistence."""
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError("tenant_id must not be empty or whitespace-only")
+
+        if session is not None:
+            return await self._sla_service.resume_task_sla_async(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                resumed_at=resumed_at,
+                session=session,
+            )
+
+        async with self._uow_factory() as uow:
+            state = await self._sla_service.resume_task_sla_async(
+                tenant_id=tenant_id,
+                task_id=task_id,
+                resumed_at=resumed_at,
+                session=uow.session,
+            )
+            await uow.commit()
+            return state
+
+    def resume_task_sla_sync(
+        self,
+        tenant_id: str,
+        task_id: UUID,
+        resumed_at: datetime | None = None,
+    ) -> TaskSlaState:
+        """Synchronous backwards-compatibility entry point (in-memory tracking only)."""
+        return self._sla_service.resume_task_sla(
+            tenant_id=tenant_id,
+            task_id=task_id,
+            resumed_at=resumed_at,
+        )
 
     async def evaluate_sla_triggers(
         self,
