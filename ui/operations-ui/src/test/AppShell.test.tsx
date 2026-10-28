@@ -1,9 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { AppShell } from "../components/layout/AppShell";
 import { AuthContextType } from "../context/AuthContext";
 import { OIDC_CONFIG } from "../api/config";
+
+import { AppRoutes } from "../App";
 
 // Mock useAuth
 const mockAuthValue: AuthContextType = {
@@ -44,6 +46,18 @@ vi.mock("../components/layout/SystemStatusIndicator", () => ({
 }));
 
 describe("AppShell Layout & Navigation", () => {
+  beforeEach(() => {
+    mockAuthValue.user = {
+      principal_id: "test-admin",
+      tenant_id: "tenant-engineering",
+      roles: ["admin"],
+      permissions: ["read", "write"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Test Administrator",
+      email: "admin@irinfotech.internal",
+    };
+  });
   it("renders the application shell with semantic landmarks and user identity", () => {
     render(
       <MemoryRouter initialEntries={["/dashboard"]}>
@@ -123,5 +137,23 @@ describe("AppShell Layout & Navigation", () => {
     expect(closeButton).toBeInTheDocument();
 
     fireEvent.click(closeButton);
+  });
+
+  it("blocks workflow task inbox and displays session/tenant error when tenant is missing", () => {
+    mockAuthValue.user = {
+      ...mockAuthValue.user!,
+      tenant_id: "",
+    };
+
+    render(
+      <MemoryRouter initialEntries={["/workflows/inbox"]}>
+        <AppRoutes />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText("Session or Tenant Context Missing")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Verified tenant identity is required to access workflow task resources/i)
+    ).toBeInTheDocument();
   });
 });

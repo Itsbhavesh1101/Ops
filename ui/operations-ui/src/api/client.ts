@@ -55,6 +55,19 @@ import type {
   SchedulingActivity,
   SchedulingResourceSnapshot,
   SolverProfile,
+  WorkflowInstanceStatus,
+  WorkflowInstanceResponse,
+  WorkflowHistoryEntry,
+  AuditEventResponse,
+  AuditQueryParams,
+  MilestoneHealth,
+  MilestoneHealthResponse,
+  TaskRiskResponse,
+  RecommendationQuality,
+  RecommendationAction,
+  TaskRecommendation,
+  PlanRecommendationsResponse,
+  RecommendationQueryParams,
 } from "./types";
 
 export type {
@@ -102,6 +115,19 @@ export type {
   SchedulingActivity,
   SchedulingResourceSnapshot,
   SolverProfile,
+  WorkflowInstanceStatus,
+  WorkflowInstanceResponse,
+  WorkflowHistoryEntry,
+  AuditEventResponse,
+  AuditQueryParams,
+  MilestoneHealth,
+  MilestoneHealthResponse,
+  TaskRiskResponse,
+  RecommendationQuality,
+  RecommendationAction,
+  TaskRecommendation,
+  PlanRecommendationsResponse,
+  RecommendationQueryParams,
 };
 
 export interface WorkflowDefinition {
@@ -119,6 +145,7 @@ export interface WorkflowDefinition {
 export interface WorkflowTask {
   id: string;
   tenant_id: string;
+  workflow_instance_id?: string;
   task_definition_key: string;
   name: string;
   description?: string | null;
@@ -682,6 +709,129 @@ export class WorkflowApiClient {
       headers,
       body: JSON.stringify(payload),
     });
+  }
+
+  // ==========================================
+  // --- WORKFLOW INSTANCES & HISTORY (DQ-3) ---
+  // ==========================================
+  async getWorkflowInstance(
+    instanceId: string,
+    tenantId?: string
+  ): Promise<WorkflowInstanceResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<WorkflowInstanceResponse>(
+      `/workflows/instances/${encodeURIComponent(instanceId)}`,
+      { method: "GET", headers }
+    );
+  }
+
+  async getWorkflowHistory(
+    instanceId: string,
+    tenantId?: string
+  ): Promise<WorkflowHistoryEntry[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<WorkflowHistoryEntry[]>(
+      `/workflows/instances/${encodeURIComponent(instanceId)}/history`,
+      { method: "GET", headers }
+    );
+  }
+
+  async listWorkflowTasks(
+    tenantId?: string,
+    params?: { instance_id?: string; status?: string; assignee?: string }
+  ): Promise<WorkflowTask[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.instance_id) q.set("instance_id", params.instance_id);
+    if (params?.status) q.set("status", params.status);
+    if (params?.assignee) q.set("assignee", params.assignee);
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<WorkflowTask[]>(`/workflows/tasks${query}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  // ==========================================
+  // --- ENTERPRISE AUDIT TRAIL (DQ-3) ---
+  // ==========================================
+  async searchAudit(
+    params?: AuditQueryParams,
+    tenantId?: string
+  ): Promise<AuditEventResponse[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.correlation_id) q.set("correlation_id", params.correlation_id);
+    if (params?.event_type) q.set("event_type", params.event_type);
+    if (params?.resource_type) q.set("resource_type", params.resource_type);
+    if (params?.resource_id) q.set("resource_id", params.resource_id);
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    if (params?.offset !== undefined) q.set("offset", String(params.offset));
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<AuditEventResponse[]>(`/audit${query}`, {
+      method: "GET",
+      headers,
+    });
+  }
+
+  // ==========================================
+  // --- TASK INTELLIGENCE: MILESTONES, RISKS, RECOMMENDATIONS (DQ-2 / DQ-3) ---
+  // ==========================================
+  async getPlanMilestones(
+    planId: string,
+    tenantId?: string
+  ): Promise<MilestoneHealthResponse[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<MilestoneHealthResponse[]>(
+      `/plans/${encodeURIComponent(planId)}/milestones`,
+      { method: "GET", headers }
+    );
+  }
+
+  async getPlanRisks(
+    planId: string,
+    tenantId?: string
+  ): Promise<TaskRiskResponse[]> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    return this.request<TaskRiskResponse[]>(
+      `/plans/${encodeURIComponent(planId)}/risks`,
+      { method: "GET", headers }
+    );
+  }
+
+  async getPlanRecommendations(
+    planId: string,
+    params?: RecommendationQueryParams,
+    tenantId?: string
+  ): Promise<PlanRecommendationsResponse> {
+    const headers: Record<string, string> = {};
+    if (tenantId) headers["X-Tenant-ID"] = tenantId;
+    const q = new URLSearchParams();
+    if (params?.limit !== undefined) q.set("limit", String(params.limit));
+    if (params?.include_blocked !== undefined) q.set("include_blocked", String(params.include_blocked));
+    if (params?.critical_path_weight !== undefined) {
+      q.set("critical_path_weight", String(params.critical_path_weight));
+    }
+    if (params?.priority_weight !== undefined) {
+      q.set("priority_weight", String(params.priority_weight));
+    }
+    if (params?.progress_momentum_weight !== undefined) {
+      q.set("progress_momentum_weight", String(params.progress_momentum_weight));
+    }
+    if (params?.readiness_weight !== undefined) {
+      q.set("readiness_weight", String(params.readiness_weight));
+    }
+    const query = q.toString() ? `?${q.toString()}` : "";
+    return this.request<PlanRecommendationsResponse>(
+      `/plans/${encodeURIComponent(planId)}/recommendations${query}`,
+      { method: "GET", headers }
+    );
   }
 }
 

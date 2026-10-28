@@ -193,6 +193,7 @@ def register_domain_routes(
     # 6. Audit router: /audit
     audit_router = create_audit_router(
         tenant_dependency=tenant_dependency,
+        principal_dependency=principal_dependency,
         session_dependency=session_dependency,
         audit_service=audit_service,
     )

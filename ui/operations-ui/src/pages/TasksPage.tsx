@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { RefreshCw, AlertTriangle, Layers, Edit2 } from "lucide-react";
+import { RefreshCw, AlertTriangle, Layers, Edit2, CheckCircle2 } from "lucide-react";
 import { apiClient } from "../api/client";
 import { formatStatus } from "../utils/formatters";
 import type { PlanResponse, TaskDetailResponse, TaskProgressStatus, TaskProgressUpdate } from "../api/types";
@@ -38,12 +38,18 @@ export const TasksPage: React.FC = () => {
   const [taskProgress, setTaskProgress] = useState<number>(0);
   const [taskActualDuration, setTaskActualDuration] = useState<string>("");
   const [taskBlockedReason, setTaskBlockedReason] = useState<string>("");
+  const [taskCompletionEvidence, setTaskCompletionEvidence] = useState<string>("");
   const [isUpdatingTask, setIsUpdatingTask] = useState<boolean>(false);
   const [taskUpdateError, setTaskUpdateError] = useState<string | null>(null);
 
-  const tenantId = user?.tenant_id || "tenant-engineering";
+  const tenantId = user?.tenant_id;
 
   const fetchPlans = useCallback(async () => {
+    if (!tenantId) {
+      setLoadingPlans(false);
+      setError("Session or tenant context missing. Verified tenant identity is required to view tasks.");
+      return;
+    }
     setLoadingPlans(true);
     setError(null);
     try {
@@ -61,7 +67,7 @@ export const TasksPage: React.FC = () => {
   }, [tenantId, selectedPlanId]);
 
   const fetchTasks = useCallback(async (planId: string) => {
-    if (!planId) return;
+    if (!planId || !tenantId) return;
     setLoadingTasks(true);
     try {
       const data = await apiClient.getPlanTasks(planId, tenantId);
@@ -75,14 +81,19 @@ export const TasksPage: React.FC = () => {
   }, [tenantId]);
 
   useEffect(() => {
-    fetchPlans();
-  }, [fetchPlans]);
+    if (tenantId) {
+      fetchPlans();
+    } else {
+      setLoadingPlans(false);
+      setError("Session or tenant context missing. Verified tenant identity is required to view tasks.");
+    }
+  }, [fetchPlans, tenantId]);
 
   useEffect(() => {
-    if (selectedPlanId) {
+    if (selectedPlanId && tenantId) {
       fetchTasks(selectedPlanId);
     }
-  }, [selectedPlanId, fetchTasks]);
+  }, [selectedPlanId, fetchTasks, tenantId]);
 
   const openTaskModal = (task: TaskDetailResponse) => {
     setSelectedTask(task);
@@ -90,13 +101,17 @@ export const TasksPage: React.FC = () => {
     setTaskProgress(task.progress_percentage || 0);
     setTaskActualDuration(task.actual_duration_minutes ? String(task.actual_duration_minutes) : "");
     setTaskBlockedReason(task.blocked_reason || "");
+    setTaskCompletionEvidence(task.completion_evidence || "");
     setTaskUpdateError(null);
     setIsTaskModalOpen(true);
   };
 
   const handleTaskSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTask) return;
+    if (!selectedTask || !tenantId) {
+      setTaskUpdateError("Session or tenant context missing. Verified tenant identity is required to update tasks.");
+      return;
+    }
 
     setIsUpdatingTask(true);
     setTaskUpdateError(null);
@@ -107,6 +122,7 @@ export const TasksPage: React.FC = () => {
         progress_percentage: Number(taskProgress),
         actual_duration_minutes: taskActualDuration ? Number(taskActualDuration) : null,
         blocked_reason: taskStatus === "BLOCKED" ? taskBlockedReason.trim() || "Blocked" : null,
+        completion_evidence: taskCompletionEvidence.trim() || null,
       };
 
       await apiClient.updateTaskProgress(selectedTask.id, payload, tenantId);
@@ -133,6 +149,21 @@ export const TasksPage: React.FC = () => {
     if (statusFilter === "ALL") return true;
     return t.status === statusFilter;
   });
+
+  if (!user || !tenantId) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Tasks (WBS)"
+          description="Operational task tracking, status execution, and duration recording across active plans."
+        />
+        <ErrorState
+          title="Session or Tenant Context Missing"
+          message="Verified tenant identity is required to view or update tasks. Please sign in with an authorized tenant account."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -239,6 +270,7 @@ export const TasksPage: React.FC = () => {
                   <TableHead className="w-28">Status</TableHead>
                   <TableHead className="w-36">Progress</TableHead>
                   <TableHead className="w-24">Duration</TableHead>
+                  <TableHead className="w-24">Variance</TableHead>
                   <TableHead className="w-32">Role</TableHead>
                   <TableHead className="w-20 text-right">Action</TableHead>
                 </TableRow>
@@ -259,6 +291,14 @@ export const TasksPage: React.FC = () => {
                           </div>
                         )}
                       </div>
+                      {task.completion_evidence && (
+                        <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium mt-0.5">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span className="truncate max-w-xs" title={task.completion_evidence}>
+                            Evidence: {task.completion_evidence}
+                          </span>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -299,6 +339,23 @@ export const TasksPage: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-slate-700 tabular-nums text-xs">
                       {task.estimated_duration_minutes}m
+                    </TableCell>
+                    <TableCell>
+                      {task.variance_minutes !== null && task.variance_minutes !== undefined ? (
+                        <span
+                          className={`font-mono text-xs font-semibold ${
+                            task.variance_minutes > 0
+                              ? "text-rose-600"
+                              : task.variance_minutes < 0
+                              ? "text-emerald-600"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          {task.variance_minutes > 0 ? `+${task.variance_minutes}m` : `${task.variance_minutes}m`}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 text-xs">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-slate-500">
                       {task.owner_role || "—"}
@@ -406,6 +463,22 @@ export const TasksPage: React.FC = () => {
               />
             </div>
           )}
+
+          <div>
+            <label htmlFor="task-completion-evidence" className="block text-xs font-semibold text-slate-700 mb-1">
+              Completion Evidence / Verification Reference
+            </label>
+            <Input
+              id="task-completion-evidence"
+              type="text"
+              value={taskCompletionEvidence}
+              onChange={(e) => setTaskCompletionEvidence(e.target.value)}
+              placeholder="e.g. PR #2, commit 8e79995, audit log ID, verification notes..."
+            />
+            <p className="text-[10px] text-slate-500 mt-1">
+              Verifiable completion artifact, code commit reference, or test outcome sign-off.
+            </p>
+          </div>
 
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
             <Button

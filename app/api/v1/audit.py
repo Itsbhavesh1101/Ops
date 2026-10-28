@@ -16,9 +16,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.errors import ApiErrorResponse
+from app.api.errors import ApiError, ApiErrorResponse
 from app.audit.service import AuditEventResponse, AuditQueryService
-from app.core.auth.models import TenantContext
+from app.core.auth.dependency import (
+    authenticate_request,
+    require_trusted_tenant_context,
+)
+from app.core.auth.models import AuthenticatedPrincipal, TenantContext
 
 
 def _extract_tenant_id(context: Any) -> str:
@@ -41,13 +45,15 @@ def _extract_tenant_id(context: Any) -> str:
 
 def create_audit_router(
     *,
-    tenant_dependency: Callable[..., Any],
+    tenant_dependency: Callable[..., Any] | None = None,
+    principal_dependency: Callable[..., Any] = authenticate_request,
     session_dependency: Callable[..., AsyncSession],
     audit_service: AuditQueryService | None = None,
 ) -> APIRouter:
     """Construct a safe APIRouter for canonical audit trail queries."""
     router = APIRouter(tags=["Audit"])
     query_service = audit_service or AuditQueryService()
+    active_tenant_dep = tenant_dependency or require_trusted_tenant_context
 
     @router.get(
         "/audit",
@@ -70,10 +76,55 @@ def create_audit_router(
         resource_id: str | None = Query(default=None, description="Resource identifier."),
         limit: int = Query(default=100, ge=1, le=500, description="Max results to return."),
         offset: int = Query(default=0, ge=0, description="Result offset."),
-        tenant_context: Any = Depends(tenant_dependency),
+        principal: Any = Depends(principal_dependency),
+        tenant_context: Any = Depends(active_tenant_dep),
         session: AsyncSession = Depends(session_dependency),
     ) -> list[AuditEventResponse]:
-        tenant_id = _extract_tenant_id(tenant_context)
+        # 1. Enforce verified principal presence (unauthenticated / anonymous fail closed)
+        if not isinstance(principal, AuthenticatedPrincipal):
+            raise ApiError(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                code="auth.unauthorized",
+                message="Authentication required: verified principal required for audit.",
+            )
+
+        # 2. Enforce audit:read permission or approved administrative roles
+        has_audit_read = (
+            principal.has_permission("audit:read")
+            or principal.has_permission("*")
+            or principal.has_any_role("auditor", "tenant_admin", "admin")
+        )
+        if not has_audit_read:
+            raise ApiError(
+                status_code=status.HTTP_403_FORBIDDEN,
+                code="audit.unauthorized",
+                message=(
+                    "Insufficient permissions to access audit records. "
+                    "Requires 'audit:read' permission or 'auditor' role."
+                ),
+            )
+
+        # 3. Enforce tenant authority: client context cannot override principal
+        tenant_id = principal.tenant_id
+        if tenant_context is not None:
+            try:
+                extracted_tenant = _extract_tenant_id(tenant_context)
+                if extracted_tenant != tenant_id:
+                    raise ApiError(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        code="audit.cross_tenant_forbidden",
+                        message=(
+                            "Cross-tenant audit access forbidden: "
+                            "client tenant does not match authenticated principal."
+                        ),
+                    )
+            except TypeError as exc:
+                raise ApiError(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    code="audit.invalid_tenant_context",
+                    message=str(exc),
+                ) from exc
+
         records = await query_service.search_events(
             session=session,
             tenant_id=tenant_id,

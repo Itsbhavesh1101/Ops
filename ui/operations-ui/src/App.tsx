@@ -10,7 +10,6 @@ import { apiClient } from "./api/client";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { SystemPage } from "./pages/SystemPage";
-import { PlaceholderPage } from "./pages/PlaceholderPage";
 import { ForbiddenPage } from "./pages/ForbiddenPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
@@ -26,28 +25,56 @@ import { SchedulingJobsPage } from "./pages/SchedulingJobsPage";
 import { SchedulesPage } from "./pages/SchedulesPage";
 import { ScheduleDetailPage } from "./pages/ScheduleDetailPage";
 
+// Phase F3 Real Implementations
+import { WorkflowInstancePage } from "./pages/WorkflowInstancePage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
+import { AuditPage } from "./pages/AuditPage";
+
 // Workflow Subsystem Existing Components
 import { TaskInbox } from "./components/TaskInbox";
 import { BpmnDesigner } from "./components/BpmnDesigner";
 import { DmnEditor } from "./components/DmnEditor";
 import { FormEditor } from "./components/FormEditor";
 
+import { ErrorState } from "./components/ui/ErrorState";
+
 const WorkflowInboxView: React.FC = () => {
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "tenant-engineering";
-  return <TaskInbox apiClient={apiClient} tenantId={tenantId} />;
+  if (!user?.tenant_id) {
+    return (
+      <ErrorState
+        title="Session or Tenant Context Missing"
+        message="Verified tenant identity is required to access workflow task resources. Please sign in with an authorized tenant account."
+      />
+    );
+  }
+  return <TaskInbox apiClient={apiClient} tenantId={user.tenant_id} />;
 };
 
 const WorkflowBpmnView: React.FC = () => {
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "tenant-engineering";
-  return <BpmnDesigner apiClient={apiClient} tenantId={tenantId} />;
+  if (!user?.tenant_id) {
+    return (
+      <ErrorState
+        title="Session or Tenant Context Missing"
+        message="Verified tenant identity is required to access workflow model resources. Please sign in with an authorized tenant account."
+      />
+    );
+  }
+  return <BpmnDesigner apiClient={apiClient} tenantId={user.tenant_id} />;
 };
 
 const WorkflowDmnView: React.FC = () => {
   const { user } = useAuth();
-  const tenantId = user?.tenant_id || "tenant-engineering";
-  return <DmnEditor apiClient={apiClient} tenantId={tenantId} />;
+  if (!user?.tenant_id) {
+    return (
+      <ErrorState
+        title="Session or Tenant Context Missing"
+        message="Verified tenant identity is required to access decision model resources. Please sign in with an authorized tenant account."
+      />
+    );
+  }
+  return <DmnEditor apiClient={apiClient} tenantId={user.tenant_id} />;
 };
 
 const WorkflowFormsView: React.FC = () => {
@@ -83,18 +110,7 @@ export const AppRoutes: React.FC = () => {
                 <Route path="/workflows/bpmn" element={<WorkflowBpmnView />} />
                 <Route path="/workflows/dmn" element={<WorkflowDmnView />} />
                 <Route path="/workflows/forms" element={<WorkflowFormsView />} />
-                <Route
-                  path="/workflows/:instanceId"
-                  element={
-                    <PlaceholderPage
-                      title="Workflow Instance Execution"
-                      moduleName="Workflows & Automation"
-                      targetPhase="Phase F3"
-                      description="Real-time process execution tracing, variable inspection, and flow token visualization."
-                      backendEndpoint="GET /api/v1/workflows/instances/:id"
-                    />
-                  }
-                />
+                <Route path="/workflows/:instanceId" element={<WorkflowInstancePage />} />
 
                 {/* Resources Subsystem (Phase F2) */}
                 <Route path="/resources" element={<ResourcesPage />} />
@@ -106,30 +122,8 @@ export const AppRoutes: React.FC = () => {
                 <Route path="/schedules/:scheduleId" element={<ScheduleDetailPage />} />
 
                 {/* Operations & Governance */}
-                <Route
-                  path="/analytics"
-                  element={
-                    <PlaceholderPage
-                      title="Operations Analytics"
-                      moduleName="Operations & Governance"
-                      targetPhase="Phase F3"
-                      description="Long-term operational throughput, SLA heatmaps, and cross-tenant capacity telemetry."
-                      backendEndpoint="GET /api/v1/analytics/operations"
-                    />
-                  }
-                />
-                <Route
-                  path="/audit"
-                  element={
-                    <PlaceholderPage
-                      title="Enterprise Audit Trail"
-                      moduleName="Operations & Governance"
-                      targetPhase="Phase F3"
-                      description="Immutable security logs, state change history, and compliance attestation."
-                      backendEndpoint="GET /api/v1/audit/trail"
-                    />
-                  }
-                />
+                <Route path="/analytics" element={<AnalyticsPage />} />
+                <Route path="/audit" element={<AuditPage />} />
 
                 {/* System Diagnostics */}
                 <Route path="/system" element={<SystemPage />} />

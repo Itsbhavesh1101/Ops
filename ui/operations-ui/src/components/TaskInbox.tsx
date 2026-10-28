@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { WorkflowApiClient, WorkflowTask } from "../api/client";
 import { CheckCircle2, RefreshCw } from "lucide-react";
 import { Button } from "./ui/Button";
@@ -192,6 +193,16 @@ export const TaskInbox: React.FC<TaskInboxProps> = ({ apiClient, tenantId, initi
               <div className="border-b border-slate-100 pb-3">
                 <h4 className="text-sm font-semibold text-slate-900">{selectedTask.name}</h4>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">Task ID: {selectedTask.id}</p>
+                {selectedTask.workflow_instance_id && (
+                  <p className="text-xs mt-1">
+                    <Link
+                      to={`/workflows/${selectedTask.workflow_instance_id}`}
+                      className="text-indigo-600 hover:text-indigo-800 font-mono underline inline-flex items-center gap-1"
+                    >
+                      Workflow Instance: {selectedTask.workflow_instance_id.slice(0, 8)}...
+                    </Link>
+                  </p>
+                )}
                 <p className="text-xs text-slate-500 mt-1">Form Mapping: {selectedTask.form_key || "None"}</p>
               </div>
 

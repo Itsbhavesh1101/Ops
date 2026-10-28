@@ -46,8 +46,15 @@ vi.mock("../context/AuthContext", () => ({
 describe("Plans & WBS Feature Screens (F2)", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    mockAuthValue.user.roles = ["operator", "approver"];
-    mockAuthValue.user.permissions = ["read", "write", "plan:approve"];
+    mockAuthValue.user = {
+      principal_id: "test-operator",
+      tenant_id: "tenant-engineering",
+      roles: ["operator", "approver"],
+      permissions: ["read", "write", "plan:approve"],
+      principal_type: "HUMAN",
+      authentication_method: "OIDC",
+      display_name: "Test Operator",
+    };
   });
 
   const samplePlan: PlanResponse = {
@@ -464,5 +471,74 @@ describe("Plans & WBS Feature Screens (F2)", () => {
     const submitBtn = screen.getByRole("button", { name: /Submit for Approval/i });
     expect(submitBtn).toBeDisabled();
     expect(submitBtn).toHaveAttribute("title", "Submission requires planner or tenant_admin role");
+  });
+
+  it("fails closed when user session is missing (user === null prevents API calls and actions)", async () => {
+    // @ts-expect-error simulating unauthenticated / null user session
+    mockAuthValue.user = null;
+    const planSpy = vi.spyOn(apiClient, "getPlan");
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/plans/plan-201"]}>
+          <Routes>
+            <Route path="/plans/:planId" element={<PlanDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Session or Tenant Context Missing")).toBeInTheDocument();
+    });
+
+    expect(planSpy).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Submit for Approval/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Approve Plan/i })).not.toBeInTheDocument();
+  });
+
+  it("fails closed when tenant identity is missing", async () => {
+    mockAuthValue.user = {
+      ...mockAuthValue.user,
+      tenant_id: "",
+    };
+    const planSpy = vi.spyOn(apiClient, "getPlan");
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/plans/plan-201"]}>
+          <Routes>
+            <Route path="/plans/:planId" element={<PlanDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Session or Tenant Context Missing")).toBeInTheDocument();
+    });
+
+    expect(planSpy).not.toHaveBeenCalled();
+  });
+
+  it("displays error state when cross-tenant API 403 occurs", async () => {
+    vi.spyOn(apiClient, "getPlan").mockRejectedValue(
+      new ApiError(403, "HTTP 403: Cross-tenant plan access forbidden")
+    );
+
+    render(
+      <ToastProvider>
+        <MemoryRouter initialEntries={["/plans/plan-cross-999"]}>
+          <Routes>
+            <Route path="/plans/:planId" element={<PlanDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </ToastProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Plan Unavailable")).toBeInTheDocument();
+      expect(screen.getByText(/Cross-tenant plan access forbidden/i)).toBeInTheDocument();
+    });
   });
 });

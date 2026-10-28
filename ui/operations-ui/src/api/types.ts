@@ -173,6 +173,8 @@ export interface TaskDetailResponse {
   owner_reference?: string | null;
   estimated_duration_minutes: number;
   actual_duration_minutes?: number | null;
+  variance_minutes?: number | null;
+  completion_evidence?: string | null;
   status: string;
   progress_percentage: number;
   blocked_reason?: string | null;
@@ -495,3 +497,163 @@ export interface ScheduleRepairResponse {
   status: string;
   diagnostics?: Array<Record<string, unknown> | string>;
 }
+
+// --- WORKFLOW INSTANCE & HISTORY (Phase F3 / DQ-3) ---
+export type WorkflowInstanceStatus =
+  | "RUNNING"
+  | "SUSPENDED"
+  | "COMPLETED"
+  | "TERMINATED"
+  | "FAILED";
+
+export interface WorkflowInstanceResponse {
+  id: string;
+  tenant_id: string;
+  definition_id: string;
+  workflow_key: string;
+  version: number;
+  business_reference?: string | null;
+  correlation_id?: string | null;
+  engine_instance_id: string;
+  status: WorkflowInstanceStatus;
+  input_variables: Record<string, unknown>;
+  started_by?: string | null;
+  started_at: string;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkflowHistoryEntry {
+  activity_id: string;
+  activity_name?: string | null;
+  activity_type: string;
+  execution_id?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  duration_ms?: number | null;
+  assignee?: string | null;
+  completed: boolean;
+}
+
+export interface WorkflowTask {
+  id: string;
+  tenant_id: string;
+  workflow_instance_id?: string;
+  task_definition_key: string;
+  name: string;
+  description?: string | null;
+  status: "PENDING" | "CLAIMED" | "COMPLETED";
+  assignee?: string | null;
+  candidate_roles: string[];
+  form_key?: string | null;
+  sla_status?: "RUNNING" | "WARNING" | "BREACHED" | "PAUSED" | "COMPLETED" | null;
+  warning_at?: string | null;
+  due_at?: string | null;
+  created_at: string;
+}
+
+// --- ENTERPRISE AUDIT TRAIL (Phase F3 / DQ-3) ---
+export interface AuditEventResponse {
+  audit_event_id: string;
+  schema_version: number;
+  tenant_id?: string | null;
+  actor_principal_id?: string | null;
+  actor_principal_type?: string | null;
+  authentication_method?: string | null;
+  event_type: string;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  outcome?: string | null;
+  correlation_id?: string | null;
+  details: Record<string, unknown>;
+  recorded_at: string;
+}
+
+export interface AuditQueryParams {
+  correlation_id?: string;
+  event_type?: string;
+  resource_type?: string;
+  resource_id?: string;
+  limit?: number;
+  offset?: number;
+}
+
+// --- TASK INTELLIGENCE MILESTONES, RISKS & RECOMMENDATIONS (DQ-2 / DQ-3) ---
+export type MilestoneHealth = "COMPLETED" | "AT_RISK" | "ON_TRACK" | "PENDING";
+
+export interface MilestoneHealthResponse {
+  id: string;
+  tenant_id: string;
+  plan_id: string;
+  temporary_id: string;
+  name: string;
+  description?: string | null;
+  target_date?: string | null;
+  health: MilestoneHealth;
+  progress_percentage: number;
+  completed_tasks: number;
+  total_tasks: number;
+  blocked_tasks: number;
+  is_overdue: boolean;
+}
+
+export interface TaskRiskResponse {
+  task_id: string;
+  category: string;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | string;
+  description: string;
+  is_evaluable: boolean;
+  detected_at: string;
+}
+
+export type RecommendationQuality = "HIGH" | "MEDIUM" | "DEGRADED";
+export type RecommendationAction =
+  | "START_TASK"
+  | "CONTINUE_EXECUTION"
+  | "RESOLVE_BLOCKER"
+  | "EXPEDITE_CRITICAL"
+  | "REPRIORITIZE";
+
+export interface TaskRecommendation {
+  task_id: string;
+  temporary_id: string;
+  title: string;
+  rank: number;
+  score: number;
+  action: RecommendationAction;
+  priority: string;
+  status: string;
+  is_critical_path: boolean;
+  total_slack_minutes?: number | null;
+  explanation: string;
+  confidence?: RecommendationQuality;
+  quality: RecommendationQuality;
+  quality_basis: string;
+  blocked_reasons?: string[];
+}
+
+export interface PlanRecommendationsResponse {
+  plan_id: string;
+  tenant_id: string;
+  total_tasks: number;
+  ready_tasks_count: number;
+  blocked_tasks_count: number;
+  completed_tasks_count: number;
+  recommendations: TaskRecommendation[];
+  evaluated_at?: string;
+  is_authoritative: boolean;
+  policy_applied: boolean;
+  cpm_diagnostic?: string | null;
+  policy?: Record<string, number> | null;
+}
+
+export interface RecommendationQueryParams {
+  limit?: number;
+  include_blocked?: boolean;
+  critical_path_weight?: number;
+  priority_weight?: number;
+  progress_momentum_weight?: number;
+  readiness_weight?: number;
+}
+
