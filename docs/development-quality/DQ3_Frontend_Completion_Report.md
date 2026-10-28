@@ -8,7 +8,7 @@
 **Target Base:** `master` (at commit `d4f9d00211e5bf936cc691618c8f221f803758c4`, containing merged DQ-2 PR #2)  
 **Frozen Phase-8 RC Tag:** `phase8-rc-38d080fadab8` (`03e6305256db3d838b472aaac50893ddb513414e`) — intact and unaltered.  
 **Open Pull Request:** Target `master` (PR #3: `https://github.com/Itsbhavesh1101/Ops/pull/3`)  
-**Final Exit Gate Verdict:** `DQ3_FINAL_REVIEW_PASSED`
+**Final Exit Gate Verdict:** `DQ3_PRIVACY_CORRECTION_VERIFIED_READY_FOR_MERGE`
 
 ---
 
@@ -227,19 +227,19 @@ All links provide accessible text, active state styling, keyboard tab-stop order
 ### 7.1 Frontend Test Suite
 - **Framework:** Vitest 3.2.7 + React Testing Library + jsdom
 - **Total Test Files:** 19
-- **Total Tests:** 140 passed (0 failed, 100% pass rate)
-- **Execution Time:** ~18.0s
+- **Total Tests:** 146 passed (0 failed, 100% pass rate)
+- **Execution Time:** ~16.5s
 
 ```
 Test Files  19 passed (19)
-     Tests  140 passed (140)
+     Tests  146 passed (146)
 ```
 
 Detailed test suite distribution:
 - `Redact.test.ts` (8 tests passed): Deterministic recursive display redaction, token normalization, nested keys, uppercase/camelCase tokens, arrays, nulls, preservation of legitimate operational identifiers (`tenant_id`, `task_id`, `plan_id`).
 - `WorkflowInstancePage.test.tsx` (16 tests passed): Lifecycle status rendering, canonical ID clipboard copy, human task actions with Idempotency-Key, history timeline, 404 error state, partial history failure (HTTP 403), partial task failure (Network Error), genuine empty history, genuine absence of tasks, variable display redaction, missing tenant handling, strict suppression of secondary requests on primary HTTP 403, 404, 500, and network failure, and stale response rejection via ref guards.
 - `TaskIntelligence.test.tsx` (8 tests passed): Non-authoritative advisory disclaimer banner (`FR-TI-09`), recommendation cards with scores and confidence, derived milestone health presentation, risk monitor cards, variance column, completion evidence update modal, all 5 canonical backend recommendation actions (`START_TASK`, `CONTINUE_EXECUTION`, `RESOLVE_BLOCKER`, `EXPEDITE_CRITICAL`, `REPRIORITIZE`), query parameter serialization (`progress_momentum_weight`), TasksPage fail-closed tenant validation.
-- `AuditPage.test.tsx` (15 tests passed): Authoritative ledger rendering, outcome badges, event type filtering, correlation ID filtering, details modal with display redaction of nested sensitive keys, pagination, access denied for unauthorized roles (e.g. `planner`, `viewer`), missing tenant block, missing session block, typing isolation (no requests on typing), pagination reset on filter apply, pagination and refresh filter preservation, filter clear restoration, and stale record cache purging on auth change.
+- `AuditPage.test.tsx` (21 tests passed): Authoritative ledger rendering, outcome badges, event type filtering, correlation ID filtering, details modal with display redaction of nested sensitive keys, pagination, access denied for unauthorized roles (e.g. `planner`, `viewer`), missing tenant block, missing session block, typing isolation (no requests on typing), pagination reset on filter apply, pagination and refresh filter preservation, filter clear restoration, stale record cache purging on auth change, and 6 deterministic regression tests (A-F) using controlled deferred promises covering Tenant A/B stale response rejection, authorization revocation rejection, sensitive modal state purge on authorization loss, principal-switching rejection within same tenant, rapid filter changes / race condition ordering, and pagination/refresh loading state preservation.
 - `Plans.test.tsx` (14 tests passed): Plan detail, WBS tasks, validation results, approval workflow, 403 / 422 error handling, unauthenticated user session (`user === null`) submission/approval blocking, missing tenant blocking, cross-tenant API 403 error rendering.
 - `AnalyticsPage.test.tsx` (5 tests passed): Core metric rendering, plan progress and blockers table, risk and repair stability, recent chronological events, goal filtering, error retry state.
 - `TasksPage.test.tsx` / `TaskInbox.test.tsx` (3 tests passed): Inbox claims, approvals with idempotency.
@@ -353,6 +353,55 @@ A rigorous review identified three remaining concrete defects, which were addres
    - Stale responses from navigating away or switching instances are discarded via active instance and tenant ref guards.
    - Covered by 16 tests in `WorkflowInstancePage.test.tsx`.
 
+### 8.7 Final Audit Privacy Race Correction
+An independent security and privacy evaluation identified an asynchronous race condition in the Audit Explorer where an audit query initiated under Tenant A could resolve and populate React state after the authenticated context switched to Tenant B, or when a user's authorization was revoked or switched principals. In addition, the modal inspection state (`selectedEvent`, `isDetailModalOpen`) was held separately from audit records and was not purged on authentication or tenant boundaries.
+
+1. **Deterministic Stale-Response Protection (`ui/operations-ui/src/pages/AuditPage.tsx`):**
+   - Implemented monotonic sequence generation (`currentRequestIdRef`) and active context tracking refs (`activePrincipalIdRef`, `activeTenantIdRef`, `activeCanReadAuditRef`, `isMountedRef`).
+   - Every audit fetch captures initiating principal and tenant context:
+     ```ts
+     const requestId = ++currentRequestIdRef.current;
+     const initiatingPrincipalId = currentPrincipalId;
+     const initiatingTenantId = currentTenantId;
+     ```
+   - Before applying any response or error state update, the component deterministically verifies:
+     ```ts
+     if (
+       !isMountedRef.current ||
+       requestId !== currentRequestIdRef.current ||
+       activePrincipalIdRef.current !== initiatingPrincipalId ||
+       activeTenantIdRef.current !== initiatingTenantId ||
+       !activeCanReadAuditRef.current
+     ) {
+       return; // Discard stale response / error without mutating state
+     }
+     ```
+   - Responses from earlier filter or pagination requests cannot overwrite newer results.
+   - Responses from revoked authorization contexts or changed tenants/principals are discarded.
+   - Stale request errors do not replace the current request's error state, and stale completions do not alter loading indicators.
+   - Legitimate refresh, pagination, and retry flows are strictly preserved.
+
+2. **Sensitive Modal State & Data Cleanup on Auth Transitions:**
+   - Synchronized authentication transition detection (`prevAuthKeyRef.current !== currentAuthKey`).
+   - When authenticated principal, tenant, or permissions change:
+     - In-flight request ID is incremented (`currentRequestIdRef.current += 1`) to cancel in-flight requests.
+     - `selectedEvent` is cleared to `null`.
+     - Details modal is closed (`setIsDetailModalOpen(false)`).
+     - Audit records cache is cleared (`setEvents([])`).
+     - Filter and pagination state reset (`setDraftFilters(EMPTY_FILTERS)`, `setAppliedFilters(EMPTY_FILTERS)`, `setOffset(0)`).
+   - Guarantees that any user losing `audit:read` permissions or changing tenants cannot continue viewing a previously selected sensitive audit record.
+   - A single unified `useEffect` eliminates duplicate network calls during auth transitions by comparing `prevFiltersRef` against current applied filters and offset.
+
+3. **Deterministic Regression Tests with Controlled Deferred Promises (`AuditPage.test.tsx`):**
+   - Added 6 comprehensive tests in `describe("Audit Privacy and Stale-Response Regression Protections", ...)`:
+     - **Test A:** Tenant A request begins, tenant switches to B, A resolves last. Verified: Tenant A audit records never appear under Tenant B.
+     - **Test B:** Authorized auditor request begins, permission is revoked, original request resolves. Verified: Unauthorized records remain completely unavailable.
+     - **Test C:** A user opens an audit detail modal and then loses authorization. Verified: The modal closes immediately and selected record state is cleared.
+     - **Test D:** A user switches authenticated principals while remaining in the same tenant. Verified: Stale requests from the previous principal are rejected.
+     - **Test E:** Rapid filter changes create overlapping requests. Verified: Only the newest applicable request updates the displayed results.
+     - **Test F:** Pagination and refresh maintain correct records and loading states.
+   - All 21 tests in `AuditPage.test.tsx` pass cleanly (146 total frontend tests across 19 suites).
+
 ---
 
 ## 9. Limitations & Constraints
@@ -368,6 +417,6 @@ A rigorous review identified three remaining concrete defects, which were addres
 ## 10. Final Exit Gate Verdict
 
 ```
-DQ3_FINAL_REVIEW_PASSED
+DQ3_PRIVACY_CORRECTION_VERIFIED_READY_FOR_MERGE
 ```
-All three independently verified final security and frontend correctness issues, as well as all prior DQ-3 review objectives, have been completely resolved with comprehensive regression test suites, zero regressions on backend and frontend quality gates, and intact branch integrity. Ready for final review.
+The final audit explorer privacy race condition has been deterministically resolved and verified with 6 new deferred-promise regression tests. All quality gates (lint, typecheck, 146 Vitest tests, production build, backend audit tests) pass with zero errors and zero regressions. Intact branch integrity and frozen RC preserved. Ready for merge.

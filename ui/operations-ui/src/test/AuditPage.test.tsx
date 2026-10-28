@@ -555,4 +555,401 @@ describe("AuditPage Enterprise Audit Explorer Integration", () => {
     expect(screen.queryByText("TASK_PROGRESS_UPDATED")).not.toBeInTheDocument();
     expect(screen.queryByText("SCHEDULE_OPTIMIZED")).not.toBeInTheDocument();
   });
+
+  describe("Audit Privacy and Stale-Response Regression Protections", () => {
+    function createDeferred<T>() {
+      let resolve!: (val: T) => void;
+      let reject!: (err: unknown) => void;
+      const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    }
+
+    it("Test A: Tenant A request begins, tenant switches to B, A resolves last (Tenant A records never appear under Tenant B)", async () => {
+      const deferredA = createDeferred<AuditEventResponse[]>();
+      const deferredB = createDeferred<AuditEventResponse[]>();
+
+      const mockTenantBRecords: AuditEventResponse[] = [
+        {
+          audit_event_id: "audit-b-001",
+          schema_version: 1,
+          tenant_id: "tenant-finance",
+          actor_principal_id: "finance-user-1",
+          actor_principal_type: "HUMAN",
+          authentication_method: "OIDC",
+          event_type: "PAYROLL_PROCESSED",
+          resource_type: "PAYROLL",
+          resource_id: "pay-999",
+          correlation_id: "corr-finance-999",
+          recorded_at: "2026-10-25T14:00:00Z",
+          outcome: "SUCCESS",
+          details: { amount: 50000 },
+        },
+      ];
+
+      const searchSpy = vi.spyOn(apiClient, "searchAudit").mockImplementation((_, tenant) => {
+        if (tenant === "tenant-engineering") {
+          return deferredA.promise;
+        }
+        if (tenant === "tenant-finance") {
+          return deferredB.promise;
+        }
+        return Promise.resolve([]);
+      });
+
+      // 1. Initial render under Tenant A (tenant-engineering)
+      const { rerender } = render(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      expect(searchSpy).toHaveBeenCalledWith(expect.anything(), "tenant-engineering");
+
+      // 2. Switch tenant to Tenant B (tenant-finance) while Request A is still in-flight
+      mockAuthValue.user = {
+        ...mockAuthValue.user!,
+        tenant_id: "tenant-finance",
+      };
+
+      rerender(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(searchSpy).toHaveBeenCalledWith(expect.anything(), "tenant-finance");
+      });
+
+      // 3. Resolve Tenant B first
+      deferredB.resolve(mockTenantBRecords);
+
+      await waitFor(() => {
+        expect(screen.getByText("PAYROLL_PROCESSED")).toBeInTheDocument();
+        expect(screen.getByText("pay-999")).toBeInTheDocument();
+      });
+
+      // 4. Resolve Tenant A last
+      deferredA.resolve(mockAuditRecords);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Tenant A audit records must NEVER appear under Tenant B
+      expect(screen.queryByText("TASK_PROGRESS_UPDATED")).not.toBeInTheDocument();
+      expect(screen.queryByText("SCHEDULE_OPTIMIZED")).not.toBeInTheDocument();
+      expect(screen.getByText("PAYROLL_PROCESSED")).toBeInTheDocument();
+    });
+
+    it("Test B: Authorized auditor request begins, permission is revoked, original request resolves (unauthorized records remain unavailable)", async () => {
+      const deferred = createDeferred<AuditEventResponse[]>();
+      vi.spyOn(apiClient, "searchAudit").mockReturnValue(deferred.promise);
+
+      const { rerender } = render(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      // Verify loading state while request is in-flight
+      expect(screen.getByText(/Loading immutable audit trail records\.\.\./i)).toBeInTheDocument();
+
+      // Revoke audit:read permission
+      mockAuthValue.user = {
+        ...mockAuthValue.user!,
+        permissions: ["plan:read"],
+        roles: ["viewer"],
+      };
+
+      rerender(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      // Verify permission error is shown
+      await waitFor(() => {
+        expect(
+          screen.getByText(/Insufficient permissions to inspect audit trail/i)
+        ).toBeInTheDocument();
+      });
+
+      // Resolve the original request
+      deferred.resolve(mockAuditRecords);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Unauthorized records must remain completely unavailable
+      expect(screen.queryByText("TASK_PROGRESS_UPDATED")).not.toBeInTheDocument();
+      expect(screen.queryByText("SCHEDULE_OPTIMIZED")).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/Insufficient permissions to inspect audit trail/i)
+      ).toBeInTheDocument();
+    });
+
+    it("Test C: A user opens an audit detail modal and then loses authorization (modal closes and selected record state is cleared)", async () => {
+      vi.spyOn(apiClient, "searchAudit").mockResolvedValue(mockAuditRecords);
+
+      const { rerender } = render(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      // Wait for records to load
+      await waitFor(() => {
+        expect(screen.getByText("TASK_PROGRESS_UPDATED")).toBeInTheDocument();
+      });
+
+      // Inspect first record to open detail modal
+      const inspectButtons = screen.getAllByRole("button", { name: /Inspect/i });
+      fireEvent.click(inspectButtons[0]);
+
+      // Verify detail modal is open and showing sensitive payload details
+      await waitFor(() => {
+        expect(screen.getByText(/Audit Record: TASK_PROGRESS_UPDATED/i)).toBeInTheDocument();
+        expect(screen.getByText(/Sound check certified by stage technician/i)).toBeInTheDocument();
+      });
+
+      // User loses authorization
+      mockAuthValue.user = {
+        ...mockAuthValue.user!,
+        permissions: [],
+        roles: ["viewer"],
+      };
+
+      rerender(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      // Modal must close immediately and selected record state must be wiped
+      await waitFor(() => {
+        expect(screen.queryByText(/Audit Record: TASK_PROGRESS_UPDATED/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Sound check certified by stage technician/i)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Immutable Event Payload/i)).not.toBeInTheDocument();
+      });
+
+      // The audit records are also purged
+      expect(screen.queryByText("TASK_PROGRESS_UPDATED")).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/Insufficient permissions to inspect audit trail/i)
+      ).toBeInTheDocument();
+    });
+
+    it("Test D: A user switches authenticated principals while remaining in the same tenant (stale requests from previous principal are rejected)", async () => {
+      const deferredPrincipal1 = createDeferred<AuditEventResponse[]>();
+      const deferredPrincipal2 = createDeferred<AuditEventResponse[]>();
+
+      const recordsPrincipal1: AuditEventResponse[] = [mockAuditRecords[0]]; // TASK_PROGRESS_UPDATED
+      const recordsPrincipal2: AuditEventResponse[] = [mockAuditRecords[1]]; // SCHEDULE_OPTIMIZED
+
+      let callCount = 0;
+      vi.spyOn(apiClient, "searchAudit").mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return deferredPrincipal1.promise;
+        return deferredPrincipal2.promise;
+      });
+
+      // 1. Initial render with auditor-01
+      const { rerender } = render(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      // 2. Switch authenticated principal to auditor-02 within the same tenant
+      mockAuthValue.user = {
+        ...mockAuthValue.user!,
+        principal_id: "auditor-02",
+        display_name: "Betty Auditor",
+      };
+
+      rerender(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      await waitFor(() => {
+        expect(callCount).toBe(2);
+      });
+
+      // 3. Resolve request for auditor-02
+      deferredPrincipal2.resolve(recordsPrincipal2);
+
+      await waitFor(() => {
+        expect(screen.getByText("SCHEDULE_OPTIMIZED")).toBeInTheDocument();
+      });
+
+      // 4. Resolve stale request from auditor-01
+      deferredPrincipal1.resolve(recordsPrincipal1);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Stale records from previous principal must be rejected
+      expect(screen.queryByText("TASK_PROGRESS_UPDATED")).not.toBeInTheDocument();
+      expect(screen.getByText("SCHEDULE_OPTIMIZED")).toBeInTheDocument();
+    });
+
+    it("Test E: Rapid filter changes create overlapping requests (only newest applicable request updates displayed results)", async () => {
+      const deferredInitial = createDeferred<AuditEventResponse[]>();
+      const deferredFilter1 = createDeferred<AuditEventResponse[]>();
+      const deferredFilter2 = createDeferred<AuditEventResponse[]>();
+
+      const recordsFilter1: AuditEventResponse[] = [
+        {
+          ...mockAuditRecords[0],
+          audit_event_id: "audit-f1",
+          event_type: "SLOW_REQUEST_STALE",
+        },
+      ];
+      const recordsFilter2: AuditEventResponse[] = [
+        {
+          ...mockAuditRecords[0],
+          audit_event_id: "audit-f2",
+          event_type: "FAST_REQUEST_NEWEST",
+        },
+      ];
+
+      let callIndex = 0;
+      vi.spyOn(apiClient, "searchAudit").mockImplementation(() => {
+        callIndex++;
+        if (callIndex === 1) return deferredInitial.promise;
+        if (callIndex === 2) return deferredFilter1.promise;
+        return deferredFilter2.promise;
+      });
+
+      render(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      // Resolve initial render
+      deferredInitial.resolve([]);
+      await waitFor(() => {
+        expect(screen.getByText(/No Audit Events Found/i)).toBeInTheDocument();
+      });
+
+      // 1. Submit Filter 1 (creates in-flight Request 1)
+      const eventTypeInput = screen.getByPlaceholderText(/task\.progress_updated/i);
+      fireEvent.change(eventTypeInput, { target: { value: "SLOW_REQUEST_STALE" } });
+      const applyBtn = screen.getByRole("button", { name: /Apply Filters/i });
+      fireEvent.click(applyBtn);
+
+      await waitFor(() => {
+        expect(callIndex).toBe(2);
+      });
+
+      // 2. Rapidly change and submit Filter 2 (creates in-flight Request 2)
+      fireEvent.change(eventTypeInput, { target: { value: "FAST_REQUEST_NEWEST" } });
+      fireEvent.click(applyBtn);
+
+      await waitFor(() => {
+        expect(callIndex).toBe(3);
+      });
+
+      // 3. Request 2 resolves FIRST
+      deferredFilter2.resolve(recordsFilter2);
+
+      await waitFor(() => {
+        expect(screen.getByText("FAST_REQUEST_NEWEST")).toBeInTheDocument();
+      });
+
+      // 4. Stale Request 1 resolves AFTER Request 2
+      deferredFilter1.resolve(recordsFilter1);
+
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Only newest request results must be displayed; stale results discarded
+      expect(screen.getByText("FAST_REQUEST_NEWEST")).toBeInTheDocument();
+      expect(screen.queryByText("SLOW_REQUEST_STALE")).not.toBeInTheDocument();
+    });
+
+    it("Test F: Pagination and refresh maintain correct records and loading states", async () => {
+      const twentyFiveRecords: AuditEventResponse[] = Array.from({ length: 25 }, (_, i) => ({
+        ...mockAuditRecords[0],
+        audit_event_id: `page1-item-${i}`,
+        event_type: "PAGE_ONE_EVENT",
+      }));
+
+      const pageTwoRecords: AuditEventResponse[] = [
+        {
+          ...mockAuditRecords[0],
+          audit_event_id: "page2-item-0",
+          event_type: "PAGE_TWO_EVENT",
+        },
+      ];
+
+      const refreshedRecords: AuditEventResponse[] = [
+        {
+          ...mockAuditRecords[0],
+          audit_event_id: "page2-item-refreshed",
+          event_type: "PAGE_TWO_REFRESHED",
+        },
+      ];
+
+      const deferredPage2 = createDeferred<AuditEventResponse[]>();
+      const deferredRefresh = createDeferred<AuditEventResponse[]>();
+
+      let searchCall = 0;
+      vi.spyOn(apiClient, "searchAudit").mockImplementation(() => {
+        searchCall++;
+        if (searchCall === 1) return Promise.resolve(twentyFiveRecords);
+        if (searchCall === 2) return deferredPage2.promise;
+        return deferredRefresh.promise;
+      });
+
+      render(
+        <MemoryRouter>
+          <AuditPage />
+        </MemoryRouter>
+      );
+
+      // Verify page 1 loaded
+      await waitFor(() => {
+        expect(screen.getByText(/Showing offset 0 - 25/i)).toBeInTheDocument();
+        expect(screen.getAllByText("PAGE_ONE_EVENT").length).toBeGreaterThan(0);
+      });
+
+      // Click Next to trigger page 2
+      const nextBtn = screen.getByRole("button", { name: /Next/i });
+      fireEvent.click(nextBtn);
+
+      // Verify loading state is shown while page 2 is in-flight
+      await waitFor(() => {
+        expect(screen.getByText(/Loading immutable audit trail records\.\.\./i)).toBeInTheDocument();
+      });
+
+      // Resolve page 2
+      deferredPage2.resolve(pageTwoRecords);
+
+      await waitFor(() => {
+        expect(screen.queryByText(/Loading immutable audit trail records\.\.\./i)).not.toBeInTheDocument();
+        expect(screen.getByText("PAGE_TWO_EVENT")).toBeInTheDocument();
+        expect(screen.queryByText("PAGE_ONE_EVENT")).not.toBeInTheDocument();
+      });
+
+      // Click Refresh on page 2
+      const refreshBtn = screen.getByRole("button", { name: /Refresh/i });
+      fireEvent.click(refreshBtn);
+
+      // Verify loading state is shown during refresh
+      await waitFor(() => {
+        expect(screen.getByText(/Loading immutable audit trail records\.\.\./i)).toBeInTheDocument();
+      });
+
+      // Resolve refresh
+      deferredRefresh.resolve(refreshedRecords);
+
+      await waitFor(() => {
+        expect(screen.queryByText(/Loading immutable audit trail records\.\.\./i)).not.toBeInTheDocument();
+        expect(screen.getByText("PAGE_TWO_REFRESHED")).toBeInTheDocument();
+      });
+    });
+  });
 });

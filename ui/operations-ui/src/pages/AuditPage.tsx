@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   ShieldCheck,
   Search,
@@ -73,28 +73,32 @@ export const AuditPage: React.FC = () => {
   const canReadAudit =
     Boolean(user) &&
     Boolean(tenantId) &&
-    (user?.roles?.some((r) => ["auditor", "tenant_admin", "admin"].includes(r)) ||
-      user?.permissions?.some((p) => ["audit:read", "*"].includes(p)));
+    Boolean(
+      user?.roles?.some((r) => ["auditor", "tenant_admin", "admin"].includes(r)) ||
+        user?.permissions?.some((p) => ["audit:read", "*"].includes(p))
+    );
 
-  // Authenticated tenant or permission changes strictly invalidate stale results
+  // Active context tracking refs for deterministic stale-response and race-condition rejection
+  const isMountedRef = useRef<boolean>(true);
+  const currentRequestIdRef = useRef<number>(0);
+  const activePrincipalIdRef = useRef<string | undefined>(user?.principal_id);
+  const activeTenantIdRef = useRef<string | undefined>(tenantId);
+  const activeCanReadAuditRef = useRef<boolean>(canReadAudit);
+  const prevAuthKeyRef = useRef<string | null>(null);
+  const prevFiltersRef = useRef<{ filtersKey: string; offset: number; limit: number }>({
+    filtersKey: JSON.stringify(EMPTY_FILTERS),
+    offset: 0,
+    limit: 25,
+  });
+
+  // Mount/unmount lifecycle tracking
   useEffect(() => {
-    setEvents([]);
-    setDraftFilters(EMPTY_FILTERS);
-    setAppliedFilters(EMPTY_FILTERS);
-    setOffset(0);
-    if (!user) {
-      setError("Authentication session required. Please sign in to inspect audit logs.");
-      setLoading(false);
-    } else if (!tenantId) {
-      setError("Active authenticated tenant context is required to inspect audit logs.");
-      setLoading(false);
-    } else if (!canReadAudit) {
-      setError(
-        "Insufficient permissions to inspect audit trail. The 'audit:read' permission or 'auditor' role is required."
-      );
-      setLoading(false);
-    }
-  }, [user?.principal_id, tenantId, canReadAudit]);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      currentRequestIdRef.current += 1;
+    };
+  }, []);
 
   const fetchAuditEvents = useCallback(
     async (
@@ -102,8 +106,13 @@ export const AuditPage: React.FC = () => {
       targetOffset: number = offset,
       targetLimit: number = limit
     ) => {
+      const currentPrincipalId = user?.principal_id;
+      const currentTenantId = tenantId;
+
       if (!user) {
         setEvents([]);
+        setSelectedEvent(null);
+        setIsDetailModalOpen(false);
         setError("Authentication session required. Please sign in to inspect audit logs.");
         setLoading(false);
         return;
@@ -111,6 +120,8 @@ export const AuditPage: React.FC = () => {
 
       if (!tenantId) {
         setEvents([]);
+        setSelectedEvent(null);
+        setIsDetailModalOpen(false);
         setError("Active authenticated tenant context is required to inspect audit logs.");
         setLoading(false);
         return;
@@ -118,12 +129,18 @@ export const AuditPage: React.FC = () => {
 
       if (!canReadAudit) {
         setEvents([]);
+        setSelectedEvent(null);
+        setIsDetailModalOpen(false);
         setError(
           "Insufficient permissions to inspect audit trail. The 'audit:read' permission or 'auditor' role is required."
         );
         setLoading(false);
         return;
       }
+
+      const requestId = ++currentRequestIdRef.current;
+      const initiatingPrincipalId = currentPrincipalId;
+      const initiatingTenantId = currentTenantId;
 
       setLoading(true);
       setError(null);
@@ -138,24 +155,113 @@ export const AuditPage: React.FC = () => {
       };
 
       try {
-        const records = await apiClient.searchAudit(params, tenantId);
+        const records = await apiClient.searchAudit(params, initiatingTenantId);
+
+        // Deterministic guard against stale responses:
+        // Must match current request ID AND current auth context
+        if (
+          !isMountedRef.current ||
+          requestId !== currentRequestIdRef.current ||
+          activePrincipalIdRef.current !== initiatingPrincipalId ||
+          activeTenantIdRef.current !== initiatingTenantId ||
+          !activeCanReadAuditRef.current
+        ) {
+          return; // Discard stale response without mutating visible state
+        }
+
         setEvents(records);
+        setLoading(false);
       } catch (err: unknown) {
+        // Deterministic guard against stale errors:
+        if (
+          !isMountedRef.current ||
+          requestId !== currentRequestIdRef.current ||
+          activePrincipalIdRef.current !== initiatingPrincipalId ||
+          activeTenantIdRef.current !== initiatingTenantId ||
+          !activeCanReadAuditRef.current
+        ) {
+          return; // Discard stale error without mutating visible error state
+        }
+
         const msg = err instanceof Error ? err.message : "Failed to load audit records";
         setError(msg);
-      } finally {
         setLoading(false);
       }
     },
     [user, tenantId, canReadAudit, appliedFilters, offset, limit]
   );
 
-  // Effect triggers ONLY on appliedFilters, offset, limit changes or valid auth session
+  // Synchronized effect for authentication transitions, filter updates, and pagination
   useEffect(() => {
+    const currentAuthKey = `${user?.principal_id || ""}:${tenantId || ""}:${Boolean(canReadAudit)}`;
+    const authChanged = prevAuthKeyRef.current !== currentAuthKey;
+
+    activePrincipalIdRef.current = user?.principal_id;
+    activeTenantIdRef.current = tenantId;
+    activeCanReadAuditRef.current = canReadAudit;
+
+    if (authChanged) {
+      prevAuthKeyRef.current = currentAuthKey;
+      // Invalidate any in-flight requests from prior authentication/tenant context
+      currentRequestIdRef.current += 1;
+
+      // TASK 2: Clear sensitive modal state and previously fetched audit records
+      setSelectedEvent(null);
+      setIsDetailModalOpen(false);
+      setEvents([]);
+      setDraftFilters(EMPTY_FILTERS);
+      setAppliedFilters(EMPTY_FILTERS);
+      setOffset(0);
+
+      prevFiltersRef.current = {
+        filtersKey: JSON.stringify(EMPTY_FILTERS),
+        offset: 0,
+        limit,
+      };
+
+      if (!user) {
+        setError("Authentication session required. Please sign in to inspect audit logs.");
+        setLoading(false);
+        return;
+      }
+
+      if (!tenantId) {
+        setError("Active authenticated tenant context is required to inspect audit logs.");
+        setLoading(false);
+        return;
+      }
+
+      if (!canReadAudit) {
+        setError(
+          "Insufficient permissions to inspect audit trail. The 'audit:read' permission or 'auditor' role is required."
+        );
+        setLoading(false);
+        return;
+      }
+
+      setError(null);
+      fetchAuditEvents(EMPTY_FILTERS, 0, limit);
+      return;
+    }
+
+    // Auth did not change; evaluate filter or pagination updates for current authorized session
     if (!user || !tenantId || !canReadAudit) return;
-    fetchAuditEvents(appliedFilters, offset, limit);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.principal_id, tenantId, canReadAudit, appliedFilters, offset, limit]);
+
+    const currentFiltersKey = JSON.stringify(appliedFilters);
+    const filtersChanged =
+      prevFiltersRef.current.filtersKey !== currentFiltersKey ||
+      prevFiltersRef.current.offset !== offset ||
+      prevFiltersRef.current.limit !== limit;
+
+    if (filtersChanged) {
+      prevFiltersRef.current = {
+        filtersKey: currentFiltersKey,
+        offset,
+        limit,
+      };
+      fetchAuditEvents(appliedFilters, offset, limit);
+    }
+  }, [user, tenantId, canReadAudit, appliedFilters, offset, limit, fetchAuditEvents]);
 
   const handleFilterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,9 +281,20 @@ export const AuditPage: React.FC = () => {
   };
 
   const handleClearFilters = () => {
+    const wasAlreadyEmpty =
+      appliedFilters.eventType === "" &&
+      appliedFilters.resourceType === "" &&
+      appliedFilters.resourceId === "" &&
+      appliedFilters.correlationId === "" &&
+      offset === 0;
+
     setDraftFilters(EMPTY_FILTERS);
     setOffset(0);
     setAppliedFilters(EMPTY_FILTERS);
+
+    if (wasAlreadyEmpty) {
+      fetchAuditEvents(EMPTY_FILTERS, 0, limit);
+    }
   };
 
   const handleRefresh = () => {
