@@ -37,6 +37,7 @@ from app.events.consumers.rabbitmq_message import (
     RabbitMqInboundPolicy,
 )
 from app.events.consumers.rabbitmq_runner import (
+    ConsumerRunnerState,
     RabbitMqConsumerRunner,
 )
 from app.events.inbox.models import InboxMessageRecord
@@ -86,6 +87,23 @@ def _create_schedule_published_envelope(
 
 
 @pytest.mark.integration
+async def _wait_for_runner_running(
+    runner: RabbitMqConsumerRunner,
+    timeout: float = 10.0,
+) -> None:
+    """Wait until consumer runner transitions to RUNNING state."""
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + timeout
+    while runner.state != ConsumerRunnerState.RUNNING:
+        if loop.time() > deadline:
+            raise TimeoutError(
+                f"Runner failed to reach RUNNING state within {timeout}s "
+                f"(current: {runner.state})"
+            )
+        await asyncio.sleep(0.05)
+
+
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_live_notification_pipeline_end_to_end(
     rabbitmq_url: SecretStr,
@@ -99,7 +117,7 @@ async def test_live_notification_pipeline_end_to_end(
     tenant_id = f"tenant-live-pipeline-{suffix}"
     schedule_id = f"sched-{suffix}"
 
-    # 1. Setup consumer settings bound to isolated topic exchange
+    # 1. Setup consumer settings and start runner bound to isolated topic exchange
     consumer_settings = RabbitMqConsumerSettings(
         rabbitmq_url=rabbitmq_url,
         rabbitmq_exchange_name=INTEGRATION_EXCHANGE,
@@ -112,42 +130,6 @@ async def test_live_notification_pipeline_end_to_end(
         rabbitmq_connect_timeout_seconds=5.0,
     )
 
-    # 2. Stage 1: Domain mutation commits EventEnvelope to outbox_events in PostgreSQL
-    envelope = _create_schedule_published_envelope(
-        tenant_id=tenant_id,
-        schedule_id=schedule_id,
-        recipients=["urn:e7:cohort:faculty"],
-    )
-
-    async with uow_factory() as uow:
-        outbox_repo = OutboxRepository(uow.session)
-        await outbox_repo.enqueue(envelope)
-        await uow.commit()
-
-    # 3. OutboxDispatcher publishes from outbox_events to real RabbitMQ
-    publisher = RabbitMqEventPublisher(publisher_settings)
-    await publisher.start()
-
-    dispatch_policy = OutboxDispatchPolicy(
-        lease_duration=timedelta(seconds=30),
-        publish_timeout=timedelta(seconds=5),
-        retry_base_delay=timedelta(seconds=1),
-        retry_max_delay=timedelta(seconds=10),
-        retry_multiplier=2.0,
-    )
-    dispatcher = OutboxDispatcher(
-        uow_factory=uow_factory,
-        publisher=publisher,
-        policy=dispatch_policy,
-    )
-
-    try:
-        dispatch_result = await dispatcher.dispatch_once()
-        assert dispatch_result.outcome == DispatchOutcome.PUBLISHED
-    finally:
-        await publisher.close()
-
-    # 4. Stage 2: Notification Consumer subscribes to real RabbitMQ, executes inbox + outbox staging
     fake_e8_dispatcher = MockNotificationDispatcher()
     notif_settings = NotificationSettings(
         pipeline_mode="outbox",
@@ -165,40 +147,72 @@ async def test_live_notification_pipeline_end_to_end(
     )
     inbound_handler = RabbitMqInboundMessageHandler(
         processor=event_processor,
-        policy=RabbitMqInboundPolicy(
-            supported_event_types=frozenset({"schedule.published"}),
-        ),
+        policy=RabbitMqInboundPolicy(max_message_bytes=65536),
     )
 
     stop_event = asyncio.Event()
     runner = RabbitMqConsumerRunner(
         settings=consumer_settings,
-        message_handler=inbound_handler,
-        policy=RabbitMqConsumerRunnerPolicy.from_settings(consumer_settings),
-        stop_event=stop_event,
+        runner_policy=RabbitMqConsumerRunnerPolicy.from_settings(consumer_settings),
+        inbound_handler=inbound_handler,
     )
+    runner_task = asyncio.create_task(runner.run(stop_event=stop_event))
+    await _wait_for_runner_running(runner)
 
-    runner_task = asyncio.create_task(runner.run())
+    try:
+        # 2. Stage 1: Domain mutation commits EventEnvelope to outbox_events in PostgreSQL
+        envelope = _create_schedule_published_envelope(
+            tenant_id=tenant_id,
+            schedule_id=schedule_id,
+            recipients=["urn:e7:cohort:faculty"],
+        )
 
-    # Wait for consumer to process the event from RabbitMQ
-    expected_command_id = f"notif-pub-{envelope.event_id}"
-    staged_command: NotificationOutboxCommandRecord | None = None
+        async with uow_factory() as uow:
+            outbox_repo = OutboxRepository(uow.session)
+            await outbox_repo.enqueue(envelope)
+            await uow.commit()
 
-    for _ in range(50):
-        await asyncio.sleep(0.1)
-        async with session_factory() as session:
-            result = await session.execute(
-                select(NotificationOutboxCommandRecord).where(
-                    NotificationOutboxCommandRecord.command_id == expected_command_id
+        # 3. OutboxDispatcher publishes from outbox_events to real RabbitMQ
+        publisher = RabbitMqEventPublisher(publisher_settings)
+        await publisher.start()
+
+        dispatch_policy = OutboxDispatchPolicy(
+            lease_duration=timedelta(seconds=30),
+            publish_timeout=timedelta(seconds=5),
+            retry_base_delay=timedelta(seconds=1),
+            retry_max_delay=timedelta(seconds=10),
+            retry_multiplier=2.0,
+        )
+        dispatcher = OutboxDispatcher(
+            uow_factory=uow_factory,
+            publisher=publisher,
+            policy=dispatch_policy,
+        )
+
+        try:
+            dispatch_result = await dispatcher.dispatch_once()
+            assert dispatch_result.outcome == DispatchOutcome.PUBLISHED
+        finally:
+            await publisher.close()
+
+        # Wait for consumer to process the event from RabbitMQ
+        expected_command_id = f"notif-pub-{envelope.event_id}"
+        staged_command: NotificationOutboxCommandRecord | None = None
+
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(NotificationOutboxCommandRecord).where(
+                        NotificationOutboxCommandRecord.command_id == expected_command_id
+                    )
                 )
-            )
-            staged_command = result.scalar_one_or_none()
-            if staged_command is not None:
-                break
-
-    # Stop consumer cleanly
-    stop_event.set()
-    await asyncio.wait_for(runner_task, timeout=5.0)
+                staged_command = result.scalar_one_or_none()
+                if staged_command is not None:
+                    break
+    finally:
+        stop_event.set()
+        await asyncio.wait_for(runner_task, timeout=5.0)
 
     # Verify Stage 2 PostgreSQL persistence
     assert staged_command is not None
@@ -217,7 +231,7 @@ async def test_live_notification_pipeline_end_to_end(
         assert inbox_msg is not None
         assert inbox_msg.consumer_name == "notification.schedule_published_consumer"
 
-    # 5. Stage 3: Notification Delivery Worker claims lease, dispatches to fake E-8, and commits
+    # 4. Stage 3: Notification Delivery Worker claims lease, dispatches to fake E-8, and commits
     worker_settings = NotificationSettings(
         enabled=True,
         pipeline_mode="outbox",
@@ -277,38 +291,6 @@ async def test_live_notification_pipeline_provisional_recipient_fail_closed(
         rabbitmq_connect_timeout_seconds=5.0,
     )
 
-    # 1. Enqueue event with provisional recipient
-    envelope = _create_schedule_published_envelope(
-        tenant_id=tenant_id,
-        schedule_id=schedule_id,
-        recipients=["provisional:student:cohort:10b"],
-    )
-
-    async with uow_factory() as uow:
-        outbox_repo = OutboxRepository(uow.session)
-        await outbox_repo.enqueue(envelope)
-        await uow.commit()
-
-    # 2. Publish to RabbitMQ
-    publisher = RabbitMqEventPublisher(publisher_settings)
-    await publisher.start()
-    dispatcher = OutboxDispatcher(
-        uow_factory=uow_factory,
-        publisher=publisher,
-        policy=OutboxDispatchPolicy(
-            lease_duration=timedelta(seconds=30),
-            publish_timeout=timedelta(seconds=5),
-            retry_base_delay=timedelta(seconds=1),
-            retry_max_delay=timedelta(seconds=10),
-            retry_multiplier=2.0,
-        ),
-    )
-    try:
-        await dispatcher.dispatch_once()
-    finally:
-        await publisher.close()
-
-    # 3. Consumer runs with allow_provisional_recipients=False (DEC-E8-02)
     fake_e8_dispatcher = MockNotificationDispatcher()
     notif_settings = NotificationSettings(
         pipeline_mode="outbox",
@@ -326,45 +308,75 @@ async def test_live_notification_pipeline_provisional_recipient_fail_closed(
     )
     inbound_handler = RabbitMqInboundMessageHandler(
         processor=event_processor,
-        policy=RabbitMqInboundPolicy(
-            supported_event_types=frozenset({"schedule.published"}),
-        ),
+        policy=RabbitMqInboundPolicy(max_message_bytes=65536),
     )
 
     stop_event = asyncio.Event()
     runner = RabbitMqConsumerRunner(
         settings=consumer_settings,
-        message_handler=inbound_handler,
-        policy=RabbitMqConsumerRunnerPolicy.from_settings(consumer_settings),
-        stop_event=stop_event,
+        runner_policy=RabbitMqConsumerRunnerPolicy.from_settings(consumer_settings),
+        inbound_handler=inbound_handler,
     )
+    runner_task = asyncio.create_task(runner.run(stop_event=stop_event))
+    await _wait_for_runner_running(runner)
 
-    runner_task = asyncio.create_task(runner.run())
+    try:
+        # 1. Enqueue event with provisional recipient
+        envelope = _create_schedule_published_envelope(
+            tenant_id=tenant_id,
+            schedule_id=schedule_id,
+            recipients=["provisional:student:cohort:10b"],
+        )
 
-    expected_command_id = f"notif-pub-{envelope.event_id}"
-    staged_command: NotificationOutboxCommandRecord | None = None
+        async with uow_factory() as uow:
+            outbox_repo = OutboxRepository(uow.session)
+            await outbox_repo.enqueue(envelope)
+            await uow.commit()
 
-    for _ in range(50):
-        await asyncio.sleep(0.1)
-        async with session_factory() as session:
-            result = await session.execute(
-                select(NotificationOutboxCommandRecord).where(
-                    NotificationOutboxCommandRecord.command_id == expected_command_id
+        # 2. Publish to RabbitMQ
+        publisher = RabbitMqEventPublisher(publisher_settings)
+        await publisher.start()
+        dispatcher = OutboxDispatcher(
+            uow_factory=uow_factory,
+            publisher=publisher,
+            policy=OutboxDispatchPolicy(
+                lease_duration=timedelta(seconds=30),
+                publish_timeout=timedelta(seconds=5),
+                retry_base_delay=timedelta(seconds=1),
+                retry_max_delay=timedelta(seconds=10),
+                retry_multiplier=2.0,
+            ),
+        )
+        try:
+            dispatch_result = await dispatcher.dispatch_once()
+            assert dispatch_result.outcome == DispatchOutcome.PUBLISHED
+        finally:
+            await publisher.close()
+
+        expected_command_id = f"notif-pub-{envelope.event_id}"
+        staged_command: NotificationOutboxCommandRecord | None = None
+
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            async with session_factory() as session:
+                result = await session.execute(
+                    select(NotificationOutboxCommandRecord).where(
+                        NotificationOutboxCommandRecord.command_id == expected_command_id
+                    )
                 )
-            )
-            staged_command = result.scalar_one_or_none()
-            if staged_command is not None:
-                break
+                staged_command = result.scalar_one_or_none()
+                if staged_command is not None:
+                    break
+    finally:
+        stop_event.set()
+        await asyncio.wait_for(runner_task, timeout=5.0)
 
-    stop_event.set()
-    await asyncio.wait_for(runner_task, timeout=5.0)
-
-    # 4. Verify command is BLOCKED under DEC-E8-02
+    # 3. Verify command is BLOCKED under DEC-E8-02
     assert staged_command is not None
     assert staged_command.dispatch_state == "BLOCKED"
     assert staged_command.block_reason == "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02"
 
-    # 5. Verify delivery worker ignores BLOCKED commands
+    # 4. Verify delivery worker ignores BLOCKED commands
     delivery_worker = NotificationDeliveryWorker(
         session_factory=session_factory,
         dispatcher=fake_e8_dispatcher,
