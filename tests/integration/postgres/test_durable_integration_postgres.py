@@ -1110,7 +1110,7 @@ async def test_pg_concurrent_sla_pause_resume_row_locking(
         return SqlAlchemyUnitOfWork(session_factory)
 
     service = WorkflowService(
-        workflow_adapter=AsyncMock(spec=WorkflowAdapterProtocol),
+        adapter=AsyncMock(spec=WorkflowAdapterProtocol),
         uow_factory=uow_factory,
         persistence_mode="database",
     )
@@ -1219,7 +1219,7 @@ async def test_pg_external_session_rollback_authoritative_reloading(
         return SqlAlchemyUnitOfWork(session_factory)
 
     service = WorkflowService(
-        workflow_adapter=AsyncMock(spec=WorkflowAdapterProtocol),
+        adapter=AsyncMock(spec=WorkflowAdapterProtocol),
         uow_factory=uow_factory,
         persistence_mode="database",
     )
