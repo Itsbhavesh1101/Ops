@@ -67,7 +67,7 @@ async def readiness_check(
     is_degraded = False
 
     # 1. PostgreSQL Connectivity Probe
-    if settings.database_url:
+    if settings.database_url and settings.database_url.get_secret_value().strip():
         try:
             from app.api.v1.composition import get_shared_db_manager
 
@@ -91,7 +91,11 @@ async def readiness_check(
             }
             is_ready = False
     else:
-        dependencies["database"] = {"status": "not_configured"}
+        dependencies["database"] = {
+            "status": "not_configured",
+            "error": "database_url_not_configured",
+        }
+        is_ready = False
 
     # 2. RabbitMQ Connectivity Probe
     try:
@@ -99,11 +103,13 @@ async def readiness_check(
 
         from app.events.health import check_broker_ready
 
-        broker_ready = await check_broker_ready(timeout_seconds=2.0)
-        has_broker_config = bool(
-            os.getenv("E7_RABBITMQ_URL") or os.getenv("RABBITMQ_URL")
+        broker_url_configured = bool(
+            os.getenv("E7_RABBITMQ_URL")
+            or os.getenv("RABBITMQ_URL")
+            or getattr(settings, "rabbitmq_url", None)
         )
-        if has_broker_config:
+        if broker_url_configured:
+            broker_ready = await check_broker_ready(timeout_seconds=2.0)
             if broker_ready:
                 dependencies["broker"] = {"status": "healthy"}
             else:
@@ -114,6 +120,7 @@ async def readiness_check(
                 is_degraded = True
         else:
             dependencies["broker"] = {"status": "not_configured"}
+            is_degraded = True
     except Exception as exc:
         dependencies["broker"] = {
             "status": "degraded",
