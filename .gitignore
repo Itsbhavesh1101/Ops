@@ -97,6 +97,12 @@ ehthumbs.db
 .cache/
 scratch/
 
+# Playwright E2E artifacts
+playwright-report/
+test-results/
+ui/operations-ui/playwright-report/
+ui/operations-ui/test-results/
+
 # Ensure source-of-truth documentation is NEVER ignored
 !docs/source-of-truth/
 !docs/source-of-truth/*

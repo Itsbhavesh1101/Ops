@@ -96,7 +96,6 @@ export const AuditPage: React.FC = () => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      currentRequestIdRef.current += 1;
     };
   }, []);
 
@@ -200,24 +199,26 @@ export const AuditPage: React.FC = () => {
     activeTenantIdRef.current = tenantId;
     activeCanReadAuditRef.current = canReadAudit;
 
-    if (authChanged) {
+    const shouldFetchInitial = authChanged || (events.length === 0 && !error && canReadAudit);
+
+    if (shouldFetchInitial) {
       prevAuthKeyRef.current = currentAuthKey;
       // Invalidate any in-flight requests from prior authentication/tenant context
-      currentRequestIdRef.current += 1;
+      if (authChanged) {
+        currentRequestIdRef.current += 1;
+        setSelectedEvent(null);
+        setIsDetailModalOpen(false);
+        setEvents([]);
+        setDraftFilters(EMPTY_FILTERS);
+        setAppliedFilters(EMPTY_FILTERS);
+        setOffset(0);
 
-      // TASK 2: Clear sensitive modal state and previously fetched audit records
-      setSelectedEvent(null);
-      setIsDetailModalOpen(false);
-      setEvents([]);
-      setDraftFilters(EMPTY_FILTERS);
-      setAppliedFilters(EMPTY_FILTERS);
-      setOffset(0);
-
-      prevFiltersRef.current = {
-        filtersKey: JSON.stringify(EMPTY_FILTERS),
-        offset: 0,
-        limit,
-      };
+        prevFiltersRef.current = {
+          filtersKey: JSON.stringify(EMPTY_FILTERS),
+          offset: 0,
+          limit,
+        };
+      }
 
       if (!user) {
         setError("Authentication session required. Please sign in to inspect audit logs.");
