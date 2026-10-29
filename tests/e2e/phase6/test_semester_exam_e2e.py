@@ -400,7 +400,7 @@ async def test_live_semester_exam_vertical_slice(
     dispatcher = MockNotificationDispatcher()
     pub_notif_handler = SchedulePublishedNotificationHandler(
         dispatcher=dispatcher,
-        default_recipients=["faculty@school.edu"],
+        default_recipients=["urn:e7:cohort:faculty"],
     )
     pub_notif_processor = ConsumerEventProcessor(
         consumer_name="notification.schedule_published_consumer",
@@ -458,7 +458,7 @@ async def test_live_semester_exam_vertical_slice(
     # F. notification.schedule_changed_consumer
     chg_notif_handler = ScheduleChangedNotificationHandler(
         dispatcher=dispatcher,
-        default_recipients=["faculty@school.edu"],
+        default_recipients=["urn:e7:cohort:faculty"],
     )
     chg_notif_processor = ConsumerEventProcessor(
         consumer_name="notification.schedule_changed_consumer",
