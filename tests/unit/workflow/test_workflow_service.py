@@ -13,7 +13,7 @@ Verifies:
 """
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -552,3 +552,280 @@ def test_workflow_service_without_variable_policy_fails_closed(fake_uow_factory,
     assert default_service._variable_policy.allowed_keys == frozenset()
     # Any variable payload filtered by default policy results in empty dict
     assert default_service._variable_policy.filter({"decision": "approved", "comment": "ok"}) == {}
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sla_triggers_isolates_tenants(workflow_service):
+    """WorkflowService.evaluate_sla_triggers evaluates ONLY the specified tenant."""
+    from app.workflow.sla.models import (
+        EscalationAction,
+        SlaEscalationRule,
+        SlaPolicyConfig,
+        SlaStatus,
+    )
+
+    policy = SlaPolicyConfig(
+        policy_key="test_sla_policy",
+        name="Test Policy",
+        warning_duration_seconds=10 * 3600,
+        breach_duration_seconds=20 * 3600,
+        calendar_ref="CALENDAR_24X7",
+        warning_escalation=SlaEscalationRule(action=EscalationAction.REMINDER),
+        breach_escalation=SlaEscalationRule(action=EscalationAction.ESCALATE),
+    )
+    workflow_service._sla_service.register_policy(policy)
+
+    base_time = datetime(2026, 10, 10, 8, 0, tzinfo=UTC)
+    task_alpha = uuid.uuid4()
+    inst_alpha = uuid.uuid4()
+    state_alpha = workflow_service._sla_service.attach_task_sla(
+        tenant_id="tenant_alpha",
+        instance_id=inst_alpha,
+        task_id=task_alpha,
+        policy_key="test_sla_policy",
+        created_at=base_time,
+    )
+
+    task_beta = uuid.uuid4()
+    inst_beta = uuid.uuid4()
+    state_beta = workflow_service._sla_service.attach_task_sla(
+        tenant_id="tenant_beta",
+        instance_id=inst_beta,
+        task_id=task_beta,
+        policy_key="test_sla_policy",
+        created_at=base_time,
+    )
+
+    with (
+        patch("app.workflow.service.OutboxRepository") as mock_outbox_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_cls,
+    ):
+        mock_outbox = AsyncMock()
+        mock_outbox_cls.return_value = mock_outbox
+        mock_audit = AsyncMock()
+        mock_audit_cls.return_value = mock_audit
+
+        # Evaluate triggers as of +12h (warning threshold reached for both tasks)
+        eval_time = base_time + timedelta(hours=12)
+        actions = await workflow_service.evaluate_sla_triggers(
+            tenant_id="tenant_alpha",
+            as_of=eval_time,
+        )
+
+        # Tenant alpha is evaluated
+        assert len(actions) == 1
+        assert actions[0] == f"WARNING:{task_alpha}"
+        assert state_alpha.warning_fired_at == eval_time
+        assert state_alpha.status == SlaStatus.WARNING
+
+        # Tenant beta is strictly unaffected!
+        assert state_beta.warning_fired_at is None
+        assert state_beta.status == SlaStatus.RUNNING
+
+        # Outbox & audit records belong ONLY to tenant_alpha
+        assert mock_outbox.enqueue.await_count == 1
+        outbox_event = mock_outbox.enqueue.await_args[0][0]
+        assert outbox_event.tenant_id == "tenant_alpha"
+
+        assert mock_audit.append.await_count == 1
+        audit_event = mock_audit.append.await_args[0][0]
+        assert audit_event.tenant_id == "tenant_alpha"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sla_triggers_fails_on_missing_or_whitespace_tenant_id(workflow_service):
+    """WorkflowService.evaluate_sla_triggers rejects empty or whitespace tenant_id."""
+    with pytest.raises(ValueError, match="tenant_id must not be empty or whitespace-only"):
+        await workflow_service.evaluate_sla_triggers(tenant_id="")
+
+    with pytest.raises(ValueError, match="tenant_id must not be empty or whitespace-only"):
+        await workflow_service.evaluate_sla_triggers(tenant_id="   ")
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sla_triggers_transaction_rollback_on_commit_failure(mock_adapter):
+    """If DB commit fails, SLA mutations are rolled back and retry succeeds."""
+    from app.workflow.sla.models import (
+        EscalationAction,
+        SlaEscalationRule,
+        SlaPolicyConfig,
+        SlaStatus,
+    )
+
+    class FailingUnitOfWork:
+        def __init__(self, should_fail: bool):
+            self.session = AsyncMock()
+            self.should_fail = should_fail
+            self.committed = False
+            self.rolled_back = False
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            if exc_type is not None:
+                self.rolled_back = True
+            return None
+
+        async def commit(self):
+            if self.should_fail:
+                raise RuntimeError("PostgreSQL connection lost during commit")
+            self.committed = True
+
+    failing_uow_state = {"should_fail": True}
+
+    def uow_factory():
+        return FailingUnitOfWork(should_fail=failing_uow_state["should_fail"])
+
+    service = WorkflowService(
+        uow_factory=uow_factory,
+        adapter=mock_adapter,
+    )
+
+    policy = SlaPolicyConfig(
+        policy_key="rollback_test_policy",
+        name="Rollback Policy",
+        warning_duration_seconds=5 * 3600,
+        breach_duration_seconds=10 * 3600,
+        calendar_ref="CALENDAR_24X7",
+        warning_escalation=SlaEscalationRule(action=EscalationAction.REMINDER),
+        breach_escalation=SlaEscalationRule(action=EscalationAction.ESCALATE),
+    )
+    service._sla_service.register_policy(policy)
+
+    base_time = datetime(2026, 10, 15, 10, 0, tzinfo=UTC)
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    service._sla_service.attach_task_sla(
+        tenant_id="tenant_gamma",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="rollback_test_policy",
+        created_at=base_time,
+    )
+
+    with (
+        patch("app.workflow.service.OutboxRepository") as mock_outbox_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_cls,
+    ):
+        mock_outbox_cls.return_value = AsyncMock()
+        mock_audit_cls.return_value = AsyncMock()
+        # 1. Attempt evaluation where commit fails
+        eval_time = base_time + timedelta(hours=6)
+        with pytest.raises(RuntimeError, match="PostgreSQL connection lost during commit"):
+            await service.evaluate_sla_triggers(
+                tenant_id="tenant_gamma",
+                as_of=eval_time,
+            )
+
+        # Verify state was rolled back!
+        refetched = service._sla_service.get_task_sla(task_id)
+        assert refetched.warning_fired_at is None
+        assert refetched.status == SlaStatus.RUNNING
+
+        # 2. Retry with healed DB commit
+        failing_uow_state["should_fail"] = False
+        actions = await service.evaluate_sla_triggers(
+            tenant_id="tenant_gamma",
+            as_of=eval_time,
+        )
+        assert len(actions) == 1
+        assert actions[0] == f"WARNING:{task_id}"
+
+        # Now warning_fired_at is committed and state is WARNING
+        refetched_success = service._sla_service.get_task_sla(task_id)
+        assert refetched_success.warning_fired_at == eval_time
+        assert refetched_success.status == SlaStatus.WARNING
+
+
+@pytest.mark.asyncio
+async def test_evaluate_sla_triggers_breach_rollback_on_commit_failure(mock_adapter):
+    """If DB commit fails during breach evaluation, breach state rolls back and retries cleanly."""
+    from app.workflow.sla.models import (
+        EscalationAction,
+        SlaEscalationRule,
+        SlaPolicyConfig,
+        SlaStatus,
+    )
+
+    class FailingUnitOfWork:
+        def __init__(self, should_fail: bool):
+            self.session = AsyncMock()
+            self.should_fail = should_fail
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            return None
+
+        async def commit(self):
+            if self.should_fail:
+                raise RuntimeError("Disk full error on commit")
+
+    failing_uow_state = {"should_fail": True}
+
+    def uow_factory():
+        return FailingUnitOfWork(should_fail=failing_uow_state["should_fail"])
+
+    service = WorkflowService(
+        uow_factory=uow_factory,
+        adapter=mock_adapter,
+    )
+
+    policy = SlaPolicyConfig(
+        policy_key="breach_rollback_policy",
+        name="Breach Rollback Policy",
+        warning_duration_seconds=5 * 3600,
+        breach_duration_seconds=10 * 3600,
+        calendar_ref="CALENDAR_24X7",
+        warning_escalation=SlaEscalationRule(action=EscalationAction.REMINDER),
+        breach_escalation=SlaEscalationRule(action=EscalationAction.ESCALATE),
+    )
+    service._sla_service.register_policy(policy)
+
+    base_time = datetime(2026, 10, 15, 10, 0, tzinfo=UTC)
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    state = service._sla_service.attach_task_sla(
+        tenant_id="tenant_delta",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="breach_rollback_policy",
+        created_at=base_time,
+    )
+    # Pre-fire warning so task is at breach threshold
+    state.warning_fired_at = base_time + timedelta(hours=6)
+    state.status = SlaStatus.WARNING
+
+    with (
+        patch("app.workflow.service.OutboxRepository") as mock_outbox_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_cls,
+    ):
+        mock_outbox_cls.return_value = AsyncMock()
+        mock_audit_cls.return_value = AsyncMock()
+        # 1. Breach evaluation commit fails
+        eval_time = base_time + timedelta(hours=12)
+        with pytest.raises(RuntimeError, match="Disk full error on commit"):
+            await service.evaluate_sla_triggers(
+                tenant_id="tenant_delta",
+                as_of=eval_time,
+            )
+
+        # State rolled back to pre-breach state
+        refetched = service._sla_service.get_task_sla(task_id)
+        assert refetched.breach_fired_at is None
+        assert refetched.status == SlaStatus.WARNING
+
+        # 2. Retry succeeds
+        failing_uow_state["should_fail"] = False
+        actions = await service.evaluate_sla_triggers(
+            tenant_id="tenant_delta",
+            as_of=eval_time,
+        )
+        assert len(actions) == 1
+        assert actions[0] == f"BREACH:{task_id}"
+
+        refetched_success = service._sla_service.get_task_sla(task_id)
+        assert refetched_success.breach_fired_at == eval_time
+        assert refetched_success.status == SlaStatus.BREACHED

@@ -8,7 +8,9 @@ Enforces:
 - Audit emission on dispatch success and failure.
 """
 
+from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
 import aio_pika
 import httpx
@@ -96,7 +98,7 @@ def create_test_command(command_id: str = "cmd-pub-101") -> NotificationCommand:
             source_event_name="schedule.published",
             source_entity_reference="sch-101",
         ),
-        recipient_references=["faculty-lead@school.edu"],
+        recipient_references=["urn:e7:cohort:faculty"],
         notification_context={"schedule_id": "sch-101", "version": 1},
     )
 
@@ -430,7 +432,7 @@ def test_privacy_boundary_rejects_sensitive_data_in_context(forbidden_key: str) 
 @pytest.mark.asyncio
 async def test_schedule_published_handler_constructs_privacy_preserving_command() -> None:
     """SchedulePublishedNotificationHandler defaults to opaque URN and preserves tenant."""
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from app.events.schemas import EventCreate, create_event_envelope
     from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
@@ -535,8 +537,9 @@ def test_privacy_boundary_rejects_credentials_in_values() -> None:
 
 
 def test_privacy_boundary_rejects_plaintext_phone_numbers() -> None:
-    """Rejects plaintext phone numbers in recipient references."""
-    with pytest.raises(ValueError, match="Plaintext phone number"):
+    """Rejects plaintext phone numbers in recipient references and verifies zero PII in error."""
+    phone = "+14155552671"
+    with pytest.raises(ValueError, match="Plaintext phone number") as exc_info:
         NotificationCommand(
             command_id="cmd-phone-privacy",
             correlation_reference="corr-203",
@@ -545,9 +548,147 @@ def test_privacy_boundary_rejects_plaintext_phone_numbers() -> None:
                 trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
                 source_event_name="schedule.published",
             ),
-            recipient_references=["+14155552671"],
+            recipient_references=[phone],
             notification_context={"schedule_id": "sch-01"},
         )
+    assert phone not in str(exc_info.value)
+
+
+def test_privacy_boundary_rejects_plaintext_email_addresses() -> None:
+    """Enforces strict rejection of plaintext email addresses with zero PII in exception."""
+    prohibited_emails = [
+        "faculty-lead@school.edu",
+        "student.alpha@university.ac.in",
+        "admin@irinfotech.com",
+        "user.name+tag@domain.co.uk",
+    ]
+    for email in prohibited_emails:
+        with pytest.raises(ValueError, match="Plaintext email address") as exc_info:
+            NotificationCommand(
+                command_id="cmd-email-privacy",
+                correlation_reference="corr-204",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[email],
+                notification_context={"schedule_id": "sch-01"},
+            )
+        assert email not in str(exc_info.value)
+
+
+def test_privacy_boundary_rejects_unauthorized_personal_identifiers() -> None:
+    """Enforces rejection of personal identifiers with zero sensitive values in exception."""
+    prohibited_pii = [
+        "student_name:Alice Smith",
+        "student_ssn:123-45-6789",
+        "ssn:987654321",
+        "social_security:000112222",
+        "student_dob:2005-01-15",
+        "national_id:IN-445566",
+        "passport:Z1234567",
+        "first_name:John",
+        "last_name:Doe",
+    ]
+    for pii in prohibited_pii:
+        with pytest.raises(ValueError, match="Unauthorized personal identifier") as exc_info:
+            NotificationCommand(
+                command_id="cmd-pii-privacy",
+                correlation_reference="corr-205",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[pii],
+                notification_context={"schedule_id": "sch-01"},
+            )
+        assert pii not in str(exc_info.value)
+
+
+def test_privacy_boundary_rejects_raw_institutional_mysql_identifiers() -> None:
+    """Enforces rejection of raw upstream MySQL IDs with zero identifiers in exception."""
+    prohibited_mysql = [
+        "104",
+        "42",
+        "students.id: 104",
+        "staff.id:20",
+        "mysql:staff:5",
+        "iredu:student:99",
+        "mysql_id:501",
+    ]
+    raw_pattern = r"(Raw numeric/MySQL primary key|Raw institutional MySQL identifier)"
+    for raw_id in prohibited_mysql:
+        with pytest.raises(ValueError, match=raw_pattern) as exc_info:
+            NotificationCommand(
+                command_id="cmd-mysql-privacy",
+                correlation_reference="corr-206",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[raw_id],
+                notification_context={"schedule_id": "sch-01"},
+            )
+        assert raw_id not in str(exc_info.value)
+
+
+def test_privacy_boundary_rejects_malformed_recipient_references() -> None:
+    """Enforces rejection of malformed, control character, or injection strings in recipients."""
+    malformed_refs = [
+        "",
+        "   ",
+        "usr\nfake",
+        "usr\tfake",
+        "usr\x00malicious",
+        "usr; DROP TABLE users;",
+        "usr--comment",
+        "usr/*comment*/",
+        "x" * 257,
+    ]
+    for malformed in malformed_refs:
+        with pytest.raises(ValueError):
+            NotificationCommand(
+                command_id="cmd-malformed-privacy",
+                correlation_reference="corr-207",
+                organization_scope_reference="tenant-alpha",
+                trigger=NotificationTrigger(
+                    trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                    source_event_name="schedule.published",
+                ),
+                recipient_references=[malformed],
+                notification_context={"schedule_id": "sch-01"},
+            )
+
+
+def test_privacy_boundary_accepts_valid_opaque_recipient_formats() -> None:
+    """Enforces successful acceptance of all authorized canonical opaque recipient formats."""
+    valid_opaque_refs = [
+        "urn:e7:cohort:faculty",
+        "urn:e7:cohort:faculty-all",
+        "urn:e7:role:student_representative",
+        "urn:e7:role:task_manager",
+        "urn:e7:role:escalation_manager",
+        "usr-101",
+        "user:principal_alpha",
+        "invigilator-001",
+        "<opaque_recipient_ref_1>",
+        "c56a4180-65aa-42ec-a945-5fd21dec0538",
+    ]
+    cmd = NotificationCommand(
+        command_id="cmd-valid-opaque",
+        correlation_reference="corr-208",
+        organization_scope_reference="tenant-alpha",
+        trigger=NotificationTrigger(
+            trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+            source_event_name="schedule.published",
+        ),
+        recipient_references=valid_opaque_refs,
+        notification_context={"schedule_id": "sch-01"},
+    )
+    assert cmd.recipient_references == valid_opaque_refs
 
 
 def test_handlers_support_default_dispatcher_resolution() -> None:
@@ -563,7 +704,7 @@ def test_handlers_support_default_dispatcher_resolution() -> None:
 async def test_notification_consumer_handler_routes_published_and_changed() -> None:
     """NotificationConsumerHandler routes published and changed events to handlers."""
     from datetime import UTC, datetime
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.schemas import EventEnvelope
@@ -590,7 +731,7 @@ async def test_notification_consumer_handler_routes_published_and_changed() -> N
     assert call_cmd.trigger.source_event_name == "schedule.published"
     assert call_cmd.notification_context["schedule_id"] == "sch-101"
 
-    # 2. schedule.changed
+    # 2. schedule.changed (source-backed business condition)
     envelope_chg = EventEnvelope(
         event_id=uuid4(),
         event_type="schedule.changed",
@@ -607,10 +748,83 @@ async def test_notification_consumer_handler_routes_published_and_changed() -> N
     await handler.handle(envelope=envelope_chg, session=mock_session)
     assert mock_dispatcher.dispatch.call_count == 2
     call_cmd_chg = mock_dispatcher.dispatch.call_args[1]["command"]
-    assert call_cmd_chg.trigger.source_event_name == "schedule.changed"
+    assert call_cmd_chg.trigger.trigger_kind == TriggerKind.SOURCE_BACKED_BUSINESS_CONDITION
+    assert call_cmd_chg.trigger.business_condition == "SCHEDULE_CHANGE_NOTICE"
+    assert call_cmd_chg.trigger.source_entity_reference == "sch-101"
     assert call_cmd_chg.notification_context["new_version"] == 2
 
-    # 3. Unrelated event is safely ignored
+    # 3. task.blocked (source-verified event)
+    envelope_blk = EventEnvelope(
+        event_id=uuid4(),
+        event_type="task.blocked",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        correlation_id="corr-3",
+        payload={
+            "task_id": "task-77",
+            "plan_id": "plan-1",
+            "blocked_reason": "resource conflict on room 101",
+        },
+    )
+    await handler.handle(envelope=envelope_blk, session=mock_session)
+    assert mock_dispatcher.dispatch.call_count == 3
+    call_cmd_blk = mock_dispatcher.dispatch.call_args[1]["command"]
+    assert call_cmd_blk.trigger.trigger_kind == TriggerKind.SOURCE_VERIFIED_EVENT
+    assert call_cmd_blk.trigger.source_event_name == "task.blocked"
+    assert call_cmd_blk.trigger.source_entity_reference == "task-77"
+    assert call_cmd_blk.recipient_references == ["urn:e7:role:task_manager"]
+    assert call_cmd_blk.notification_context["template_id"] == "TASK_BLOCKED_ALERT"
+    assert call_cmd_blk.notification_context["blocked_reason"] == "resource conflict on room 101"
+
+    # 4. workflow.task.created (source-verified event)
+    envelope_wfc = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.task.created",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        correlation_id="corr-4",
+        payload={
+            "workflow_task_id": "wt-88",
+            "task_name": "Review Timetable Draft",
+            "assignee": "invigilator-01",
+            "due_at": "2026-10-29T10:00:00Z",
+        },
+    )
+    await handler.handle(envelope=envelope_wfc, session=mock_session)
+    assert mock_dispatcher.dispatch.call_count == 4
+    call_cmd_wfc = mock_dispatcher.dispatch.call_args[1]["command"]
+    assert call_cmd_wfc.trigger.trigger_kind == TriggerKind.SOURCE_VERIFIED_EVENT
+    assert call_cmd_wfc.trigger.source_event_name == "workflow.task.created"
+    assert call_cmd_wfc.trigger.source_entity_reference == "wt-88"
+    assert call_cmd_wfc.recipient_references == ["user:invigilator-01"]
+    assert call_cmd_wfc.notification_context["template_id"] == "WORKFLOW_TASK_ASSIGNED"
+    assert call_cmd_wfc.notification_context["task_name"] == "Review Timetable Draft"
+
+    # 5. workflow.sla.warning (source-verified event)
+    envelope_sla = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.sla.warning",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        correlation_id="corr-5",
+        payload={
+            "workflow_task_id": "wt-88",
+            "policy_key": "exam_scheduling_sla",
+            "breach_at": "2026-10-29T12:00:00Z",
+            "action": "ESCALATE_TO_SUPERVISOR",
+        },
+    )
+    await handler.handle(envelope=envelope_sla, session=mock_session)
+    assert mock_dispatcher.dispatch.call_count == 5
+    call_cmd_sla = mock_dispatcher.dispatch.call_args[1]["command"]
+    assert call_cmd_sla.trigger.trigger_kind == TriggerKind.SOURCE_VERIFIED_EVENT
+    assert call_cmd_sla.trigger.source_event_name == "workflow.sla.warning"
+    assert call_cmd_sla.trigger.source_entity_reference == "wt-88"
+    assert call_cmd_sla.recipient_references == ["urn:e7:role:escalation_manager"]
+    assert call_cmd_sla.notification_context["template_id"] == "WORKFLOW_SLA_WARNING"
+    assert call_cmd_sla.notification_context["policy_key"] == "exam_scheduling_sla"
+
+    # 6. Unrelated event is safely ignored
     envelope_unrelated = EventEnvelope(
         event_id=uuid4(),
         event_type="user.created",
@@ -619,14 +833,14 @@ async def test_notification_consumer_handler_routes_published_and_changed() -> N
         payload={"user_id": "u-1"},
     )
     await handler.handle(envelope=envelope_unrelated, session=mock_session)
-    assert mock_dispatcher.dispatch.call_count == 2  # unchanged
+    assert mock_dispatcher.dispatch.call_count == 5  # unchanged
 
 
 @pytest.mark.asyncio
 async def test_create_notification_consumer_processor_deduplication() -> None:
     """ConsumerEventProcessor created via factory executes handler and enforces inbox dedupe."""
     from datetime import UTC, datetime
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.inbox.processor import ConsumerProcessingOutcome
@@ -698,7 +912,7 @@ async def test_create_notification_consumer_processor_deduplication() -> None:
 async def test_inbox_handler_failure_rolls_back_and_allows_recovery() -> None:
     """When E-8 dispatch fails, inbox marker is rolled back so retrying succeeds."""
     from datetime import UTC, datetime
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.inbox.processor import ConsumerProcessingOutcome
@@ -819,7 +1033,7 @@ async def test_missing_e8_broker_url_fails_closed_without_fallback() -> None:
 async def test_worker_runtime_registers_notification_consumer_when_enabled() -> None:
     """Production run_worker wires and manages NotificationWorker background tasks when enabled."""
     import asyncio
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from app.worker import run_worker
 
@@ -995,7 +1209,7 @@ async def test_notification_worker_missing_broker_url_fails_closed() -> None:
 @pytest.mark.asyncio
 async def test_rabbitmq_inbound_handler_rejects_malformed_wire_messages_to_dlx() -> None:
     """RabbitMqInboundMessageHandler rejects malformed wire messages with requeue=False."""
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
 
     from app.events.consumers.rabbitmq_message import (
         InvalidMessageReason,
@@ -1039,7 +1253,7 @@ async def test_rabbitmq_inbound_handler_rejects_malformed_wire_messages_to_dlx()
 async def test_rabbitmq_inbound_handler_leaves_message_unsettled_on_processor_exception() -> None:
     """RabbitMqInboundMessageHandler propagates processor exception without ack, nack, or reject."""
     import json
-    from unittest.mock import AsyncMock, MagicMock
+    from unittest.mock import MagicMock
     from uuid import uuid4
 
     from app.events.consumers.rabbitmq_message import (
@@ -1186,6 +1400,264 @@ async def test_consumer_event_processor_rollback_and_subsequent_retry_success() 
     res3 = await processor2.process(envelope)
     assert res3.outcome == ConsumerProcessingOutcome.DUPLICATE
     assert not handler_called_on_duplicate
+
+
+# =====================================================================
+# 12. DQ-4 Runtime Integration Defect Regression Tests
+# =====================================================================
+
+
+def test_rabbitmq_binding_keys_match_canonical_published_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify that NotificationWorker binding keys match published event types.
+
+    In AMQP topic exchanges:
+    - Published routing key is envelope.event_type (e.g. 'schedule.published').
+    - Binding key '*.schedule.published' needs 3 words and drops 2-word events.
+    - Canonical 2-word event types MUST be directly bound in NotificationWorker.
+    """
+    from app.integrations.engagement.worker import NotificationWorker
+
+    expected_canonical_events = {
+        "schedule.published",
+        "schedule.changed",
+        "task.blocked",
+        "workflow.task.created",
+        "workflow.sla.warning",
+    }
+
+    monkeypatch.setenv("E7_RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+    worker = NotificationWorker(db_manager=MagicMock())
+    runner = worker._build_consumer_runner()
+    binding_keys = set(runner._settings.rabbitmq_consumer_binding_keys)
+
+    # Every canonical published event type must match a binding key
+    for event_type in expected_canonical_events:
+        assert event_type in binding_keys, (
+            f"Canonical published event type '{event_type}' missing from "
+            f"NotificationWorker binding keys: {binding_keys}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_schedule_published_handler_rejects_and_blocks_plaintext_emails() -> None:
+    """schedule.published with plaintext emails is blocked under DEC-E8-02 safely."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = SchedulePublishedNotificationHandler(dispatcher=mock_disp)
+
+    # Event containing plaintext email address
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.published",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={
+            "schedule_id": "sch-leak-1",
+            "version": 1,
+            "recipients": ["faculty@school.edu", "prof@department.org"],
+        },
+    )
+
+    mock_session = AsyncMock()
+    mock_session.add = MagicMock()
+    # Must not raise ValidationError, must not dispatch command, must return cleanly
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 0
+    assert mock_session.add.call_count == 1
+    added_record = mock_session.add.call_args[0][0]
+    assert added_record.event_type == "notification.dispatch.blocked"
+    assert added_record.outcome == "DENIED"
+    assert added_record.details["reason"] == "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02"
+
+
+@pytest.mark.asyncio
+async def test_schedule_changed_handler_rejects_and_blocks_plaintext_emails() -> None:
+    """schedule.changed containing plaintext emails is blocked under DEC-E8-02 without crashing."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import ScheduleChangedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = ScheduleChangedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.changed",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={
+            "schedule_id": "sch-leak-2",
+            "old_version": 1,
+            "new_version": 2,
+            "repair_reason": "resource.conflict",
+            "recipients": ["dean@university.edu"],
+        },
+    )
+
+    mock_session = AsyncMock()
+    mock_session.add = MagicMock()
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 0
+    assert mock_session.add.call_count == 1
+    added_record = mock_session.add.call_args[0][0]
+    assert added_record.event_type == "notification.dispatch.blocked"
+    assert added_record.outcome == "DENIED"
+
+
+@pytest.mark.asyncio
+async def test_schedule_handler_blocks_when_recipient_resolution_unavailable() -> None:
+    """When default_recipients is empty and payload has no recipients, dispatch is blocked."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = SchedulePublishedNotificationHandler(
+        dispatcher=mock_disp,
+        default_recipients=[],
+    )
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.published",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={"schedule_id": "sch-unresolved", "version": 1},
+    )
+
+    mock_session = AsyncMock()
+    mock_session.add = MagicMock()
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 0
+    assert mock_session.add.call_count == 1
+    added_record = mock_session.add.call_args[0][0]
+    assert added_record.event_type == "notification.dispatch.blocked"
+    assert added_record.outcome == "DENIED"
+
+
+@pytest.mark.asyncio
+async def test_schedule_handler_dispatches_when_valid_opaque_recipients_provided() -> None:
+    """When event payload contains valid opaque recipient URNs, dispatch succeeds."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import SchedulePublishedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = SchedulePublishedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="schedule.published",
+        occurred_at=datetime.now(UTC),
+        tenant_id="tenant-alpha",
+        payload={
+            "schedule_id": "sch-opaque-ok",
+            "version": 1,
+            "recipients": ["urn:e7:cohort:science-faculty", "user:faculty-99"],
+        },
+    )
+
+    mock_session = AsyncMock()
+    mock_session.add = MagicMock()
+    await handler.handle(envelope=envelope, session=mock_session)
+
+    assert len(mock_disp.received_commands) == 1
+    cmd = mock_disp.received_commands[0]
+    assert cmd.recipient_references == ["urn:e7:cohort:science-faculty", "user:faculty-99"]
+
+
+@pytest.mark.asyncio
+async def test_task_blocked_handler_missing_tenant_id_fails_closed() -> None:
+    """task.blocked with missing tenant_id raises ValueError to prevent silent notification loss."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import TaskBlockedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = TaskBlockedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="task.blocked",
+        occurred_at=datetime.now(UTC),
+        tenant_id=None,  # Missing tenant identity
+        payload={"task_id": "task-01", "blocked_reason": "resource shortage"},
+    )
+
+    with pytest.raises(ValueError, match="missing.*tenant_id"):
+        await handler.handle(envelope=envelope, session=AsyncMock())
+
+
+@pytest.mark.asyncio
+async def test_workflow_task_created_handler_missing_tenant_id_fails_closed() -> None:
+    """workflow.task.created with missing tenant_id raises ValueError."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import WorkflowTaskCreatedNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = WorkflowTaskCreatedNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.task.created",
+        occurred_at=datetime.now(UTC),
+        tenant_id=None,  # None tenant identity
+        payload={"workflow_task_id": "wt-01", "task_name": "Approve Timetable"},
+    )
+
+    with pytest.raises(ValueError, match="missing.*tenant_id"):
+        await handler.handle(envelope=envelope, session=AsyncMock())
+
+
+@pytest.mark.asyncio
+async def test_workflow_sla_warning_handler_missing_tenant_id_fails_closed() -> None:
+    """workflow.sla.warning with missing tenant_id raises ValueError."""
+    from uuid import uuid4
+
+    from app.events.schemas import EventEnvelope
+    from app.integrations.engagement.handlers import WorkflowSlaWarningNotificationHandler
+    from app.integrations.engagement.mock import MockNotificationDispatcher
+
+    mock_disp = MockNotificationDispatcher()
+    handler = WorkflowSlaWarningNotificationHandler(dispatcher=mock_disp)
+
+    envelope = EventEnvelope(
+        event_id=uuid4(),
+        event_type="workflow.sla.warning",
+        occurred_at=datetime.now(UTC),
+        tenant_id=None,  # Missing tenant identity
+        payload={
+            "workflow_task_id": "wt-01",
+            "policy_key": "standard_sla",
+            "breach_at": "2026-10-29T10:00:00Z",
+            "action": "REMINDER",
+        },
+    )
+
+    with pytest.raises(ValueError, match="missing.*tenant_id"):
+        await handler.handle(envelope=envelope, session=AsyncMock())
+
 
 
 

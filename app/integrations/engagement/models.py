@@ -61,6 +61,29 @@ ALLOWED_TEMPLATE_CONTEXT_FIELDS: dict[str, frozenset[str]] = {
         "repair_reason",
         "effective_date",
     }),
+    "TASK_BLOCKED_ALERT": frozenset({
+        "template_id",
+        "task_id",
+        "plan_id",
+        "temporary_id",
+        "blocked_reason",
+    }),
+    "WORKFLOW_TASK_ASSIGNED": frozenset({
+        "template_id",
+        "workflow_task_id",
+        "workflow_instance_id",
+        "task_name",
+        "task_definition_key",
+        "due_at",
+    }),
+    "WORKFLOW_SLA_WARNING": frozenset({
+        "template_id",
+        "workflow_task_id",
+        "policy_key",
+        "warning_at",
+        "breach_at",
+        "action",
+    }),
 }
 
 
@@ -98,7 +121,7 @@ class NotificationTrigger(BaseModel):
 class NotificationCommand(BaseModel):
     """Canonical provider-neutral NotificationCommand contract for E-8 engagement."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(frozen=True, extra="forbid", hide_input_in_errors=True)
 
     contract_version: str = Field(default="1.0.0", min_length=1)
     command_id: str = Field(default_factory=lambda: str(uuid4()), min_length=1)
@@ -115,37 +138,111 @@ class NotificationCommand(BaseModel):
     @field_validator("recipient_references")
     @classmethod
     def validate_recipients(cls, v: list[str]) -> list[str]:
-        """Ensure recipient references are non-empty and free of raw PII or phone numbers."""
+        """Ensure recipient references are non-empty and strictly opaque.
+
+        Enforces Section 16 of E8_NOTIFICATION_ENGAGEMENT_CONTRACT:
+        - Strictly rejects plaintext email addresses.
+        - Strictly rejects plaintext telephone numbers (E.164, local, or formatted).
+        - Strictly rejects unauthorized personal identifiers (names, SSNs, DOBs).
+        - Strictly rejects raw institutional MySQL identifiers (pure integer PKs).
+        - Strictly rejects malformed references (control characters, injection sequences).
+        - Preserves canonical opaque references (e.g. 'urn:e7:...', 'user:...', UUIDs).
+        """
         import re
 
         if not v:
             raise ValueError("recipient_references must contain at least one recipient reference")
+
+        prohibited_pii_keywords = (
+            "student_ssn",
+            "student_name",
+            "student_dob",
+            "student_phone",
+            "student_email",
+            "social_security",
+            "national_id",
+            "passport",
+            "first_name",
+            "last_name",
+            "full_name",
+            "ssn:",
+            "dob:",
+        )
+        prohibited_mysql_prefixes = (
+            "mysql:",
+            "iredu:",
+            "students.id:",
+            "staff.id:",
+            "raw_id:",
+            "mysql_id:",
+        )
+
         for ref in v:
             if not isinstance(ref, str) or not ref.strip():
                 raise ValueError("recipient_references elements must be non-empty strings")
             clean_ref = ref.strip()
 
-            # Reject plaintext phone numbers (E.164 or digit sequences)
+            # Malformed checks: length, control chars, injection delimiters
+            if len(clean_ref) > 256:
+                raise ValueError("Recipient reference exceeds maximum length (256)")
+            if any(ord(c) < 32 or ord(c) == 127 for c in clean_ref):
+                raise ValueError("Malformed recipient reference contains control characters")
+            if ";" in clean_ref or "--" in clean_ref or "/*" in clean_ref:
+                raise ValueError(
+                    "Malformed recipient reference contains invalid delimiter characters"
+                )
+
+            # 1. Reject plaintext email addresses
+            if "@" in clean_ref:
+                raise ValueError(
+                    "Plaintext email address is prohibited in recipient_references. "
+                    "Use canonical opaque references (e.g. 'urn:e7:cohort:faculty' or 'user:<id>')."
+                )
+
+            # 2. Reject plaintext phone numbers (E.164, local, or formatted digit sequences)
             digits_only = re.sub(r"[\s\-\(\)\.]", "", clean_ref)
             is_intl = (
                 digits_only.startswith("+")
                 and digits_only[1:].isdigit()
-                and len(digits_only) >= 8
+                and len(digits_only) >= 7
             )
-            is_local = digits_only.isdigit() and len(digits_only) >= 10
+            is_local = digits_only.isdigit() and len(digits_only) >= 7
             if is_intl or is_local:
                 raise ValueError(
-                    f"Plaintext phone number '{clean_ref}' is prohibited in recipient_references. "
+                    "Plaintext phone number is prohibited in recipient_references. "
                     "Use canonical opaque references (e.g. 'urn:e7:cohort:faculty')."
                 )
 
-            # Reject student PII in recipient reference strings
             lower_ref = clean_ref.lower()
-            if "student_ssn" in lower_ref or "student_name" in lower_ref:
-                raise ValueError(
-                    f"Student PII detected in recipient reference '{clean_ref}'. "
-                    "Violates data minimization."
+
+            # 3. Reject unauthorized personal identifiers
+            for pii in prohibited_pii_keywords:
+                if pii in lower_ref:
+                    msg = (
+                        "Unauthorized personal identifier detected in recipient reference. "
+                        "Violates recipient privacy and data minimization."
+                    )
+                    raise ValueError(msg)
+
+            # 4. Reject raw institutional MySQL identifiers (pure integer PKs or table.id prefixes)
+            if clean_ref.isdigit():
+                msg = (
+                    "Raw numeric/MySQL primary key is prohibited in "
+                    "recipient_references. Use canonical opaque references."
                 )
+                raise ValueError(msg)
+            for prefix in prohibited_mysql_prefixes:
+                if (
+                    lower_ref.startswith(prefix)
+                    or f".{prefix}" in lower_ref
+                    or f"raw_{prefix}" in lower_ref
+                ):
+                    msg = (
+                        "Raw institutional MySQL identifier is prohibited in "
+                        "recipient_references."
+                    )
+                    raise ValueError(msg)
+
         return v
 
     @field_validator("notification_context")
@@ -198,8 +295,9 @@ class NotificationCommand(BaseModel):
                     )
                 # Detect plaintext email addresses inside context values
                 if re.search(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b", val):
-                    msg = f"notification_context contains prohibited plaintext email: '{val}'."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        "notification_context contains prohibited plaintext email address."
+                    )
                 # Detect plaintext phone numbers inside context values
                 digits_only = re.sub(r"[\s\-\(\)\.]", "", val)
                 val_intl = (
@@ -209,8 +307,9 @@ class NotificationCommand(BaseModel):
                 )
                 val_local = digits_only.isdigit() and len(digits_only) >= 10
                 if val_intl or val_local:
-                    msg = f"notification_context contains prohibited plaintext phone: '{val}'."
-                    raise ValueError(msg)
+                    raise ValueError(
+                        "notification_context contains prohibited plaintext phone number."
+                    )
 
         def _traverse(data: Any) -> None:
             if isinstance(data, dict):

@@ -22,6 +22,14 @@ class DummyOutboxRepo:
         self.events.append(event)
 
 
+class DummyEnqueueOutboxRepo:
+    def __init__(self):
+        self.events = []
+
+    async def enqueue(self, event):
+        self.events.append(event)
+
+
 class DummyAuditRepo:
     def __init__(self):
         self.events = []
@@ -143,6 +151,7 @@ async def test_sla_evaluation_triggers_warning_and_breach(sla_service):
     assert "WARNING" in res2[0]
     assert len(outbox.events) == 1
     assert outbox.events[0].event_type == "workflow.sla.warning"
+    assert outbox.events[0].tenant_id == "tenant_alpha"
 
     # 3. Evaluate at 20h (idempotent, warning not re-triggered)
     res3 = await sla_service.evaluate_triggers(
@@ -163,6 +172,7 @@ async def test_sla_evaluation_triggers_warning_and_breach(sla_service):
     assert "BREACH" in res4[0]
     assert len(outbox.events) == 2
     assert outbox.events[1].event_type == "workflow.sla.breached"
+    assert outbox.events[1].tenant_id == "tenant_alpha"
 
 
 def test_business_calendar_5x8_pause_resume_weekend():
@@ -201,4 +211,101 @@ def test_business_calendar_5x8_pause_resume_weekend():
     )
     assert resumed.status == SlaStatus.RUNNING
     assert resumed.breach_at == datetime(2026, 10, 5, 13, 0, tzinfo=UTC)
+
+
+@pytest.mark.asyncio
+async def test_sla_evaluation_propagates_tenant_id_and_supports_enqueue(sla_service):
+    """Verify tenant_id propagation to outbox events and compatibility with enqueue() repos."""
+    base_time = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    sla_service.attach_task_sla(
+        tenant_id="tenant_gamma",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="standard_approval_sla",
+        created_at=base_time,
+    )
+
+    outbox = DummyEnqueueOutboxRepo()
+    audit = DummyAuditRepo()
+
+    # Trigger warning
+    res = await sla_service.evaluate_triggers(
+        as_of=base_time + timedelta(hours=19),
+        outbox_repo=outbox,
+        audit_repo=audit,
+        tenant_id="tenant_gamma",
+    )
+    assert len(res) == 1
+    assert len(outbox.events) == 1
+    assert outbox.events[0].tenant_id == "tenant_gamma"
+    assert outbox.events[0].event_type == "workflow.sla.warning"
+
+    # Trigger breach
+    res_breach = await sla_service.evaluate_triggers(
+        as_of=base_time + timedelta(hours=25),
+        outbox_repo=outbox,
+        audit_repo=audit,
+        tenant_id="tenant_gamma",
+    )
+    assert len(res_breach) == 1
+    assert len(outbox.events) == 2
+    assert outbox.events[1].tenant_id == "tenant_gamma"
+    assert outbox.events[1].event_type == "workflow.sla.breached"
+
+
+def test_sla_service_transaction_rolls_back_mutations_on_error(sla_service):
+    """SlaService.transaction context manager restores snapshot on exception."""
+    base_time = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
+    task_id = uuid4()
+    inst_id = uuid4()
+
+    state = sla_service.attach_task_sla(
+        tenant_id="tenant_epsilon",
+        instance_id=inst_id,
+        task_id=task_id,
+        policy_key="standard_approval_sla",
+        created_at=base_time,
+    )
+    assert state.warning_fired_at is None
+    assert state.status == SlaStatus.RUNNING
+
+    with pytest.raises(RuntimeError, match="Simulated crash"):
+        with sla_service.transaction(tenant_id="tenant_epsilon"):
+            state.warning_fired_at = base_time + timedelta(hours=19)
+            state.status = SlaStatus.WARNING
+            raise RuntimeError("Simulated crash")
+
+    # State was restored
+    restored = sla_service.get_task_sla(task_id)
+    assert restored.warning_fired_at is None
+    assert restored.status == SlaStatus.RUNNING
+
+
+@pytest.mark.asyncio
+async def test_sla_service_evaluate_triggers_rejects_empty_or_whitespace_tenant_id(sla_service):
+    """SlaService.evaluate_triggers rejects empty or whitespace-only tenant_id."""
+    base_time = datetime(2026, 10, 1, 10, 0, tzinfo=UTC)
+    outbox = DummyEnqueueOutboxRepo()
+    audit = DummyAuditRepo()
+
+    with pytest.raises(ValueError, match="tenant_id must not be empty or whitespace-only"):
+        await sla_service.evaluate_triggers(
+            as_of=base_time,
+            outbox_repo=outbox,
+            audit_repo=audit,
+            tenant_id="",
+        )
+
+    with pytest.raises(ValueError, match="tenant_id must not be empty or whitespace-only"):
+        await sla_service.evaluate_triggers(
+            as_of=base_time,
+            outbox_repo=outbox,
+            audit_repo=audit,
+            tenant_id="   ",
+        )
+
+
 

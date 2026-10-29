@@ -10,8 +10,12 @@ Enforces:
 
 from typing import Any
 
+import structlog
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.audit.repository import AuditRepository
+from app.audit.schemas import AuditEventCreate, AuditEventOutcome
+from app.core.auth.models import AuthenticationMethod, PrincipalType
 from app.events.schemas import EventEnvelope
 from app.integrations.engagement.config import NotificationSettings
 from app.integrations.engagement.dispatcher import (
@@ -24,9 +28,40 @@ from app.integrations.engagement.models import (
     TriggerKind,
 )
 
+logger = structlog.get_logger(__name__)
+
+
+def _extract_valid_opaque_recipients(
+    raw_recipients: list[Any] | None,
+) -> tuple[list[str], bool]:
+    """Extract valid opaque recipient references and detect prohibited contact PII."""
+    valid_recipients: list[str] = []
+    has_prohibited_pii = False
+    if raw_recipients:
+        for ref in raw_recipients:
+            if not isinstance(ref, str) or not ref.strip():
+                continue
+            clean_ref = ref.strip()
+            # Detect plaintext emails, phone numbers, or raw upstream database IDs
+            if "@" in clean_ref or clean_ref.isdigit() or any(
+                clean_ref.lower().startswith(p)
+                for p in ("mysql:", "iredu:", "students.id:", "staff.id:")
+            ):
+                has_prohibited_pii = True
+                continue
+            valid_recipients.append(clean_ref)
+    return valid_recipients, has_prohibited_pii
+
 
 class SchedulePublishedNotificationHandler:
-    """Consumer handler for canonical schedule.published event to dispatch notification."""
+    """Consumer handler for canonical schedule.published event to dispatch notification.
+
+    Note:
+    - Default recipient 'urn:e7:cohort:faculty' is a provisional engineering default
+      pending institutional governance decision DEC-E8-02.
+    - If event payload contains unresolvable recipients or prohibited contact PII,
+      the notification is explicitly blocked under DEC-E8-02 without fallback.
+    """
 
     def __init__(
         self,
@@ -35,7 +70,11 @@ class SchedulePublishedNotificationHandler:
         settings: NotificationSettings | None = None,
     ) -> None:
         self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
-        self.default_recipients = default_recipients or ["urn:e7:cohort:faculty"]
+        self.default_recipients = (
+            default_recipients
+            if default_recipients is not None
+            else ["urn:e7:cohort:faculty"]
+        )
 
     async def handle(
         self,
@@ -45,13 +84,88 @@ class SchedulePublishedNotificationHandler:
     ) -> None:
         """Construct canonical NotificationCommand and dispatch within transaction."""
         tenant_id = envelope.tenant_id
-        if not tenant_id:
+        if not tenant_id or not tenant_id.strip():
+            logger.warning(
+                "schedule_notification_dropped_missing_tenant",
+                event_id=str(envelope.event_id),
+                event_type=envelope.event_type,
+            )
             return
 
         payload = envelope.payload
         schedule_id = str(payload.get("schedule_id", ""))
         version = int(payload.get("version", 1))
-        recipients = payload.get("recipients") or self.default_recipients
+
+        # Check for recipient references in payload
+        if "recipients" in payload:
+            raw_recipients = payload.get("recipients")
+            valid_recipients, has_prohibited_pii = _extract_valid_opaque_recipients(raw_recipients)
+            if not valid_recipients:
+                # Event explicitly provided recipients, but they were unresolvable or contained PII.
+                # Under DEC-E8-02, do not use unsupported fallbacks hiding missing authority.
+                logger.warning(
+                    "schedule_notification_blocked_unresolved_recipients",
+                    event_id=str(envelope.event_id),
+                    event_type=envelope.event_type,
+                    schedule_id=schedule_id,
+                    had_prohibited_pii=has_prohibited_pii,
+                    status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-pub-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
+                )
+                return
+        else:
+            # Payload did not specify recipients; check configured default_recipients
+            raw_recipients = self.default_recipients
+            valid_recipients, has_prohibited_pii = _extract_valid_opaque_recipients(raw_recipients)
+            if not valid_recipients:
+                logger.warning(
+                    "schedule_notification_blocked_unresolved_recipients",
+                    event_id=str(envelope.event_id),
+                    event_type=envelope.event_type,
+                    schedule_id=schedule_id,
+                    had_prohibited_pii=has_prohibited_pii,
+                    status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-pub-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
+                )
+                return
 
         cmd = NotificationCommand(
             command_id=f"notif-pub-{envelope.event_id}",
@@ -63,7 +177,7 @@ class SchedulePublishedNotificationHandler:
                 source_event_name="schedule.published",
                 source_entity_reference=schedule_id,
             ),
-            recipient_references=list(recipients),
+            recipient_references=valid_recipients,
             notification_context={
                 "template_id": "EXAM_SCHEDULE_PUBLISHED",
                 "schedule_id": schedule_id,
@@ -74,7 +188,14 @@ class SchedulePublishedNotificationHandler:
 
 
 class ScheduleChangedNotificationHandler:
-    """Consumer handler for canonical schedule.changed event to dispatch notification."""
+    """Consumer handler for canonical schedule.changed event to dispatch notification.
+
+    Note:
+    - Default recipient 'urn:e7:cohort:faculty-all' is a provisional engineering default
+      pending institutional governance decision DEC-E8-02.
+    - If event payload contains unresolvable recipients or prohibited contact PII,
+      the notification is explicitly blocked under DEC-E8-02 without fallback.
+    """
 
     def __init__(
         self,
@@ -83,7 +204,11 @@ class ScheduleChangedNotificationHandler:
         settings: NotificationSettings | None = None,
     ) -> None:
         self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
-        self.default_recipients = default_recipients or ["urn:e7:cohort:faculty-all"]
+        self.default_recipients = (
+            default_recipients
+            if default_recipients is not None
+            else ["urn:e7:cohort:faculty-all"]
+        )
 
     async def handle(
         self,
@@ -93,7 +218,12 @@ class ScheduleChangedNotificationHandler:
     ) -> None:
         """Construct canonical NotificationCommand and dispatch within transaction."""
         tenant_id = envelope.tenant_id
-        if not tenant_id:
+        if not tenant_id or not tenant_id.strip():
+            logger.warning(
+                "schedule_changed_notification_dropped_missing_tenant",
+                event_id=str(envelope.event_id),
+                event_type=envelope.event_type,
+            )
             return
 
         payload = envelope.payload
@@ -101,7 +231,75 @@ class ScheduleChangedNotificationHandler:
         old_version = int(payload.get("old_version", 1))
         new_version = int(payload.get("new_version", 2))
         repair_reason = str(payload.get("repair_reason", "resource.unavailable"))
-        recipients = payload.get("recipients") or self.default_recipients
+
+        # Check for recipient references in payload
+        if "recipients" in payload:
+            raw_recipients = payload.get("recipients")
+            valid_recipients, has_prohibited_pii = _extract_valid_opaque_recipients(raw_recipients)
+            if not valid_recipients:
+                # Under DEC-E8-02, do not use unsupported fallbacks hiding missing authority.
+                logger.warning(
+                    "schedule_changed_notification_blocked_unresolved_recipients",
+                    event_id=str(envelope.event_id),
+                    event_type=envelope.event_type,
+                    schedule_id=schedule_id,
+                    had_prohibited_pii=has_prohibited_pii,
+                    status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-chg-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
+                )
+                return
+        else:
+            raw_recipients = self.default_recipients
+            valid_recipients, has_prohibited_pii = _extract_valid_opaque_recipients(raw_recipients)
+            if not valid_recipients:
+                logger.warning(
+                    "schedule_changed_notification_blocked_unresolved_recipients",
+                    event_id=str(envelope.event_id),
+                    event_type=envelope.event_type,
+                    schedule_id=schedule_id,
+                    had_prohibited_pii=has_prohibited_pii,
+                    status="BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                )
+                audit_repo = AuditRepository(session)
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type="notification.dispatch.blocked",
+                        actor_principal_id="system-notification-handler",
+                        actor_principal_type=PrincipalType.SERVICE.value,
+                        authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
+                        resource_type="notification",
+                        resource_id=f"notif-chg-{envelope.event_id}",
+                        outcome=AuditEventOutcome.DENIED,
+                        details={
+                            "reason": "BLOCKED_PENDING_RECIPIENT_RESOLUTION_DEC_E8_02",
+                            "source_event_type": envelope.event_type,
+                            "source_event_id": str(envelope.event_id),
+                            "schedule_id": schedule_id,
+                            "had_prohibited_pii": has_prohibited_pii,
+                        },
+                    )
+                )
+                return
 
         cmd = NotificationCommand(
             command_id=f"notif-chg-{envelope.event_id}",
@@ -109,17 +307,220 @@ class ScheduleChangedNotificationHandler:
             causation_reference=str(envelope.event_id),
             organization_scope_reference=tenant_id,
             trigger=NotificationTrigger(
-                trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
-                source_event_name="schedule.changed",
+                trigger_kind=TriggerKind.SOURCE_BACKED_BUSINESS_CONDITION,
+                business_condition="SCHEDULE_CHANGE_NOTICE",
                 source_entity_reference=schedule_id,
             ),
-            recipient_references=list(recipients),
+            recipient_references=valid_recipients,
             notification_context={
                 "template_id": "EXAM_SCHEDULE_CHANGED",
                 "schedule_id": schedule_id,
                 "old_version": old_version,
                 "new_version": new_version,
                 "repair_reason": repair_reason,
+            },
+        )
+        await self.dispatcher.dispatch(command=cmd, session=session)
+
+
+class TaskBlockedNotificationHandler:
+    """Consumer handler for canonical task.blocked event to dispatch notification.
+
+    Note:
+    - Default recipient 'urn:e7:role:task_manager' and template 'TASK_BLOCKED_ALERT' are
+      provisional engineering defaults pending institutional governance decision DEC-E8-02.
+    """
+
+    def __init__(
+        self,
+        dispatcher: NotificationDispatcherProtocol | None = None,
+        default_recipients: list[str] | None = None,
+        settings: NotificationSettings | None = None,
+    ) -> None:
+        self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
+        self.default_recipients = default_recipients or ["urn:e7:role:task_manager"]
+
+    async def handle(
+        self,
+        *,
+        envelope: EventEnvelope,
+        session: AsyncSession,
+    ) -> None:
+        """Construct canonical NotificationCommand and dispatch within transaction."""
+        tenant_id = envelope.tenant_id
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError(
+                f"task.blocked event '{envelope.event_id}' has missing or empty tenant_id. "
+                "Tenant identity is mandatory for organization_scope_reference."
+            )
+
+        payload = envelope.payload
+        task_id = str(payload.get("task_id") or envelope.subject_id or "")
+        plan_id = str(payload.get("plan_id", ""))
+        temporary_id = str(payload.get("temporary_id", ""))
+        blocked_reason = str(payload.get("blocked_reason", "Task progress blocked"))
+        recipients = payload.get("recipients") or self.default_recipients
+
+        cmd = NotificationCommand(
+            command_id=f"notif-blk-{envelope.event_id}",
+            correlation_reference=envelope.correlation_id or str(envelope.event_id),
+            causation_reference=str(envelope.event_id),
+            organization_scope_reference=tenant_id,
+            trigger=NotificationTrigger(
+                trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                source_event_name="task.blocked",
+                source_entity_reference=task_id,
+            ),
+            recipient_references=list(recipients),
+            notification_context={
+                "template_id": "TASK_BLOCKED_ALERT",
+                "task_id": task_id,
+                "plan_id": plan_id,
+                "temporary_id": temporary_id,
+                "blocked_reason": blocked_reason,
+            },
+        )
+        await self.dispatcher.dispatch(command=cmd, session=session)
+
+
+class WorkflowTaskCreatedNotificationHandler:
+    """Consumer handler for canonical workflow.task.created event to dispatch notification.
+
+    Note:
+    - Default recipient 'urn:e7:role:workflow_assignee' and template 'WORKFLOW_TASK_ASSIGNED'
+      are provisional engineering defaults pending institutional governance decision DEC-E8-02.
+    """
+
+    def __init__(
+        self,
+        dispatcher: NotificationDispatcherProtocol | None = None,
+        default_recipients: list[str] | None = None,
+        settings: NotificationSettings | None = None,
+    ) -> None:
+        self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
+        self.default_recipients = default_recipients or ["urn:e7:role:workflow_assignee"]
+
+    async def handle(
+        self,
+        *,
+        envelope: EventEnvelope,
+        session: AsyncSession,
+    ) -> None:
+        """Construct canonical NotificationCommand and dispatch within transaction."""
+        tenant_id = envelope.tenant_id
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError(
+                f"workflow.task.created event '{envelope.event_id}' has missing tenant_id. "
+                "Tenant identity is mandatory for organization_scope_reference."
+            )
+
+        payload = envelope.payload
+        task_id = str(payload.get("workflow_task_id") or envelope.subject_id or "")
+        instance_id = str(payload.get("workflow_instance_id", ""))
+        task_name = str(payload.get("task_name", "Workflow Task"))
+        task_def_key = str(payload.get("task_definition_key", ""))
+        due_at = payload.get("due_at")
+
+        # Resolve recipient reference: prefer opaque assignee, then candidate roles, then default
+        recipients = payload.get("recipients")
+        if not recipients:
+            assignee = payload.get("assignee")
+            if assignee and isinstance(assignee, str) and "@" not in assignee:
+                clean_assignee = assignee.strip()
+                if not (clean_assignee.startswith("user:") or clean_assignee.startswith("urn:")):
+                    recipients = [f"user:{clean_assignee}"]
+                else:
+                    recipients = [clean_assignee]
+            elif payload.get("candidate_roles"):
+                c_roles = payload.get("candidate_roles")
+                if isinstance(c_roles, (list, tuple)):
+                    recipients = [f"urn:e7:role:{r}" for r in c_roles if isinstance(r, str)]
+            if not recipients:
+                recipients = self.default_recipients
+
+        context: dict[str, Any] = {
+            "template_id": "WORKFLOW_TASK_ASSIGNED",
+            "workflow_task_id": task_id,
+            "workflow_instance_id": instance_id,
+            "task_name": task_name,
+            "task_definition_key": task_def_key,
+        }
+        if due_at:
+            context["due_at"] = str(due_at)
+
+        cmd = NotificationCommand(
+            command_id=f"notif-tsk-{envelope.event_id}",
+            correlation_reference=envelope.correlation_id or str(envelope.event_id),
+            causation_reference=str(envelope.event_id),
+            organization_scope_reference=tenant_id,
+            trigger=NotificationTrigger(
+                trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                source_event_name="workflow.task.created",
+                source_entity_reference=task_id,
+            ),
+            recipient_references=list(recipients),
+            notification_context=context,
+        )
+        await self.dispatcher.dispatch(command=cmd, session=session)
+
+
+class WorkflowSlaWarningNotificationHandler:
+    """Consumer handler for canonical workflow.sla.warning event to dispatch notification.
+
+    Note:
+    - Default recipient 'urn:e7:role:escalation_manager' and template 'WORKFLOW_SLA_WARNING'
+      are provisional engineering defaults pending institutional governance decision DEC-E8-02.
+    """
+
+    def __init__(
+        self,
+        dispatcher: NotificationDispatcherProtocol | None = None,
+        default_recipients: list[str] | None = None,
+        settings: NotificationSettings | None = None,
+    ) -> None:
+        self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
+        self.default_recipients = default_recipients or ["urn:e7:role:escalation_manager"]
+
+    async def handle(
+        self,
+        *,
+        envelope: EventEnvelope,
+        session: AsyncSession,
+    ) -> None:
+        """Construct canonical NotificationCommand and dispatch within transaction."""
+        tenant_id = envelope.tenant_id
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError(
+                f"workflow.sla.warning event '{envelope.event_id}' has missing or empty tenant_id. "
+                "Tenant identity is mandatory for organization_scope_reference."
+            )
+
+        payload = envelope.payload
+        task_id = str(payload.get("workflow_task_id") or envelope.subject_id or "")
+        policy_key = str(payload.get("policy_key", "default_sla"))
+        warning_at = str(payload.get("warning_at", ""))
+        breach_at = str(payload.get("breach_at", ""))
+        action = str(payload.get("action", "NOTIFY"))
+        recipients = payload.get("recipients") or self.default_recipients
+
+        cmd = NotificationCommand(
+            command_id=f"notif-sla-{envelope.event_id}",
+            correlation_reference=envelope.correlation_id or str(envelope.event_id),
+            causation_reference=str(envelope.event_id),
+            organization_scope_reference=tenant_id,
+            trigger=NotificationTrigger(
+                trigger_kind=TriggerKind.SOURCE_VERIFIED_EVENT,
+                source_event_name="workflow.sla.warning",
+                source_entity_reference=task_id,
+            ),
+            recipient_references=list(recipients),
+            notification_context={
+                "template_id": "WORKFLOW_SLA_WARNING",
+                "workflow_task_id": task_id,
+                "policy_key": policy_key,
+                "warning_at": warning_at,
+                "breach_at": breach_at,
+                "action": action,
             },
         )
         await self.dispatcher.dispatch(command=cmd, session=session)
@@ -132,6 +533,9 @@ class NotificationConsumerHandler:
     - Implements ConsumerEventHandler protocol.
     - Routes 'schedule.published' to SchedulePublishedNotificationHandler.
     - Routes 'schedule.changed' to ScheduleChangedNotificationHandler.
+    - Routes 'task.blocked' to TaskBlockedNotificationHandler.
+    - Routes 'workflow.task.created' to WorkflowTaskCreatedNotificationHandler.
+    - Routes 'workflow.sla.warning' to WorkflowSlaWarningNotificationHandler.
     - Safe no-op on non-notification events.
     - Preserves single transactional AsyncSession across inbox deduplication and dispatch.
     """
@@ -142,12 +546,24 @@ class NotificationConsumerHandler:
         settings: NotificationSettings | None = None,
         published_handler: SchedulePublishedNotificationHandler | None = None,
         changed_handler: ScheduleChangedNotificationHandler | None = None,
+        task_blocked_handler: TaskBlockedNotificationHandler | None = None,
+        task_created_handler: WorkflowTaskCreatedNotificationHandler | None = None,
+        sla_warning_handler: WorkflowSlaWarningNotificationHandler | None = None,
     ) -> None:
         self.dispatcher = dispatcher or get_notification_dispatcher(settings=settings)
         self.published_handler = published_handler or SchedulePublishedNotificationHandler(
             dispatcher=self.dispatcher, settings=settings
         )
         self.changed_handler = changed_handler or ScheduleChangedNotificationHandler(
+            dispatcher=self.dispatcher, settings=settings
+        )
+        self.task_blocked_handler = task_blocked_handler or TaskBlockedNotificationHandler(
+            dispatcher=self.dispatcher, settings=settings
+        )
+        self.task_created_handler = task_created_handler or WorkflowTaskCreatedNotificationHandler(
+            dispatcher=self.dispatcher, settings=settings
+        )
+        self.sla_warning_handler = sla_warning_handler or WorkflowSlaWarningNotificationHandler(
             dispatcher=self.dispatcher, settings=settings
         )
 
@@ -162,6 +578,12 @@ class NotificationConsumerHandler:
             await self.published_handler.handle(envelope=envelope, session=session)
         elif envelope.event_type == "schedule.changed":
             await self.changed_handler.handle(envelope=envelope, session=session)
+        elif envelope.event_type == "task.blocked":
+            await self.task_blocked_handler.handle(envelope=envelope, session=session)
+        elif envelope.event_type == "workflow.task.created":
+            await self.task_created_handler.handle(envelope=envelope, session=session)
+        elif envelope.event_type == "workflow.sla.warning":
+            await self.sla_warning_handler.handle(envelope=envelope, session=session)
 
 
 def create_notification_consumer_processor(
@@ -185,5 +607,8 @@ __all__ = [
     "NotificationConsumerHandler",
     "ScheduleChangedNotificationHandler",
     "SchedulePublishedNotificationHandler",
+    "TaskBlockedNotificationHandler",
+    "WorkflowSlaWarningNotificationHandler",
+    "WorkflowTaskCreatedNotificationHandler",
     "create_notification_consumer_processor",
 ]

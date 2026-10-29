@@ -751,6 +751,7 @@ def test_no_database_persistence_tables_created() -> None:
     import app.audit.models  # noqa: F401
     import app.core.idempotency.models  # noqa: F401
     import app.core.jobs.models  # noqa: F401
+    import app.db.models  # noqa: F401
     import app.events.inbox.models  # noqa: F401
     import app.events.outbox.models  # noqa: F401
 

@@ -1057,14 +1057,18 @@ class WorkflowService:
         as_of: datetime | None = None,
     ) -> list[str]:
         """Evaluate active SLAs and emit warnings or breach escalations."""
+        if not tenant_id or not tenant_id.strip():
+            raise ValueError("tenant_id must not be empty or whitespace-only")
         now = as_of or datetime.now(UTC)
         async with self._uow_factory() as uow:
             outbox_repo = OutboxRepository(uow.session)
             audit_repo = AuditRepository(uow.session)
-            actions = await self._sla_service.evaluate_triggers(
-                as_of=now,
-                outbox_repo=outbox_repo,
-                audit_repo=audit_repo,
-            )
-            await uow.commit()
+            with self._sla_service.transaction(tenant_id=tenant_id):
+                actions = await self._sla_service.evaluate_triggers(
+                    as_of=now,
+                    outbox_repo=outbox_repo,
+                    audit_repo=audit_repo,
+                    tenant_id=tenant_id,
+                )
+                await uow.commit()
             return actions

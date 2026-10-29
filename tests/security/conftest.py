@@ -20,6 +20,7 @@ Provides:
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -1291,9 +1292,14 @@ def security_app(security_context: SecurityTestContext) -> FastAPI:
     # Register domain routes with security dependencies
     domain_router = APIRouter(prefix="/api/v1")
 
-    # In-memory session mock for analytics & audit
+    # In-memory session mock for analytics, audit & calendar
     async def get_dummy_session() -> AsyncGenerator[Any, None]:
-        yield None
+        mock_session = AsyncMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.scalar_one_or_none.return_value = None
+        mock_exec_result.scalars.return_value.all.return_value = []
+        mock_session.execute.return_value = mock_exec_result
+        yield mock_session
 
     register_domain_routes(
         domain_router,
@@ -1308,7 +1314,7 @@ def security_app(security_context: SecurityTestContext) -> FastAPI:
         analytics_service=security_context.analytics_service,
         audit_service=security_context.audit_service,
     )
-    register_calendar_routes(domain_router)
+    register_calendar_routes(domain_router, session_dependency=get_dummy_session)
     app.include_router(domain_router)
 
     return app
