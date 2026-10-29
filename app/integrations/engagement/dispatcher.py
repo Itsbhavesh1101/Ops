@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.audit.repository import AuditRepository
 from app.audit.schemas import AuditEventCreate, AuditEventOutcome
+from app.core.auth.models import AuthenticationMethod
 from app.integrations.engagement.config import NotificationSettings
 from app.integrations.engagement.models import NotificationCommand
 
@@ -86,7 +87,7 @@ async def _record_dispatch_audit(
             tenant_id=command.organization_scope_reference,
             actor_principal_id="e7-notification-service",
             actor_principal_type="SERVICE",
-            authentication_method=f"SERVICE_{transport_type.upper()}",
+            authentication_method=AuthenticationMethod.SERVICE_API_KEY.value,
             event_type="notification.dispatched",
             resource_type="notification_command",
             resource_id=command.command_id,

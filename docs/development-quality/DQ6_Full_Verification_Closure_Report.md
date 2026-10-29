@@ -222,6 +222,11 @@ During DQ-6 verification across disposable container infrastructure, five defect
    * *Defect:* In CI environments lacking Google Application Default Credentials (ADC), `GoogleCalendarAdapter` threw `GoogleCalendarAuthError` on default ADC resolution, returning `SyncStatus.FAILED` during Phase-7 vertical-slice test.
    * *Fix:* Implemented `DeterministicCalendarTokenProvider` in `app/integrations/calendar/auth.py` implementing `CalendarTokenProvider` protocol. Injected into `GoogleCalendarAdapter` in `test_phase7_live_vertical_slice.py` to preserve real HTTP transport wire execution and Authorization Bearer header injection without calling external Google APIs. Added targeted unit regression tests verifying both successful sync and fail-closed auth failure.
 
+6. **Notification Dispatch Audit Authentication Method Validation:**
+   * *Requirement:* FR-INT-01 / FR-WF-07.
+   * *Defect:* `HttpNotificationDispatcher._record_dispatch_audit` constructed `AuditEventCreate` with dynamic `authentication_method=f"SERVICE_{transport_type.upper()}"` (`SERVICE_HTTP`), which failed schema validation requiring canonical enum `AuthenticationMethod` values (`OIDC`, `SERVICE_API_KEY`).
+   * *Fix:* Used canonical `AuthenticationMethod.SERVICE_API_KEY.value` for service notification dispatch audit events.
+
 ---
 
 ## 10. CANONICAL EXTERNAL BLOCKERS TABLE
