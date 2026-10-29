@@ -879,11 +879,24 @@ class Settings(BaseSettings):
                 )
             if self.database_echo:
                 raise ValueError(
-                    "database_echo must be strictly False in production/staging environments"
+                    f"database_echo must be strictly False in {self.environment} environment"
+                )
+            if self.debug:
+                raise ValueError(
+                    f"debug must be strictly False in {self.environment} environment"
+                )
+            if self.oidc_default_tenant_id:
+                raise ValueError(
+                    f"oidc_default_tenant_id must be None in {self.environment} environment; "
+                    "unmapped identities must fail closed"
                 )
             if any(origin.strip() == "*" for origin in self.cors_allowed_origins):
                 raise ValueError(
-                    "Wildcard CORS ('*') is strictly prohibited in production/staging environments"
+                    f"Wildcard CORS ('*') is strictly prohibited in {self.environment} environment"
+                )
+            if self.database_url is not None and not self.database_url.get_secret_value().strip():
+                raise ValueError(
+                    f"database_url cannot be blank in {self.environment} environment"
                 )
         return self
 

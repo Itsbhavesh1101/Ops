@@ -36,11 +36,12 @@ from app.core.config import get_settings
 from app.db.models.scheduling import CalendarWatchChannelRecord
 from app.integrations.calendar.dtos import SyncChangesResult
 from app.integrations.calendar.webhook import GoogleCalendarWebhookHandler
+from tests.unit.integrations.calendar_db_guard import verify_calendar_db_connection
 
 
 @pytest_asyncio.fixture
-async def sec_db_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provide scoped AsyncSession against local PostgreSQL development database."""
+async def verified_sec_db_engine() -> AsyncGenerator[Any, None]:
+    """Provide verified AsyncEngine enforcing strict CI failure and local skip policy."""
     settings = get_settings()
     db_url = (
         settings.database_url.get_secret_value()
@@ -48,11 +49,19 @@ async def sec_db_session() -> AsyncGenerator[AsyncSession, None]:
         else str(settings.database_url)
     )
     engine = create_async_engine(db_url, poolclass=NullPool, echo=False)
-    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    await verify_calendar_db_connection(engine, db_url)
+    yield engine
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def sec_db_session(verified_sec_db_engine: Any) -> AsyncGenerator[AsyncSession, None]:
+    """Provide scoped AsyncSession against PostgreSQL development database."""
+    session_factory = async_sessionmaker(
+        bind=verified_sec_db_engine, class_=AsyncSession, expire_on_commit=False
+    )
     async with session_factory() as session:
         yield session
-
-    await engine.dispose()
 
 
 class DummySyncService:
@@ -69,27 +78,22 @@ class DummySyncService:
         return None
 
 
-@pytest.fixture
-def webhook_client() -> TestClient:
+@pytest_asyncio.fixture
+async def webhook_client(verified_sec_db_engine: Any) -> AsyncGenerator[TestClient, None]:
     """Create dedicated test client for calendar webhook endpoint."""
+    session_factory = async_sessionmaker(
+        bind=verified_sec_db_engine, class_=AsyncSession, expire_on_commit=False
+    )
+
+    async def get_test_session() -> AsyncGenerator[AsyncSession, None]:
+        async with session_factory() as session:
+            yield session
+
     app = FastAPI()
     register_api_exception_handlers(app)
 
     handler = GoogleCalendarWebhookHandler()
     sync_service = DummySyncService()
-
-    settings = get_settings()
-    db_url = (
-        settings.database_url.get_secret_value()
-        if isinstance(settings.database_url, SecretStr)
-        else str(settings.database_url)
-    )
-    engine = create_async_engine(db_url, poolclass=NullPool, echo=False)
-    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-
-    async def get_test_session() -> AsyncGenerator[AsyncSession, None]:
-        async with session_factory() as session:
-            yield session
 
     router = create_calendar_router(
         session_dependency=get_test_session,
@@ -97,7 +101,8 @@ def webhook_client() -> TestClient:
         sync_service=sync_service,  # type: ignore[arg-type]
     )
     app.include_router(router, prefix="/api/v1/integrations/calendar")
-    return TestClient(app, raise_server_exceptions=False)
+    client = TestClient(app, raise_server_exceptions=False)
+    yield client
 
 
 @pytest.mark.asyncio

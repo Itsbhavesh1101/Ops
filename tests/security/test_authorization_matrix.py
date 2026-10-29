@@ -68,6 +68,7 @@ class TestAuthorizationMatrix:
             ("post", f"/api/v1/plans/{PLAN_A_ID}/validate", {}, None),
             ("post", f"/api/v1/plans/{PLAN_A_ID}/approve", {}, None),
             ("get", f"/api/v1/plans/{PLAN_A_ID}/critical-path", None, None),
+            ("get", f"/api/v1/plans/{PLAN_A_ID}/recommendations", None, None),
             ("patch", f"/api/v1/tasks/{TASK_A_ID}", {"status": "COMPLETED"}, None),
             ("get", "/api/v1/resources/availability", None, None),
             ("post", "/api/v1/schedule-jobs", make_valid_schedule_problem(), None),
@@ -153,6 +154,17 @@ class TestAuthorizationMatrix:
         )
         assert response.status_code == 200
         assert response.json()["is_valid"] is True
+
+    def test_planner_can_view_recommendations(
+        self, client: TestClient, security_context: SecurityTestContext
+    ) -> None:
+        headers = security_context.get_auth_headers("planner", TENANT_A)
+        response = client.get(
+            f"/api/v1/plans/{PLAN_A_ID}/recommendations",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert response.json()["plan_id"] == str(PLAN_A_ID)
 
     def test_planner_cannot_approve_plan(
         self, client: TestClient, security_context: SecurityTestContext

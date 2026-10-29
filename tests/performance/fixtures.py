@@ -11,6 +11,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import httpx
+import pytest
 from pydantic import SecretStr
 from sqlalchemy import text
 
@@ -110,7 +111,12 @@ def get_benchmark_flowable_adapter() -> FlowableAdapter:
 
 async def cleanup_perf_tenant_data(tenant_prefix: str = "perf-tenant-") -> None:
     """Safely clean up synthetic benchmark tenant rows from PostgreSQL."""
-    db = DatabaseManager()
+    try:
+        db = DatabaseManager()
+        if not await db.check_readiness(timeout_seconds=0.5):
+            pytest.skip("PostgreSQL database is unavailable for live performance benchmark")
+    except Exception as exc:
+        pytest.skip(f"PostgreSQL database is unavailable for live performance benchmark: {exc}")
     async with db.session_factory() as session:
         async with session.begin():
             # Delete in proper foreign key order

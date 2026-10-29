@@ -91,6 +91,18 @@ class TestCrossTenantBola:
         assert res.status_code == 404
         assert res.json()["error"]["code"] == "plan.not_found"
 
+    # 3b. Plan read: recommendations
+    def test_bola_plan_read_recommendations_fails_404(
+        self, client: TestClient, security_context: SecurityTestContext
+    ) -> None:
+        headers = security_context.get_auth_headers("planner", TENANT_A)
+        res = client.get(
+            f"/api/v1/plans/{PLAN_B_ID}/recommendations",
+            headers=headers,
+        )
+        assert res.status_code == 404
+        assert res.json()["error"]["code"] == "plan.not_found"
+
     # 4. Plan validation
     def test_bola_plan_validation_fails_404(
         self, client: TestClient, security_context: SecurityTestContext

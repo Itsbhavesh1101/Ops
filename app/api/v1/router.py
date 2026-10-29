@@ -6,7 +6,9 @@ defines immutable API version constants and OpenAPI metadata,
 and preserves foundational operational health and readiness probes.
 """
 
-from fastapi import APIRouter
+from typing import Any
+
+from fastapi import APIRouter, Query, Response, status
 
 from app.api.v1.schemas import HealthResponse, ReadinessResponse
 from app.core.config import get_settings
@@ -37,17 +39,111 @@ async def health_check() -> HealthResponse:
 
 
 @router.get("/ready", response_model=ReadinessResponse, tags=["Health"])
-async def readiness_check() -> ReadinessResponse:
+async def readiness_check(
+    response: Response,
+    deep: bool = Query(default=False, description="Execute deep infrastructure probe"),
+    strict: bool = Query(default=False, description="Fail readiness on degraded external broker"),
+) -> ReadinessResponse:
     """Service traffic readiness probe.
 
-    Currently returns ready as initial Phase-1 foundation runtime has no external
-    stateful infrastructure dependencies yet implemented.
+    Distinguishes:
+    - Shallow probe (deep=False): Application startup readiness
+      (process running, configuration valid).
+    - Deep probe (deep=True): Comprehensive stateful infrastructure verification
+      (PostgreSQL connectivity pool, RabbitMQ message broker, bounded timeouts).
     """
     settings = get_settings()
+
+    if not deep:
+        return ReadinessResponse(
+            status="ready",
+            service="operations-engine",
+            environment=settings.environment,
+            probe="shallow",
+        )
+
+    dependencies: dict[str, Any] = {}
+    is_ready = True
+    is_degraded = False
+
+    # 1. PostgreSQL Connectivity Probe
+    if settings.database_url and settings.database_url.get_secret_value().strip():
+        try:
+            from app.api.v1.composition import get_shared_db_manager
+
+            db_manager = get_shared_db_manager()
+            db_ready = await db_manager.check_readiness(timeout_seconds=2.0)
+            if db_ready:
+                dependencies["database"] = {
+                    "status": "healthy",
+                    "pool": db_manager.get_pool_status(),
+                }
+            else:
+                dependencies["database"] = {
+                    "status": "unhealthy",
+                    "error": "database_connection_failed",
+                }
+                is_ready = False
+        except Exception as exc:
+            dependencies["database"] = {
+                "status": "unhealthy",
+                "error": type(exc).__name__,
+            }
+            is_ready = False
+    else:
+        dependencies["database"] = {
+            "status": "not_configured",
+            "error": "database_url_not_configured",
+        }
+        is_ready = False
+
+    # 2. RabbitMQ Connectivity Probe
+    try:
+        import os
+
+        from app.events.health import check_broker_ready
+
+        broker_url_configured = bool(
+            os.getenv("E7_RABBITMQ_URL")
+            or os.getenv("RABBITMQ_URL")
+            or getattr(settings, "rabbitmq_url", None)
+        )
+        if broker_url_configured:
+            broker_ready = await check_broker_ready(timeout_seconds=2.0)
+            if broker_ready:
+                dependencies["broker"] = {"status": "healthy"}
+            else:
+                dependencies["broker"] = {
+                    "status": "degraded",
+                    "error": "broker_connection_failed",
+                }
+                is_degraded = True
+        else:
+            dependencies["broker"] = {"status": "not_configured"}
+            is_degraded = True
+    except Exception as exc:
+        dependencies["broker"] = {
+            "status": "degraded",
+            "error": type(exc).__name__,
+        }
+        is_degraded = True
+
+    # 3. Determine Overall Status & Response Code
+    if not is_ready or (strict and is_degraded):
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        overall_status = "not_ready"
+    elif is_degraded:
+        # Documented degraded asynchronous mode: API can still accept writes into outbox
+        overall_status = "degraded"
+    else:
+        overall_status = "ready"
+
     return ReadinessResponse(
-        status="ready",
+        status=overall_status,
         service="operations-engine",
         environment=settings.environment,
+        probe="deep",
+        dependencies=dependencies,
     )
 
 
