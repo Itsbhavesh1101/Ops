@@ -78,7 +78,7 @@ jobs:
         run: |
           python scripts/export_openapi.py --check
 
-      - name: Verify Global Pytest Collection (all 2,371 tests)
+      - name: Verify Global Pytest Collection (all 2,391 tests)
         run: |
           pytest --collect-only -q
 
@@ -138,6 +138,85 @@ jobs:
         if: always()
         run: |
           docker logs e7-rabbitmq || true
+
+      - name: Initialize Flowable Database & Start Engine
+        run: |
+          POSTGRES_CONTAINER=$(docker ps -q --filter "ancestor=postgres:16-alpine")
+          echo "PostgreSQL service container ID: $POSTGRES_CONTAINER"
+          docker rename "$POSTGRES_CONTAINER" e7-postgres || true
+          docker exec e7-postgres psql -U postgres -c "CREATE DATABASE flowable_db;" || true
+          NETWORK_ID=$(docker inspect e7-postgres --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+          echo "Connecting Flowable to Docker network: $NETWORK_ID"
+          docker run -d --name e7-flowable --network "$NETWORK_ID" -p 8080:8080 \
+            -e SPRING_DATASOURCE_URL="jdbc:postgresql://postgres:5432/flowable_db" \
+            -e SPRING_DATASOURCE_USERNAME="postgres" \
+            -e SPRING_DATASOURCE_PASSWORD="postgres" \
+            -e SPRING_DATASOURCE_DRIVER_CLASS_NAME="org.postgresql.Driver" \
+            flowable/flowable-rest:7.0.0
+          echo "Waiting for Flowable REST API to be ready..."
+          for i in {1..40}; do
+            if curl -s -u rest-admin:test http://localhost:8080/flowable-rest/service/repository/deployments | grep -q "data"; then
+              echo "Flowable is ready!"
+              break
+            fi
+            echo "Waiting for Flowable ($i)..."
+            sleep 3
+          done
+          curl -s -u rest-admin:test http://localhost:8080/flowable-rest/service/repository/deployments
+
+      - name: Run Flowable Live Integration Tests
+        env:
+          E7_RUN_WORKFLOW_INTEGRATION: "1"
+          POSTGRES_PORT: "5432"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          FLOWABLE_BASE_URL: "http://localhost:8080/flowable-rest/service"
+          FLOWABLE_USER: "rest-admin"
+          FLOWABLE_PASSWORD: "test"
+          PYTHONPATH: "."
+        run: |
+          pytest tests/integration/workflow/test_flowable_live.py -v --tb=short
+
+      - name: Run Full-System Live Phase 6 E2E Integration Test
+        env:
+          E7_RUN_PHASE6_E2E: "1"
+          POSTGRES_PORT: "5432"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          E7_DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine"
+          FLOWABLE_BASE_URL: "http://localhost:8080/flowable-rest/service"
+          FLOWABLE_USER: "rest-admin"
+          FLOWABLE_PASSWORD: "test"
+          RABBITMQ_HOST: "localhost"
+          RABBITMQ_PORT: "5672"
+          E7_RABBITMQ_URL: "amqp://guest:guest@localhost:5672/"
+          PYTHONPATH: "."
+        run: |
+          pytest tests/e2e/phase6/test_semester_exam_e2e.py -v --tb=short
+
+      - name: Run Phase 7 Live Vertical Slice Integration Test
+        env:
+          E7_RUN_PHASE7_E2E: "1"
+          POSTGRES_PORT: "5432"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          E7_DATABASE_URL: "postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine"
+          PYTHONPATH: "."
+        run: |
+          pytest tests/e2e/phase7/test_phase7_live_vertical_slice.py -v --tb=short
+
+      - name: Run Scheduling & Planning Performance Benchmarks
+        run: |
+          pytest tests/performance/test_scheduler_solver_load.py -k test_academic_scheduler_dataset_benchmarks -v
+          pytest tests/performance/test_plan_generation_load.py -k test_context_builder_performance -v
+
+      - name: Inspect Flowable Engine Logs
+        if: always()
+        run: |
+          docker logs e7-flowable || true
 
   frontend-quality-gates:
     name: Frontend Quality Gates & Tests
