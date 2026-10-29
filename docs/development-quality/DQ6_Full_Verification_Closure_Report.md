@@ -16,6 +16,9 @@
 * **Dedicated Verification Branch:** `quality/dq6-full-verification-acceptance`
 * **Pull Request:** [PR #7: feat(dq6): full verification and evidence-based closure](https://github.com/Itsbhavesh1101/Ops/pull/7)
 * **Verified Remote Baseline SHA:** `2d6fa284edffcb9253fd294ad297885a11fc454f`
+* **Verified Green CI Runs (100% Pass Across All 4 Jobs):**
+  * Push Run: [`40933498243`](https://github.com/Itsbhavesh1101/Ops/actions/runs/40933498243) (Commit `8499308`)
+  * PR Run: [`40933506951`](https://github.com/Itsbhavesh1101/Ops/actions/runs/40933506951) (Commit `8499308`)
 * **Frozen Release Candidate Tag:** `phase8-rc-38d080fadab8` at commit `76d2ed9331b66d1cda04ce518727f4484d266e5b`
   * *Integrity Confirmation:* `phase8-rc-38d080fadab8` remains completely untouched, unmodified, and preserved.
 
@@ -263,6 +266,11 @@ During DQ-6 verification across disposable container infrastructure, five defect
    * *Requirement:* PROD-BACKEND-ACCEPTANCE / FR-WF-02 / QA-CI-GATES.
    * *Defect:* Initial Playwright suite exercised a simulated FastAPI server in `test_server.py` with in-memory dictionaries rather than the actual `app.main:app` backend backed by PostgreSQL 16, Flowable 7.0.0, and RabbitMQ 3.13. Furthermore, frontend client called `/workflow/tasks/${taskId}/action` (singular), while the backend only registered `/tasks/{task_id}/actions` (plural).
    * *Fix:* Maintained simulated Playwright suite in `e2e/` as UI contract/smoke tests, and established a dedicated real-application browser acceptance suite in `e2e_real/` against `app.main:app`. Added `@router.post("/tasks/{task_id}/action", include_in_schema=False)` alias route in `app/api/v1/workflows.py` ensuring singular/plural route compatibility without OpenAPI contract drift. Created pure Keycloak OIDC emulator (`tests/e2e/browser/oidc_idp_server.py`), direct PostgreSQL persistence verification CLI (`scripts/verify_db_state.py`), and dedicated CI gate `real-application-browser-acceptance`.
+
+10. **Human Task Claiming Action and Flowable Assignment (`b71c9ef`, `8499308`):**
+    * *Requirement:* FR-WF-02 / PROD-BACKEND-ACCEPTANCE.
+    * *Defect:* During real browser acceptance, claiming a pending human task returned HTTP 403 `workflow.task_unauthorized` because `DefaultTaskEligibilityPolicy._allowed_actions` defaulted to `{"APPROVE", "REJECT", "COMPLETE"}` without `"CLAIM"` and `"UNCLAIM"`. Additionally, `WorkflowService.perform_task_action` treated all actions as completion on Flowable rather than task assignment, and variable redefinition in the task action handler triggered a Mypy `[no-redef]` failure.
+    * *Fix:* Added `"CLAIM"` and `"UNCLAIM"` to `DefaultTaskEligibilityPolicy._allowed_actions`. Added `claim_user_task` to `WorkflowAdapterProtocol` and `FlowableAdapter` to set the task assignee in Flowable REST without premature completion. Updated `WorkflowService.perform_task_action` to record task assignment in PostgreSQL, emit `workflow.task.claimed` audit events, and properly separate variable typings for static typecheck compliance.
 
 ---
 
