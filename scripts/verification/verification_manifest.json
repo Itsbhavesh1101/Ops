@@ -75,6 +75,22 @@
       "timeout_seconds": 1800
     },
     {
+      "id": "frontend-lint",
+      "group": "frontend",
+      "required": true,
+      "command": ["npm", "--prefix", "ui/operations-ui", "run", "lint"],
+      "executables": ["npm"],
+      "timeout_seconds": 900
+    },
+    {
+      "id": "frontend-typecheck",
+      "group": "frontend",
+      "required": true,
+      "command": ["npm", "--prefix", "ui/operations-ui", "run", "typecheck"],
+      "executables": ["npm"],
+      "timeout_seconds": 900
+    },
+    {
       "id": "frontend-quality",
       "group": "frontend",
       "required": true,
@@ -117,6 +133,7 @@
       "required": true,
       "command": ["{python}", "-m", "pytest", "tests/recovery", "-q", "--tb=short"],
       "executables": ["{python}", "docker"],
+      "environment": {"E7_RUN_RECOVERY": "1"},
       "timeout_seconds": 3600
     },
     {
@@ -130,6 +147,7 @@
         {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672},
         {"name": "flowable", "host": "127.0.0.1", "port": 8080}
       ],
+      "environment": {"E7_RUN_UAT": "1"},
       "timeout_seconds": 1800
     },
     {

@@ -79,13 +79,13 @@
 - Consumes: Task 2 verification runner and manifest.
 - Produces: Linux full-verification job, Windows configuration job, and explicit infrastructure prerequisite handling.
 
-- [ ] Add CI contract tests asserting no hard-coded collection count and required Linux/Windows verification gates.
-- [ ] Observe contract tests fail against the existing workflow.
-- [ ] Rename the stale collection step and add Windows Flowable configuration coverage.
-- [ ] Add a dedicated full-verification workflow that provisions PostgreSQL, RabbitMQ, Flowable and required CLI tools before running recovery/UAT groups.
-- [ ] Ensure infrastructure tests skip only when their explicit opt-in is absent and fail when opted in but unavailable.
-- [ ] Run CI contract tests and YAML validation.
-- [ ] Commit as `ci: enforce cross-platform complete verification gates`.
+- [x] Add CI contract tests asserting no hard-coded collection count and required Linux/Windows verification gates.
+- [x] Observe contract tests fail against the existing workflow.
+- [x] Rename the stale collection step and add Windows Flowable configuration coverage.
+- [x] Add a dedicated full-verification workflow that provisions PostgreSQL, RabbitMQ, Flowable and required CLI tools before running recovery/UAT groups.
+- [x] Ensure infrastructure tests skip only when their explicit opt-in is absent and fail when opted in but unavailable.
+- [x] Run CI contract tests and YAML validation.
+- [x] Commit as `ci: enforce cross-platform complete verification gates`.
 
 ### Task 4: External dependency verification probes
 

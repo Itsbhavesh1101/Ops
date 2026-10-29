@@ -78,7 +78,7 @@ jobs:
         run: |
           python scripts/export_openapi.py --check
 
-      - name: Verify Global Pytest Collection (all 2,391 tests)
+      - name: Verify Global Pytest Collection
         run: |
           pytest --collect-only -q
 

@@ -15,8 +15,11 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _resolve_command(command: list[Any]) -> list[str]:
-    return [sys.executable if str(part) == "{python}" else str(part) for part in command]
+def _resolve_command(command: list[Any], environment: dict[str, str]) -> list[str]:
+    resolved = [sys.executable if str(part) == "{python}" else str(part) for part in command]
+    if resolved:
+        resolved[0] = shutil.which(resolved[0], path=environment.get("PATH")) or resolved[0]
+    return resolved
 
 
 def _redact(text: str, secrets: list[str]) -> str:
@@ -83,7 +86,7 @@ def run_manifest(
             "id": str(gate["id"]),
             "group": str(gate["group"]),
             "required": bool(gate.get("required", True)),
-            "command": _resolve_command(gate["command"]),
+            "command": _resolve_command(gate["command"], environment),
         }
 
         if blocked is not None:

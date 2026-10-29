@@ -5,7 +5,9 @@ import socket
 import sys
 from pathlib import Path
 
-from scripts.verification.run_verification import run_manifest
+import pytest
+
+from scripts.verification.run_verification import _resolve_command, run_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -64,6 +66,20 @@ def test_runner_resolves_python_token_to_active_interpreter(tmp_path: Path) -> N
     assert exit_code == 0
     assert report["gates"][0]["command"][0] == sys.executable
     assert "active interpreter" in report["gates"][0]["stdout"]
+
+
+def test_runner_resolves_platform_launcher_before_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = r"C:\Tools\npm.CMD"
+    monkeypatch.setattr(
+        "scripts.verification.run_verification.shutil.which",
+        lambda executable, path=None: launcher if executable == "npm" else None,
+    )
+
+    resolved = _resolve_command(["npm", "run", "test"], {"PATH": r"C:\Tools"})
+
+    assert resolved == [launcher, "run", "test"]
 
 
 def test_runner_fails_when_required_executable_is_missing(tmp_path: Path) -> None:
@@ -209,3 +225,20 @@ def test_repository_manifest_defines_every_completion_gate_group() -> None:
         "uat",
     }
     assert all(isinstance(gate["command"], list) and gate["command"] for gate in manifest["gates"])
+
+
+def test_repository_manifest_runs_every_frontend_quality_command() -> None:
+    manifest_path = REPO_ROOT / "scripts" / "verification" / "verification_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    frontend_commands = {
+        tuple(gate["command"])
+        for gate in manifest["gates"]
+        if gate["group"] == "frontend"
+    }
+    assert frontend_commands == {
+        ("npm", "--prefix", "ui/operations-ui", "run", "lint"),
+        ("npm", "--prefix", "ui/operations-ui", "run", "typecheck"),
+        ("npm", "--prefix", "ui/operations-ui", "run", "test"),
+        ("npm", "--prefix", "ui/operations-ui", "run", "build"),
+    }

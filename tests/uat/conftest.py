@@ -17,6 +17,7 @@ Configures:
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -617,3 +618,18 @@ def uat_app(uat_context: UatTestContext) -> FastAPI:
 def client(uat_app: FastAPI) -> TestClient:
     """TestClient configured with uat_app."""
     return TestClient(uat_app, raise_server_exceptions=False)
+
+# Infrastructure-backed UAT is opt-in for local and generic full-suite runs.
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Require explicit opt-in before executing the infrastructure-backed UAT suite."""
+    import os
+
+    if os.environ.get("E7_RUN_UAT") == "1":
+        return
+    marker = pytest.mark.skip(
+        reason="Role UAT requires E7_RUN_UAT=1 and provisioned infrastructure"
+    )
+    uat_test_root = Path(__file__).resolve().parent
+    for item in items:
+        if item.path.resolve().is_relative_to(uat_test_root):
+            item.add_marker(marker)
