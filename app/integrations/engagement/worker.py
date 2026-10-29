@@ -30,6 +30,7 @@ from app.events.consumers.rabbitmq_message import (
 )
 from app.events.consumers.rabbitmq_runner import RabbitMqConsumerRunner
 from app.integrations.engagement.config import NotificationSettings
+from app.integrations.engagement.delivery_worker import NotificationDeliveryWorker
 from app.integrations.engagement.dispatcher import (
     NotificationDispatcherProtocol,
     get_notification_dispatcher,
@@ -168,12 +169,22 @@ class NotificationWorker:
                     pass
 
     def start_background_tasks(self, stop_event: asyncio.Event) -> list[asyncio.Task[None]]:
-        """Start notification consumer loop as an asyncio background task."""
-        task = asyncio.create_task(
+        """Start notification consumer loop and delivery worker (if in outbox mode)."""
+        consumer_task = asyncio.create_task(
             self.run(stop_event),
             name="notification_consumer_runner_loop",
         )
-        return [task]
+        tasks = [consumer_task]
+
+        if self.settings.pipeline_mode == "outbox":
+            delivery_worker = NotificationDeliveryWorker(
+                session_factory=self.db_manager.session_factory,
+                dispatcher=self.dispatcher,
+                settings=self.settings,
+            )
+            tasks.extend(delivery_worker.start_background_tasks(stop_event))
+
+        return tasks
 
 
 __all__ = ["NotificationWorker"]

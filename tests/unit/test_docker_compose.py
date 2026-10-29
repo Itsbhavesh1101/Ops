@@ -376,7 +376,7 @@ def test_alembic_head_remains_0007() -> None:
     alembic_cfg = Config(str(ALEMBIC_INI))
     script_dir = ScriptDirectory.from_config(alembic_cfg)
     heads = script_dir.get_heads()
-    assert heads == ["0014"], f"Alembic heads expected ['0014'], got {heads}"
+    assert heads == ["0016"], f"Alembic heads expected ['0016'], got {heads}"
 
     rev_0007 = script_dir.get_revision("0007")
     assert rev_0007 is not None
@@ -410,11 +410,19 @@ def test_alembic_head_remains_0007() -> None:
     assert rev_0014 is not None
     assert rev_0014.down_revision == "0013"
 
+    rev_0015 = script_dir.get_revision("0015")
+    assert rev_0015 is not None
+    assert rev_0015.down_revision == "0014"
+
+    rev_0016 = script_dir.get_revision("0016")
+    assert rev_0016 is not None
+    assert rev_0016.down_revision == "0015"
+
     migration_files = os.listdir(VERSIONS_DIR)
-    has_0014 = any(fname.startswith("0014") for fname in migration_files)
-    assert has_0014, "Migration 0014 must exist for Phase 8D"
+    has_0016 = any(fname.startswith("0016") for fname in migration_files)
+    assert has_0016, "Migration 0016 must exist for Phase DQ-4"
     for fname in migration_files:
-        assert not fname.startswith("0015"), f"Migration 0015 must not exist: {fname}"
+        assert not fname.startswith("0017"), f"Migration 0017 must not exist: {fname}"
 
 
 def test_no_identity_persistence_tables() -> None:

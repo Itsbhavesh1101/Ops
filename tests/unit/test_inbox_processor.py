@@ -801,9 +801,10 @@ def test_schema_stability() -> None:
     config = Config("alembic.ini")
     script_dir = ScriptDirectory.from_config(config)
     assert script_dir.get_current_head() in (
-        "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014"
+        "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014",
+        "0015", "0016",
     )
-    assert script_dir.get_current_head() == "0014"
+    assert script_dir.get_current_head() == "0016"
 
 
 def test_deferred_runtime_integration_constant() -> None:

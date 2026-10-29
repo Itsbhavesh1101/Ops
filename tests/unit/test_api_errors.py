@@ -855,7 +855,7 @@ class TestDatabaseSchemaStability:
         alembic_cfg = Config("alembic.ini")
         script = ScriptDirectory.from_config(alembic_cfg)
         heads = script.get_heads()
-        assert heads == ["0014"], f"Alembic heads expected ['0014'], got {heads}"
+        assert heads == ["0016"], f"Alembic heads expected ['0016'], got {heads}"
 
         rev_0007 = script.get_revision("0007")
         assert rev_0007 is not None
@@ -889,8 +889,16 @@ class TestDatabaseSchemaStability:
         assert rev_0014 is not None
         assert rev_0014.down_revision == "0013"
 
-        # Verify no 0015 migration file exists
+        rev_0015 = script.get_revision("0015")
+        assert rev_0015 is not None
+        assert rev_0015.down_revision == "0014"
+
+        rev_0016 = script.get_revision("0016")
+        assert rev_0016 is not None
+        assert rev_0016.down_revision == "0015"
+
+        # Verify no 0017 migration file exists
         versions_dir = os.path.join("app", "db", "migrations", "versions")
         files = os.listdir(versions_dir)
-        migration_0015 = [f for f in files if "0015" in f]
-        assert len(migration_0015) == 0, f"Found unexpected migration 0015: {migration_0015}"
+        migration_0017 = [f for f in files if "0017" in f]
+        assert len(migration_0017) == 0, f"Found unexpected migration 0017: {migration_0017}"

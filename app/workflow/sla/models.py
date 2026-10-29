@@ -14,6 +14,10 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class SlaTaskStateNotFoundError(ValueError):
+    """Raised when an operation targets an unmanaged or missing task SLA state."""
+
+
 class SlaStatus(StrEnum):
     """Runtime status of an active task SLA."""
 
