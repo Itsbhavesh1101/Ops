@@ -739,13 +739,13 @@ class WorkflowService:
                 task_record.action_at = now
                 task_record.updated_at = now
 
-                audit_details: dict[str, Any] = {
+                claim_audit_details: dict[str, Any] = {
                     "action": action.value,
                     "engine_task_id": engine_task_id,
                     "assignee": new_assignee,
                 }
                 if identity is not None:
-                    audit_details["key_digest"] = str(identity.key_digest)
+                    claim_audit_details["key_digest"] = str(identity.key_digest)
 
                 event_type_name = "claimed" if action == WorkflowTaskAction.CLAIM else "unclaimed"
                 await audit_repo.append(
@@ -758,7 +758,7 @@ class WorkflowService:
                         resource_type="workflow_task",
                         resource_id=str(workflow_task_id),
                         outcome=AuditEventOutcome.SUCCESS,
-                        details=audit_details,
+                        details=claim_audit_details,
                     )
                 )
                 response = WorkflowTaskResponse.model_validate(task_record)
