@@ -1,0 +1,187 @@
+{
+  "schema_version": "1.0",
+  "gates": [
+    {
+      "id": "python-compile",
+      "group": "static",
+      "required": true,
+      "command": ["{python}", "-m", "compileall", "-q", "app"],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "ruff",
+      "group": "static",
+      "required": true,
+      "command": ["{python}", "-m", "ruff", "check", "."],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "mypy",
+      "group": "static",
+      "required": true,
+      "command": ["{python}", "-m", "mypy", "app"],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "openapi-drift",
+      "group": "static",
+      "required": true,
+      "command": ["{python}", "scripts/export_openapi.py", "--check"],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "backend-core",
+      "group": "backend",
+      "required": true,
+      "command": ["{python}", "-m", "pytest", "tests/unit", "tests/contract", "tests/security", "tests/ai_eval", "tests/pilot", "-q", "--tb=short"],
+      "executables": ["{python}"],
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "backend-postgres-integration",
+      "group": "backend",
+      "required": true,
+      "command": ["{python}", "-m", "pytest", "tests/integration/postgres", "tests/integration/task_intelligence", "tests/integration/scheduling", "-q", "--tb=short"],
+      "executables": ["{python}"],
+      "services": [{"name": "postgresql", "host": "127.0.0.1", "port": 5432}],
+      "environment": {"E7_RUN_POSTGRES_INTEGRATION": "1", "E7_RUN_TASK_INTELLIGENCE_INTEGRATION": "1", "E7_RUN_SCHEDULING_INTEGRATION": "1"},
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "backend-rabbitmq-integration",
+      "group": "backend",
+      "required": true,
+      "command": ["{python}", "-m", "pytest", "tests/integration/rabbitmq", "tests/integration/worker", "-q", "--tb=short"],
+      "executables": ["{python}"],
+      "services": [
+        {"name": "postgresql", "host": "127.0.0.1", "port": 5432},
+        {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672}
+      ],
+      "environment": {"E7_RUN_RABBITMQ_INTEGRATION": "1", "E7_RUN_WORKER_INTEGRATION": "1"},
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "backend-flowable-integration",
+      "group": "backend",
+      "required": true,
+      "command": ["{python}", "-m", "pytest", "tests/integration/workflow", "tests/e2e/phase6", "tests/e2e/phase7/test_phase7_live_vertical_slice.py", "-q", "--tb=short"],
+      "executables": ["{python}"],
+      "services": [
+        {"name": "postgresql", "host": "127.0.0.1", "port": 5432},
+        {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672},
+        {"name": "flowable", "host": "127.0.0.1", "port": 8080}
+      ],
+      "environment": {"E7_RUN_WORKFLOW_INTEGRATION": "1", "E7_RUN_PHASE6_E2E": "1", "E7_RUN_PHASE7_E2E": "1"},
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "frontend-quality",
+      "group": "frontend",
+      "required": true,
+      "command": ["npm", "--prefix", "ui/operations-ui", "run", "test"],
+      "executables": ["npm"],
+      "timeout_seconds": 900
+    },
+    {
+      "id": "frontend-build",
+      "group": "frontend",
+      "required": true,
+      "command": ["npm", "--prefix", "ui/operations-ui", "run", "build"],
+      "executables": ["npm"],
+      "timeout_seconds": 900
+    },
+    {
+      "id": "browser-contract",
+      "group": "browser",
+      "required": true,
+      "command": ["npm", "--prefix", "ui/operations-ui", "run", "test:e2e"],
+      "executables": ["npm"],
+      "timeout_seconds": 1200
+    },
+    {
+      "id": "browser-real-application",
+      "group": "browser",
+      "required": true,
+      "command": ["npm", "--prefix", "ui/operations-ui", "run", "test:e2e:real"],
+      "executables": ["npm"],
+      "services": [
+        {"name": "postgresql", "host": "127.0.0.1", "port": 5432},
+        {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672},
+        {"name": "flowable", "host": "127.0.0.1", "port": 8080}
+      ],
+      "timeout_seconds": 1200
+    },
+    {
+      "id": "recovery-suite",
+      "group": "recovery",
+      "required": true,
+      "command": ["{python}", "-m", "pytest", "tests/recovery", "-q", "--tb=short"],
+      "executables": ["{python}", "docker"],
+      "timeout_seconds": 3600
+    },
+    {
+      "id": "role-uat",
+      "group": "uat",
+      "required": true,
+      "command": ["{python}", "-m", "pytest", "tests/uat", "-q", "--tb=short"],
+      "executables": ["{python}"],
+      "services": [
+        {"name": "postgresql", "host": "127.0.0.1", "port": 5432},
+        {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672},
+        {"name": "flowable", "host": "127.0.0.1", "port": 8080}
+      ],
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "secret-scan",
+      "group": "security",
+      "required": true,
+      "command": ["{python}", "scripts/release/scan_secrets.py"],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "trivy-filesystem",
+      "group": "security",
+      "required": true,
+      "command": ["trivy", "fs", "--severity", "CRITICAL,HIGH", "--exit-code", "1", "."],
+      "executables": ["trivy"],
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "release-dry-run",
+      "group": "release",
+      "required": true,
+      "command": ["{python}", "scripts/release/build_production_release.py", "--dry-run", "--allow-uncommitted"],
+      "executables": ["{python}"],
+      "timeout_seconds": 1800
+    },
+    {
+      "id": "external-mysql",
+      "group": "external",
+      "required": false,
+      "command": ["{python}", "scripts/verification/verify_mysql_connection.py"],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "external-oidc",
+      "group": "external",
+      "required": false,
+      "command": ["{python}", "scripts/verification/verify_oidc_provider.py"],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "external-e8",
+      "group": "external",
+      "required": false,
+      "command": ["{python}", "scripts/verification/verify_e8_broker.py"],
+      "executables": ["{python}"]
+    },
+    {
+      "id": "external-gateway",
+      "group": "external",
+      "required": false,
+      "command": ["{python}", "scripts/verification/verify_gateway_ingress.py"],
+      "executables": ["{python}"]
+    }
+  ]
+}

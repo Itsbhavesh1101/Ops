@@ -59,12 +59,12 @@
 - Consumes: subprocess commands and environment prerequisites declared in the JSON manifest.
 - Produces: `VerificationReport` JSON with `PASS`, `FAIL`, or `BLOCKED_PREREQUISITE` per mandatory gate and an overall fail-closed exit code.
 
-- [ ] Write tests for successful commands, failed commands, missing executables, unavailable declared services, secret redaction, and mandatory blocked gates.
-- [ ] Observe the tests fail because the runner does not exist.
-- [ ] Implement typed manifest loading, prerequisite checks, bounded subprocess execution, redacted output, and atomic JSON evidence writing.
-- [ ] Define groups for static checks, backend suites, frontend suites, browser acceptance, recovery, UAT, security scans, and release packaging.
-- [ ] Run the runner unit tests, Ruff, and mypy.
-- [ ] Commit as `feat(verification): add manifest-driven full verification runner`.
+- [x] Write tests for successful commands, failed commands, missing executables, unavailable declared services, secret redaction, and mandatory blocked gates.
+- [x] Observe the tests fail because the runner does not exist.
+- [x] Implement typed manifest loading, prerequisite checks, bounded subprocess execution, redacted output, and atomic JSON evidence writing.
+- [x] Define groups for static checks, backend suites, frontend suites, browser acceptance, recovery, UAT, security scans, and release packaging.
+- [x] Run the runner unit tests, Ruff, and mypy.
+- [x] Commit as `feat(verification): add manifest-driven full verification runner`.
 
 ### Task 3: CI and cross-platform full-suite enforcement
 
