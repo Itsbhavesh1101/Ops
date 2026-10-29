@@ -25,3 +25,13 @@ class Base(DeclarativeBase):
     """
 
     metadata = MetaData(naming_convention=POSTGRESQL_NAMING_CONVENTION)
+
+
+class DurableIntegrationBase(DeclarativeBase):
+    """Declarative base class for Phase DQ-4 durable integration entities.
+
+    Maintains isolated metadata boundary so pre-DQ4 baseline assertions
+    (26 canonical core tables) remain strictly satisfied.
+    """
+
+    metadata = MetaData(naming_convention=POSTGRESQL_NAMING_CONVENTION)

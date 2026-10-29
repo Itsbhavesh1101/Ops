@@ -136,7 +136,7 @@ def test_alembic_script_directory_loads_baseline_revision() -> None:
     script_dir = ScriptDirectory.from_config(config)
 
     head = script_dir.get_current_head()
-    assert head == "0014"
+    assert head == "0016"
 
     rev_0001 = script_dir.get_revision("0001")
     assert rev_0001 is not None
@@ -215,9 +215,23 @@ def test_alembic_script_directory_loads_baseline_revision() -> None:
     assert rev_0014.down_revision == "0013"
     assert "service_api_credentials" in (rev_0014.doc or "")
 
-    # Verify no migration 0015 exists
+    # Phase DQ-4 Option C two-stage notification outbox migration 0015
+    rev_0015 = script_dir.get_revision("0015")
+    assert rev_0015 is not None
+    assert rev_0015.down_revision == "0014"
+    assert "create_notification_outbox" in (rev_0015.doc or "")
+
+    # Phase DQ-4 AD-DQ4-02 persistent task SLA state migration 0016
+    rev_0016 = script_dir.get_revision("0016")
+    assert rev_0016 is not None
+    assert rev_0016.down_revision == "0015"
+    assert "create_task_sla_states" in (rev_0016.doc or "")
+
+    # Verify no migration 0017 exists
     revisions = [rev.revision for rev in script_dir.walk_revisions()]
-    assert "0015" not in revisions
+    assert "0017" not in revisions
+    assert "0016" in revisions
+    assert "0015" in revisions
     assert "0014" in revisions
     assert "0013" in revisions
     assert "0012" in revisions

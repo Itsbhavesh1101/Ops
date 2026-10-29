@@ -1169,13 +1169,13 @@ def test_schema_stability_and_frozen_persistence() -> None:
 
     config = Config("alembic.ini")
     script_dir = ScriptDirectory.from_config(config)
-    assert script_dir.get_current_head() == "0014"
+    assert script_dir.get_current_head() == "0016"
 
-    # Confirm migration 0014 exists and 0015 does NOT exist
+    # Confirm migration 0016 exists and 0017 does NOT exist
     revisions = [rev.revision for rev in script_dir.walk_revisions()]
-    assert "0014" in revisions
-    assert "0015" not in revisions
-    assert len(revisions) == 14
+    assert "0016" in revisions
+    assert "0017" not in revisions
+    assert len(revisions) == 16
 
 
 def test_deferred_runtime_integration_constant() -> None:

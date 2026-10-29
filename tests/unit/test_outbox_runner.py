@@ -730,8 +730,11 @@ def test_no_database_metadata_or_migration_changes() -> None:
 
     script_dir = ScriptDirectory.from_config(Config("alembic.ini"))
     head = script_dir.get_current_head()
-    assert head in ("0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014")
-    assert head == "0014"
+    assert head in (
+        "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012", "0013", "0014",
+        "0015", "0016",
+    )
+    assert head == "0016"
 
     version_dir = Path("app/db/migrations/versions")
     migration_files = [f.name for f in version_dir.glob("*.py")]
@@ -742,4 +745,6 @@ def test_no_database_metadata_or_migration_changes() -> None:
     assert any("0012" in f for f in migration_files)
     assert any("0013" in f for f in migration_files)
     assert any("0014" in f for f in migration_files)
-    assert not any("0015" in f for f in migration_files)
+    assert any("0015" in f for f in migration_files)
+    assert any("0016" in f for f in migration_files)
+    assert not any("0017" in f for f in migration_files)

@@ -62,6 +62,44 @@ class NotificationSettings(BaseSettings):
         gt=0.0,
         description="Initial backoff delay in seconds for retry attempts",
     )
+    allow_provisional_recipients: bool = Field(
+        default=False,
+        description=(
+            "Whether provisional cohort/role recipient references (e.g. urn:e7:cohort:faculty) "
+            "are permitted without institutional resolution under DEC-E8-02. "
+            "Defaults to False (fail-closed) in production."
+        ),
+    )
+    pipeline_mode: str = Field(
+        default="outbox",
+        description=(
+            "Notification pipeline execution mode: 'outbox' (durable two-stage notification "
+            "outbox, Option C) or 'direct' (direct inline dispatch for test doubles)."
+        ),
+    )
+    poll_interval_seconds: float = Field(
+        default=1.0,
+        gt=0.0,
+        description="Polling interval in seconds for the notification outbox delivery worker",
+    )
+    batch_size: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="Maximum number of notification commands claimed per poll batch",
+    )
+    lease_duration_seconds: float = Field(
+        default=30.0,
+        ge=5.0,
+        description="Worker lease timeout in seconds for claimed notification commands",
+    )
+    enforce_lease_expiration: bool = Field(
+        default=True,
+        description=(
+            "Whether command completion/failure requires an active (unexpired) lease. "
+            "When True (default), an expired lease invalidates completion rights."
+        ),
+    )
 
     @field_validator("transport")
     @classmethod
@@ -74,6 +112,17 @@ class NotificationSettings(BaseSettings):
             return "http"
         raise ValueError(
             f"Invalid E-7 notification transport: '{v}'. Must be 'broker' (or 'amqp') or 'http'."
+        )
+
+    @field_validator("pipeline_mode")
+    @classmethod
+    def validate_pipeline_mode(cls, v: str) -> str:
+        """Validate and normalize pipeline execution mode."""
+        v_clean = v.strip().lower()
+        if v_clean in ("outbox", "direct"):
+            return v_clean
+        raise ValueError(
+            f"Invalid E-7 notification pipeline_mode: '{v}'. Must be 'outbox' or 'direct'."
         )
 
 

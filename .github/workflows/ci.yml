@@ -24,6 +24,20 @@ jobs:
           --health-timeout 5s
           --health-retries 5
 
+      rabbitmq:
+        image: rabbitmq:3.13-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       E7_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine
       E7_JWT_SECRET_KEY: test_jwt_secret_key_for_ci_minimum_32_chars_long
@@ -60,7 +74,7 @@ jobs:
         run: |
           mypy app
 
-      - name: Verify Global Pytest Collection (all 2,248 tests)
+      - name: Verify Global Pytest Collection (all 2,357 tests)
         run: |
           pytest --collect-only -q
 
@@ -82,6 +96,44 @@ jobs:
           PYTHONPATH: "."
         run: |
           pytest tests/integration/task_intelligence/ -v --tb=short
+
+      - name: Run Durable Architecture PostgreSQL Integration Tests
+        env:
+          E7_RUN_POSTGRES_INTEGRATION: "1"
+          POSTGRES_PORT: "5432"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          PYTHONPATH: "."
+        run: |
+          pytest tests/integration/postgres/test_durable_integration_postgres.py -v --tb=short
+
+      - name: Ensure RabbitMQ Container Aliased as e7-rabbitmq
+        run: |
+          RABBIT_CONTAINER=$(docker ps -q --filter "ancestor=rabbitmq:3.13-management")
+          echo "RabbitMQ service container ID: $RABBIT_CONTAINER"
+          docker rename "$RABBIT_CONTAINER" e7-rabbitmq || true
+          docker exec e7-rabbitmq rabbitmqctl status
+
+      - name: Run RabbitMQ Live Integration Tests
+        env:
+          E7_RUN_RABBITMQ_INTEGRATION: "1"
+          RABBITMQ_HOST: "localhost"
+          RABBITMQ_PORT: "5672"
+          RABBITMQ_DEFAULT_USER: "guest"
+          RABBITMQ_DEFAULT_PASS: "guest"
+          POSTGRES_PORT: "5432"
+          POSTGRES_HOST: "localhost"
+          POSTGRES_USER: "postgres"
+          POSTGRES_PASSWORD: "postgres"
+          PYTHONPATH: "."
+        run: |
+          pytest tests/integration/rabbitmq/ -v --tb=short
+
+      - name: Inspect RabbitMQ Broker Logs
+        if: always()
+        run: |
+          docker logs e7-rabbitmq || true
 
   frontend-quality-gates:
     name: Frontend Quality Gates & Tests

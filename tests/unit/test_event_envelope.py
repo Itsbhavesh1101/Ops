@@ -795,12 +795,12 @@ def test_no_database_persistence_tables_created() -> None:
 
 
 def test_migration_chain_is_0007_with_no_0008() -> None:
-    """Verify Alembic migration head is 0014 for Phase 8D and no 0015 migration exists."""
+    """Verify Alembic migration head is 0016 for Phase DQ-4 and no 0017 migration exists."""
     config = Config("alembic.ini")
     script_dir = ScriptDirectory.from_config(config)
 
     head = script_dir.get_current_head()
-    assert head == "0014"
+    assert head == "0016"
 
     versions_dir = Path("app/db/migrations/versions")
     version_files = [f.name for f in versions_dir.glob("*.py")]
@@ -818,4 +818,6 @@ def test_migration_chain_is_0007_with_no_0008() -> None:
     assert any(f.startswith("0012") for f in version_files)
     assert any(f.startswith("0013") for f in version_files)
     assert any(f.startswith("0014") for f in version_files)
-    assert not any(f.startswith("0015") for f in version_files)
+    assert any(f.startswith("0015") for f in version_files)
+    assert any(f.startswith("0016") for f in version_files)
+    assert not any(f.startswith("0017") for f in version_files)
