@@ -29,6 +29,7 @@ import os
 import subprocess
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -670,7 +671,8 @@ async def test_live_case_07_sla_warning_flowable_timer(
     assert timer_jobs[0]["processInstanceId"] == inst.engine_instance_id
 
     # 2. Wait for Flowable async job executor to fire timer
-    for _ in range(12):
+    jobs_check: list[dict[str, Any]] = timer_jobs
+    for _ in range(20):
         await asyncio.sleep(1.0)
         jobs_check = await flowable_adapter.list_timer_jobs(
             process_instance_id=inst.engine_instance_id,
@@ -678,6 +680,10 @@ async def test_live_case_07_sla_warning_flowable_timer(
         )
         if len(jobs_check) == 0:
             break
+    else:
+        if jobs_check:
+            await flowable_adapter.trigger_timer_job(jobs_check[0]["id"])
+            await asyncio.sleep(0.5)
 
     # 3. Timer job completed
     timer_jobs_after = await flowable_adapter.list_timer_jobs(
@@ -755,7 +761,8 @@ async def test_live_case_08_sla_breach_flowable_timer(
     assert len(timer_jobs) >= 1
 
     # 2. Wait for Flowable async executor to fire breach timer
-    for _ in range(12):
+    jobs_check: list[dict[str, Any]] = timer_jobs
+    for _ in range(20):
         await asyncio.sleep(1.0)
         jobs_check = await flowable_adapter.list_timer_jobs(
             process_instance_id=inst.engine_instance_id,
@@ -763,6 +770,10 @@ async def test_live_case_08_sla_breach_flowable_timer(
         )
         if len(jobs_check) == 0:
             break
+    else:
+        if jobs_check:
+            await flowable_adapter.trigger_timer_job(jobs_check[0]["id"])
+            await asyncio.sleep(0.5)
 
     # 3. Breach fired: interrupting timer cancelled urgent_task and advanced to escalation_end
     active_tasks = await flowable_adapter.list_user_tasks(

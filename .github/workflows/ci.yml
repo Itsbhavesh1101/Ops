@@ -218,6 +218,11 @@ jobs:
         run: |
           docker logs e7-flowable || true
 
+      - name: Stop Flowable Engine
+        if: always()
+        run: |
+          docker rm -f e7-flowable || true
+
   frontend-quality-gates:
     name: Frontend Quality Gates & Tests
     runs-on: ubuntu-latest
