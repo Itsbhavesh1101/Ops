@@ -78,6 +78,9 @@ export const TaskInbox: React.FC<TaskInboxProps> = ({ apiClient, tenantId, initi
       setTasks((prev) =>
         prev.map((t) => (t.id === selectedTask.id ? { ...t, status: action === "claim" ? "CLAIMED" : "COMPLETED" } : t))
       );
+      setSelectedTask((prev) =>
+        prev && prev.id === selectedTask.id ? { ...prev, status: action === "claim" ? "CLAIMED" : "COMPLETED" } : prev
+      );
     } catch (err: any) {
       setActionError(err.message || "Failed to submit task action");
       setActionStatus(null);

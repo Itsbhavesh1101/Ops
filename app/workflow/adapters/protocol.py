@@ -90,6 +90,15 @@ class WorkflowAdapterProtocol(Protocol):
         """Complete an active user task with outcome variables."""
         ...
 
+    async def claim_user_task(
+        self,
+        engine_task_id: str,
+        assignee: str | None,
+        tenant_id: str,
+    ) -> None:
+        """Claim or unclaim an active user task."""
+        ...
+
     async def get_history(
         self,
         engine_instance_id: str,

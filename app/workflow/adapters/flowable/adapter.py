@@ -490,6 +490,25 @@ class FlowableAdapter(WorkflowAdapterProtocol):
             variables=merged_vars,
         )
 
+    async def claim_user_task(
+        self,
+        engine_task_id: str,
+        assignee: str | None,
+        tenant_id: str,
+    ) -> None:
+        """Claim or unclaim an active user task in Flowable."""
+        body: dict[str, Any] = {"action": "claim"}
+        if assignee is not None:
+            body["assignee"] = assignee
+
+        resp = await self._request("POST", f"/runtime/tasks/{engine_task_id}", json=body)
+        if resp.status_code == 404:
+            raise WorkflowResourceNotFoundError(f"Engine task '{engine_task_id}' not found.")
+        if resp.status_code not in (200, 204):
+            code = resp.status_code
+            msg = f"Failed to claim task '{engine_task_id}': status {code}: {resp.text}"
+            raise WorkflowEngineResponseError(msg)
+
     async def get_history(
         self,
         engine_instance_id: str,
