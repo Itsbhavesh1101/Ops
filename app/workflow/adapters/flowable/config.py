@@ -29,6 +29,7 @@ class FlowableSettings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="FLOWABLE_",
         extra="ignore",
+        populate_by_name=True,
     )
 
     base_url: str = Field(
@@ -52,7 +53,7 @@ class FlowableSettings(BaseSettings):
     username: str | None = Field(
         default=None,
         description="Optional Basic auth username",
-        validation_alias=AliasChoices("FLOWABLE_USERNAME", "FLOWABLE_USER", "username"),
+        validation_alias=AliasChoices("FLOWABLE_USERNAME", "FLOWABLE_USER"),
     )
     password: SecretStr | None = Field(
         default=None,

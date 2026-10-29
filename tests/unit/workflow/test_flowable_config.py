@@ -83,6 +83,19 @@ def test_flowable_settings_from_env_success() -> None:
         assert settings.password.get_secret_value() == "prod-password"
 
 
+def test_windows_username_does_not_supply_flowable_basic_auth() -> None:
+    """A Windows account name must not become a Flowable service credential."""
+    with patch.dict(os.environ, {"USERNAME": "desktop-user"}, clear=True):
+        with pytest.raises(ValidationError) as exc_info:
+            FlowableSettings(
+                base_url="http://flowable:8080/flowable-rest/service",
+                timeout_seconds=10.0,
+                max_retries=2,
+            )
+
+    assert "Flowable authentication is required" in str(exc_info.value)
+
+
 def test_flowable_service_auth_production_marker() -> None:
     """Verify production service auth deferral marker."""
     assert FLOWABLE_SERVICE_AUTH_PRODUCTION == "DEFERRED_PENDING_DEPLOYMENT_SECRET_CONFIGURATION"
