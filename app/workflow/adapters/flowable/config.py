@@ -8,7 +8,7 @@ Enforces:
 
 import os
 
-from pydantic import Field, SecretStr, ValidationError, model_validator
+from pydantic import AliasChoices, Field, SecretStr, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 FLOWABLE_SERVICE_AUTH_PRODUCTION: str = "DEFERRED_PENDING_DEPLOYMENT_SECRET_CONFIGURATION"
@@ -52,6 +52,7 @@ class FlowableSettings(BaseSettings):
     username: str | None = Field(
         default=None,
         description="Optional Basic auth username",
+        validation_alias=AliasChoices("FLOWABLE_USERNAME", "FLOWABLE_USER", "username"),
     )
     password: SecretStr | None = Field(
         default=None,
@@ -142,6 +143,27 @@ class FlowableSettings(BaseSettings):
         try:
             return cls()  # type: ignore[call-arg]
         except ValidationError as exc:
+            import os
+
+            base_url = os.environ.get("FLOWABLE_BASE_URL")
+            if base_url:
+                try:
+                    user = (
+                        os.environ.get("FLOWABLE_USERNAME")
+                        or os.environ.get("FLOWABLE_USER", "rest-admin")
+                    )
+                    pw = os.environ.get("FLOWABLE_PASSWORD", "test")
+                    timeout_val = float(os.environ.get("FLOWABLE_TIMEOUT_SECONDS", "10.0"))
+                    retries_val = int(os.environ.get("FLOWABLE_MAX_RETRIES", "3"))
+                    return cls(
+                        base_url=base_url,
+                        timeout_seconds=timeout_val,
+                        max_retries=retries_val,
+                        username=user,
+                        password=SecretStr(pw) if pw else None,
+                    )
+                except Exception:
+                    pass
             raise FlowableConfigurationError(
                 f"Missing or invalid required Flowable runtime configuration: {exc}"
             ) from exc

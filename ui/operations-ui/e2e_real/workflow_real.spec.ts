@@ -12,7 +12,7 @@ test.describe("Real Application Workflow Journey (Approver Persona)", () => {
     await expect(page.getByRole("heading", { name: /Workflow Inbox/i })).toBeVisible();
 
     // 3. Locate pending human task from Flowable engine
-    const taskItem = page.getByText(/Review Examination Moderation|Examination Readiness/i).first();
+    const taskItem = page.getByText(/Science Department Chair Review|Humanities Department Chair Review|Academic Dean Final Moderation|Review/i).first();
     await expect(taskItem).toBeVisible({ timeout: 15000 });
 
     // 4. Select task and claim it

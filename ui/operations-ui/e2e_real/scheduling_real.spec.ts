@@ -12,7 +12,7 @@ test.describe("Real Application Scheduling Journey (Scheduler Persona)", () => {
     await expect(page.getByRole("heading", { name: "Scheduling Jobs", exact: true })).toBeVisible();
 
     // 3. Submit scheduling solver job
-    const runSolverBtn = page.getByRole("button", { name: "Run Scheduler" }).first();
+    const runSolverBtn = page.getByRole("button", { name: /Run Scheduler|Dispatch First Job/i }).first();
     await expect(runSolverBtn).toBeVisible();
     await runSolverBtn.click();
 

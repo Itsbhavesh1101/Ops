@@ -9,7 +9,7 @@ test.describe("Real Application Planning Journey (Planner Persona)", () => {
     // 2. Open Goals and establish new operational goal
     await page.getByRole("link", { name: "Goals", exact: true }).click();
     await page.waitForURL("**/goals");
-    await expect(page.getByRole("heading", { name: "Operational Goals" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Operational Goals", exact: true })).toBeVisible();
 
     const createGoalBtn = page.getByRole("button", { name: "Create Goal" });
     await expect(createGoalBtn).toBeVisible();

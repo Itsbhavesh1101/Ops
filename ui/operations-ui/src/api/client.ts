@@ -368,10 +368,14 @@ export class WorkflowApiClient {
   }
 
   async listTasks(tenantId: string): Promise<WorkflowTask[]> {
-    return this.request<WorkflowTask[]>("/workflow/tasks", {
+    const raw = await this.request<WorkflowTask[]>("/workflow/tasks", {
       method: "GET",
       headers: { "X-Tenant-ID": tenantId },
     });
+    return raw.map((t) => ({
+      ...t,
+      name: t.name || (t as any).task_name,
+    }));
   }
 
   async performTaskAction(

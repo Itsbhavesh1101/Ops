@@ -339,6 +339,7 @@ jobs:
       E7_RABBITMQ_URL: amqp://guest:guest@localhost:5672/
       FLOWABLE_BASE_URL: http://localhost:8080/flowable-rest/service
       FLOWABLE_USER: rest-admin
+      FLOWABLE_USERNAME: rest-admin
       FLOWABLE_PASSWORD: test
       FLOWABLE_TIMEOUT_SECONDS: "10.0"
       FLOWABLE_MAX_RETRIES: "3"

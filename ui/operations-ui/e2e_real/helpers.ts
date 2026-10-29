@@ -57,7 +57,7 @@ export interface DbVerifyResult {
  * Direct PostgreSQL persistence verification via scripts/verify_db_state.py.
  */
 export function verifyDb(command: string, args: Record<string, string>): DbVerifyResult {
-  const repoRoot = path.resolve(__dirname, "../../..");
+  const repoRoot = path.resolve(process.cwd(), process.cwd().endsWith("operations-ui") ? "../.." : ".");
   const isWindows = process.platform === "win32";
   const pythonCmd = isWindows ? ".venv\\Scripts\\python.exe" : "python";
 
