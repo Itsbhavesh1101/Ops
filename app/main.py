@@ -1,3 +1,5 @@
+import asyncio
+import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -98,6 +100,41 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
             app.state.fastapi_instrumentor = instrumentor
 
+    # 3b. Optional embedded scheduler worker for local/test execution
+    worker_task: asyncio.Task[None] | None = None
+    stop_worker_event: asyncio.Event | None = None
+    if (
+        os.environ.get("E7_EMBED_SCHEDULER_WORKER", "").lower() in ("true", "1")
+        or settings.environment in ("local", "test")
+    ):
+        try:
+            from app.db.engine import DatabaseManager
+            from app.scheduling.config import SchedulerSettings
+            from app.scheduling.worker import SchedulerWorker
+
+            sched_settings = SchedulerSettings(
+                poll_interval_seconds=float(
+                    os.environ.get("E7_SCHEDULER_POLL_INTERVAL_SECONDS", "0.2")
+                ),
+                claim_batch_size=int(os.environ.get("E7_SCHEDULER_CLAIM_BATCH_SIZE", "5")),
+                solve_timeout_seconds=float(
+                    os.environ.get("E7_SCHEDULER_SOLVE_TIMEOUT_SECONDS", "30.0")
+                ),
+                lease_duration_seconds=float(
+                    os.environ.get("E7_SCHEDULER_LEASE_DURATION_SECONDS", "60.0")
+                ),
+                shutdown_grace_seconds=float(
+                    os.environ.get("E7_SCHEDULER_SHUTDOWN_GRACE_SECONDS", "5.0")
+                ),
+            )
+            db_mgr = DatabaseManager(settings)
+            worker = SchedulerWorker(db_manager=db_mgr, settings=sched_settings)
+            stop_worker_event = asyncio.Event()
+            worker_task = asyncio.create_task(worker.run(stop_event=stop_worker_event))
+            logger.info("embedded_scheduler_worker_started")
+        except Exception as exc:
+            logger.warning("embedded_scheduler_worker_failed_to_start", error=str(exc))
+
     # 4. Application serves requests
     primary_error: BaseException | None = None
     try:
@@ -106,6 +143,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         primary_error = exc
         raise
     finally:
+        # Stop embedded scheduler worker if running
+        if stop_worker_event is not None and worker_task is not None:
+            stop_worker_event.set()
+            try:
+                await asyncio.wait_for(worker_task, timeout=2.0)
+            except Exception:
+                pass
+
         # 5. Clean up FastAPI instrumentation
         if instrumentor is not None:
             uninstrument_fastapi_app(app, instrumentor)

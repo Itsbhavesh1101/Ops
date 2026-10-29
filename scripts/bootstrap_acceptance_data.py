@@ -57,6 +57,18 @@ async def bootstrap_workflow(uow_factory: Any) -> dict[str, Any]:
     adapter = FlowableAdapter(settings=flowable_settings)
     service = WorkflowService(uow_factory=uow_factory, adapter=adapter)
 
+    dmn_path = REPO_ROOT / "workflows" / "dmn" / "exam_readiness_rules_v1.dmn13.xml"
+    if dmn_path.exists():
+        dmn_xml = dmn_path.read_text(encoding="utf-8")
+        try:
+            await adapter.deploy_decision(
+                dmn_xml=dmn_xml,
+                resource_name="exam_readiness_rules_v1.dmn",
+                tenant_id=TENANT_ID,
+            )
+        except Exception as dmn_err:
+            print(f"[-] DMN deployment warning: {dmn_err}")
+
     bpmn_path = REPO_ROOT / "workflows" / "bpmn" / "semester_exam_readiness.bpmn20.xml"
     if not bpmn_path.exists():
         raise FileNotFoundError(f"Canonical BPMN XML not found at {bpmn_path}")
@@ -79,6 +91,7 @@ async def bootstrap_workflow(uow_factory: Any) -> dict[str, Any]:
             bpmn_xml=bpmn_xml,
             description="Canonical Grade 10 Semester Examination Readiness Process",
             actor_id="system-bootstrap",
+            allow_trusted_expressions=True,
         )
         deployed = await service.deploy_definition(
             tenant_id=TENANT_ID,

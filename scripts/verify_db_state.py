@@ -66,7 +66,7 @@ async def check_plan(tenant_id: str, name_contains: str) -> dict[str, Any]:
                 {
                     "id": str(r.id),
                     "plan_name": r.plan_name,
-                    "state": r.state,
+                    "status": r.status,
                     "version": r.version_number,
                 }
                 for r in records
