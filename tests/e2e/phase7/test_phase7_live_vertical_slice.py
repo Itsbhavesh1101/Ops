@@ -391,7 +391,7 @@ async def test_phase7_live_vertical_slice(live_db_session: AsyncSession) -> None
             source_event_name="resource.unavailable",
             source_entity_reference=str(res_id),
         ),
-        recipient_references=["faculty-lead@school.edu"],
+        recipient_references=["urn:e7:cohort:faculty"],
         notification_context={"hall": "Exam Hall A"},
     )
     dispatched = await dispatcher.dispatch(cmd, live_db_session)
