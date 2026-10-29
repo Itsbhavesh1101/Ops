@@ -51,3 +51,4 @@ test.describe("Real Backend Authentication & Authorization Gates", () => {
     await expect(page.getByRole("table")).toBeVisible();
   });
 });
+

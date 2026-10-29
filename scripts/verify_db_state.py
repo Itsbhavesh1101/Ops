@@ -27,7 +27,7 @@ from app.core.config import get_settings
 from app.db.engine import DatabaseManager
 from app.db.models.planning import GoalRecord, PlanRecord
 from app.db.models.scheduling import ScheduleRecord
-from app.db.models.workflow import WorkflowTaskRecord
+from app.db.models.workflow import WorkflowTaskMappingRecord
 
 DEFAULT_TENANT: str = "tenant-pilot-001"
 
@@ -78,16 +78,16 @@ async def check_workflow_task(tenant_id: str, status: str) -> dict[str, Any]:
     settings = get_settings()
     db = DatabaseManager(settings=settings)
     async with db.session_factory() as session:
-        stmt = select(WorkflowTaskRecord).where(
-            WorkflowTaskRecord.tenant_id == tenant_id,
-            WorkflowTaskRecord.status == status.upper(),
+        stmt = select(WorkflowTaskMappingRecord).where(
+            WorkflowTaskMappingRecord.tenant_id == tenant_id,
+            WorkflowTaskMappingRecord.status == status.upper(),
         )
         records = (await session.scalars(stmt)).all()
         return {
             "success": len(records) > 0,
             "count": len(records),
             "records": [
-                {"id": str(r.id), "name": r.name, "status": r.status, "assignee": r.assignee}
+                {"id": str(r.id), "name": r.task_name, "status": r.status, "assignee": r.assignee}
                 for r in records
             ],
         }
@@ -106,7 +106,8 @@ async def check_schedule(tenant_id: str, status: str) -> dict[str, Any]:
             "success": len(records) > 0,
             "count": len(records),
             "records": [
-                {"id": str(r.id), "status": r.status, "job_id": str(r.job_id)} for r in records
+                {"id": str(r.id), "status": r.status, "job_id": str(r.source_job_id)}
+                for r in records
             ],
         }
 
@@ -186,3 +187,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

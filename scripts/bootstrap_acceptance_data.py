@@ -16,12 +16,14 @@ Security & Invariants:
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from pydantic import SecretStr
 from sqlalchemy import select
 
 from app.audit.models import AuditEventRecord
@@ -32,6 +34,7 @@ from app.db.models.scheduling import ResourceAvailabilityRecord, ResourceRecord
 from app.db.uow import create_unit_of_work_factory
 from app.resources.schemas import ResourceType
 from app.workflow.adapters.flowable.adapter import FlowableAdapter
+from app.workflow.adapters.flowable.config import FlowableSettings
 from app.workflow.repository import WorkflowDefinitionRepository
 from app.workflow.service import WorkflowService
 
@@ -42,7 +45,16 @@ REPO_ROOT: Path = Path(__file__).resolve().parent.parent
 
 async def bootstrap_workflow(uow_factory: Any) -> dict[str, Any]:
     """Register and deploy BPMN workflow to Flowable and start an instance."""
-    adapter = FlowableAdapter()
+    flowable_settings = FlowableSettings(
+        base_url=os.environ.get("FLOWABLE_BASE_URL", "http://localhost:8080/flowable-rest/service"),
+        timeout_seconds=float(os.environ.get("FLOWABLE_TIMEOUT_SECONDS", "10.0")),
+        max_retries=int(os.environ.get("FLOWABLE_MAX_RETRIES", "3")),
+        username=(
+            os.environ.get("FLOWABLE_USER") or os.environ.get("FLOWABLE_USERNAME", "rest-admin")
+        ),
+        password=SecretStr(os.environ.get("FLOWABLE_PASSWORD", "test")),
+    )
+    adapter = FlowableAdapter(settings=flowable_settings)
     service = WorkflowService(uow_factory=uow_factory, adapter=adapter)
 
     bpmn_path = REPO_ROOT / "workflows" / "bpmn" / "semester_exam_readiness.bpmn20.xml"
@@ -102,46 +114,48 @@ async def bootstrap_resources(uow_factory: Any) -> int:
     now = datetime.now(UTC).replace(microsecond=0)
 
     resources_data = [
-        ("res-hall-001", "Main Examination Hall A", ResourceType.FACILITY, 120),
-        ("res-hall-002", "Senior Examination Hall B", ResourceType.FACILITY, 80),
-        ("res-inv-001", "Dr. A. Sharma (Chief Invigilator)", ResourceType.HUMAN, 1),
-        ("res-inv-002", "Prof. R. Patel (Deputy Invigilator)", ResourceType.HUMAN, 1),
-        ("res-inv-003", "Ms. S. Rao (Invigilator)", ResourceType.HUMAN, 1),
+        ("res-hall-001", "Main Examination Hall A", ResourceType.ROOM, 120),
+        ("res-hall-002", "Senior Examination Hall B", ResourceType.ROOM, 80),
+        ("res-inv-001", "Dr. A. Sharma (Chief Invigilator)", ResourceType.PERSON, 1),
+        ("res-inv-002", "Prof. R. Patel (Deputy Invigilator)", ResourceType.PERSON, 1),
+        ("res-inv-003", "Ms. S. Rao (Invigilator)", ResourceType.PERSON, 1),
     ]
 
     count = 0
     async with uow_factory() as uow:
-        for res_id, name, res_type, capacity in resources_data:
+        for res_key, label, res_type, capacity in resources_data:
             stmt = select(ResourceRecord).where(
                 ResourceRecord.tenant_id == TENANT_ID,
-                ResourceRecord.id == res_id,
+                ResourceRecord.resource_key == res_key,
             )
             res = await uow.session.scalar(stmt)
             if not res:
+                rec_id = uuid4()
                 rec = ResourceRecord(
-                    id=res_id,
+                    id=rec_id,
                     tenant_id=TENANT_ID,
-                    name=name,
+                    resource_key=res_key,
+                    display_label=label,
                     type=res_type.value,
                     capacity=capacity,
                     active=True,
+                    skills=["invigilator"] if res_type == ResourceType.PERSON else [],
                     attributes={"department": "Academic Affairs", "campus": "North"},
                     created_at=now,
-                    updated_at=now,
                 )
                 uow.session.add(rec)
                 count += 1
 
                 # Add availability slot
                 avail = ResourceAvailabilityRecord(
-                    id=f"avail-{res_id}",
+                    id=uuid4(),
                     tenant_id=TENANT_ID,
-                    resource_id=res_id,
-                    start_time=now - timedelta(days=1),
-                    end_time=now + timedelta(days=30),
-                    status="AVAILABLE",
+                    resource_id=rec_id,
+                    start_at=now - timedelta(days=1),
+                    end_at=now + timedelta(days=30),
+                    interval_type="AVAILABLE",
+                    reason="Academic Session 2026",
                     created_at=now,
-                    updated_at=now,
                 )
                 uow.session.add(avail)
 

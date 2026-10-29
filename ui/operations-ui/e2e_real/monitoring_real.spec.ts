@@ -31,3 +31,4 @@ test.describe("Real Application Monitoring Journey (Admin Persona)", () => {
     expect(auditDb.count).toBeGreaterThanOrEqual(1);
   });
 });
+

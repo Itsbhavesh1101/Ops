@@ -340,6 +340,8 @@ jobs:
       FLOWABLE_BASE_URL: http://localhost:8080/flowable-rest/service
       FLOWABLE_USER: rest-admin
       FLOWABLE_PASSWORD: test
+      FLOWABLE_TIMEOUT_SECONDS: "10.0"
+      FLOWABLE_MAX_RETRIES: "3"
       E7_JWT_SECRET_KEY: test_jwt_secret_key_for_ci_minimum_32_chars_long
 
     steps:

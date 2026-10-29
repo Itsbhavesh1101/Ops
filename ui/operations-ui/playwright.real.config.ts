@@ -59,6 +59,10 @@ export default defineConfig({
         E7_DATABASE_URL: process.env.E7_DATABASE_URL || "postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine",
         E7_RABBITMQ_URL: process.env.E7_RABBITMQ_URL || "amqp://guest:guest@localhost:5672/",
         FLOWABLE_BASE_URL: process.env.FLOWABLE_BASE_URL || "http://localhost:8080/flowable-rest/service",
+        FLOWABLE_USER: process.env.FLOWABLE_USER || "rest-admin",
+        FLOWABLE_PASSWORD: process.env.FLOWABLE_PASSWORD || "test",
+        FLOWABLE_TIMEOUT_SECONDS: "10.0",
+        FLOWABLE_MAX_RETRIES: "3",
       },
     },
     {
@@ -77,3 +81,4 @@ export default defineConfig({
     },
   ],
 });
+

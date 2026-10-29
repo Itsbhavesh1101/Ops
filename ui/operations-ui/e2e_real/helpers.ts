@@ -80,3 +80,4 @@ export function verifyDb(command: string, args: Record<string, string>): DbVerif
     return { success: false, error: errorMsg };
   }
 }
+
