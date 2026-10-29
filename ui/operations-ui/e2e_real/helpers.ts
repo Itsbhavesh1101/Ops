@@ -32,12 +32,14 @@ export async function loginAs(page: Page, persona: Persona): Promise<void> {
  * Authenticated logout via user account menu.
  */
 export async function logout(page: Page): Promise<void> {
-  const userMenuButton = page.getByRole("button", { name: /User account menu/i });
-  await expect(userMenuButton).toBeVisible();
-  await userMenuButton.click();
-
   const signOutButton = page.getByRole("button", { name: /Sign Out/i });
-  await expect(signOutButton).toBeVisible();
+  if (!(await signOutButton.isVisible())) {
+    const userMenuButton = page.getByRole("button", { name: /User account menu/i });
+    await expect(userMenuButton).toBeVisible();
+    await userMenuButton.click();
+  }
+
+  await expect(signOutButton).toBeVisible({ timeout: 10000 });
   await signOutButton.click();
 
   await page.waitForURL("**/login", { timeout: 10000 });

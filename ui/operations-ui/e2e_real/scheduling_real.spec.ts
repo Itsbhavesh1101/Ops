@@ -9,7 +9,7 @@ test.describe("Real Application Scheduling Journey (Scheduler Persona)", () => {
     // 2. Open Scheduling Jobs
     await page.locator('a[href="/scheduling/jobs"]').click();
     await page.waitForURL("**/scheduling/jobs");
-    await expect(page.getByRole("heading", { name: "Scheduling Jobs" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Scheduling Jobs", exact: true })).toBeVisible();
 
     // 3. Submit scheduling solver job
     const runSolverBtn = page.getByRole("button", { name: "Run Scheduler" }).first();

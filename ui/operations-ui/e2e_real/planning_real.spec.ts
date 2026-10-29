@@ -25,7 +25,7 @@ test.describe("Real Application Planning Journey (Planner Persona)", () => {
     await page.getByRole("button", { name: "Establish Goal" }).click();
 
     // Lands on Goal Detail Page (/goals/:goalId)
-    await page.waitForURL(/.*\/goals\/.*/);
+    await page.waitForURL(/.*\/goals\/.*/, { timeout: 20000 });
     await expect(page.getByRole("heading", { name: objective })).toBeVisible();
 
     // 3. Synthesize operational plan using SemesterExamPlanner

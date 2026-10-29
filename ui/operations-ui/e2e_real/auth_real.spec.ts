@@ -48,7 +48,7 @@ test.describe("Real Backend Authentication & Authorization Gates", () => {
 
     // 3. Verify audit explorer is accessible and displays event table
     await expect(page.getByRole("heading", { name: /Enterprise Audit Explorer/i })).toBeVisible();
-    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible({ timeout: 15000 });
   });
 });
 

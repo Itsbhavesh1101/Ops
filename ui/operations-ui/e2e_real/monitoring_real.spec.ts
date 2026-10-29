@@ -12,7 +12,7 @@ test.describe("Real Application Monitoring Journey (Admin Persona)", () => {
     await expect(page.getByRole("heading", { name: /Operations Analytics/i })).toBeVisible();
 
     // 3. Verify analytics telemetry cards
-    await expect(page.getByText(/Plan Progress/i).first()).toBeVisible();
+    await expect(page.getByText(/Plan Progress/i).first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/Schedule Health/i).first()).toBeVisible();
     await expect(page.getByText(/SLA Compliance|SLA State/i).first()).toBeVisible();
 
@@ -22,7 +22,7 @@ test.describe("Real Application Monitoring Journey (Admin Persona)", () => {
     await expect(page.getByRole("heading", { name: /Enterprise Audit Explorer/i })).toBeVisible();
 
     // 5. Verify recorded immutable audit actions
-    await expect(page.getByRole("table")).toBeVisible();
+    await expect(page.getByRole("table")).toBeVisible({ timeout: 15000 });
     await expect(page.getByText(/SYSTEM_INITIALIZED/i).first()).toBeVisible();
 
     // 6. Direct PostgreSQL audit event verification

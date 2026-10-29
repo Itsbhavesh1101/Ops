@@ -171,6 +171,8 @@ if settings.cors_allowed_origins:
         "X-E7-Service-Key",
         "If-Match",
         "If-None-Match",
+        "X-Tenant-ID",
+        "X-Request-ID",
     ]
     app.add_middleware(
         CORSMiddleware,
