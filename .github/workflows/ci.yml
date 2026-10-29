@@ -74,7 +74,11 @@ jobs:
         run: |
           mypy app
 
-      - name: Verify Global Pytest Collection (all 2,357 tests)
+      - name: Verify OpenAPI Contract Drift
+        run: |
+          python scripts/export_openapi.py --check
+
+      - name: Verify Global Pytest Collection (all 2,371 tests)
         run: |
           pytest --collect-only -q
 
@@ -82,9 +86,9 @@ jobs:
         run: |
           alembic upgrade head
 
-      - name: Run Pytest (unit & contract test suites)
+      - name: Run Pytest (unit, contract & security test suites)
         run: |
-          pytest tests/unit/ tests/contract/ -q --tb=short
+          pytest tests/unit/ tests/contract/ tests/security/ -q --tb=short
 
       - name: Run Task Intelligence PostgreSQL Integration Tests
         env:

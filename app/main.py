@@ -44,6 +44,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     settings = get_settings()
     setup_logging(settings)
 
+    # Validate production required deployment attributes at startup (Task 2)
+    if settings.environment in ("production", "staging"):
+        if not settings.database_url or not settings.database_url.get_secret_value().strip():
+            logger.error(
+                "startup_validation_failed_missing_database_url",
+                environment=settings.environment,
+            )
+            raise RuntimeError(
+                f"database_url must be configured for {settings.environment} deployment"
+            )
+        if not settings.mount_domain_routers:
+            logger.error(
+                "startup_validation_failed_unmounted_domain_routers",
+                environment=settings.environment,
+            )
+            raise RuntimeError(
+                f"mount_domain_routers must be enabled for {settings.environment} "
+                "Operations Engine deployment"
+            )
+
     # 1. Resolve telemetry settings for the API process (canonical identity: e7-api)
     tel_settings: TelemetrySettings = getattr(
         app.state, "telemetry_settings", None
@@ -141,12 +161,23 @@ app.add_middleware(CorrelationAndLoggingMiddleware)
 # Configuration-driven CORS policy (strict isolation: wildcard origins cannot use credentials)
 if settings.cors_allowed_origins:
     allow_credentials = "*" not in settings.cors_allowed_origins
+    allowed_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+    allowed_headers = [
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "X-Correlation-ID",
+        "Idempotency-Key",
+        "X-E7-Service-Key",
+        "If-Match",
+        "If-None-Match",
+    ]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=allow_credentials,
-        allow_methods=["*"],
-        allow_headers=["*"],
+        allow_methods=allowed_methods,
+        allow_headers=allowed_headers,
     )
 
 if settings.mount_domain_routers:

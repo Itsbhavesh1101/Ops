@@ -378,8 +378,60 @@ def export_openapi(output_path: Path) -> dict[str, Any]:
     return sorted_schema
 
 
+def check_openapi(output_path: Path) -> tuple[bool, str]:
+    """Check whether committed OpenAPI specification matches live derived schema."""
+    if not output_path.exists():
+        return False, f"Committed OpenAPI file missing at {output_path}"
+
+    schema = get_canonical_openapi_schema()
+    live_sorted = sort_json_deterministic(schema)
+
+    with output_path.open("r", encoding="utf-8") as f:
+        committed = json.load(f)
+
+    if live_sorted == committed:
+        return True, "OpenAPI specifications match exactly."
+
+    live_paths = set(live_sorted.get("paths", {}).keys())
+    committed_paths = set(committed.get("paths", {}).keys())
+    diff = []
+    if live_paths != committed_paths:
+        diff.append(
+            f"Paths difference: added={live_paths - committed_paths}, "
+            f"removed={committed_paths - live_paths}"
+        )
+    else:
+        diff.append(
+            "Schema component differences detected between live and committed openapi.json."
+        )
+    return False, "\n".join(diff)
+
+
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Canonical Deterministic OpenAPI Export Utility")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help=(
+            "Check whether docs/production/openapi.json matches live canonical schema "
+            "without modifying disk"
+        ),
+    )
+    args = parser.parse_args()
+
     target = REPO_ROOT / "docs" / "production" / "openapi.json"
+
+    if args.check:
+        is_consistent, message = check_openapi(target)
+        if not is_consistent:
+            print(f"ERROR: OpenAPI contract drift detected!\n{message}", file=sys.stderr)
+            print("Run 'python scripts/export_openapi.py' to regenerate.", file=sys.stderr)
+            sys.exit(1)
+        print(f"SUCCESS: OpenAPI contract is synchronized with {target}")
+        sys.exit(0)
+
     schema = export_openapi(target)
     print(f"Exported canonical OpenAPI to: {target}")
     print(f"Total paths: {len(schema.get('paths', {}))}")

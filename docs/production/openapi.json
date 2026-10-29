@@ -2255,9 +2255,28 @@
       "ReadinessResponse": {
         "description": "Traffic readiness probe response model.",
         "properties": {
+          "dependencies": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detailed readiness status of infrastructure dependencies",
+            "title": "Dependencies"
+          },
           "environment": {
             "description": "Active runtime environment",
             "title": "Environment",
+            "type": "string"
+          },
+          "probe": {
+            "default": "shallow",
+            "description": "Probe classification ('shallow' or 'deep')",
+            "title": "Probe",
             "type": "string"
           },
           "service": {
@@ -7263,8 +7282,34 @@
     },
     "/api/v1/ready": {
       "get": {
-        "description": "Service traffic readiness probe.\n\nCurrently returns ready as initial Phase-1 foundation runtime has no external\nstateful infrastructure dependencies yet implemented.",
+        "description": "Service traffic readiness probe.\n\nDistinguishes:\n- Shallow probe (deep=False): Application startup readiness\n  (process running, configuration valid).\n- Deep probe (deep=True): Comprehensive stateful infrastructure verification\n  (PostgreSQL connectivity pool, RabbitMQ message broker, bounded timeouts).",
         "operationId": "readiness_check_api_v1_ready_get",
+        "parameters": [
+          {
+            "description": "Execute deep infrastructure probe",
+            "in": "query",
+            "name": "deep",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Execute deep infrastructure probe",
+              "title": "Deep",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Fail readiness on degraded external broker",
+            "in": "query",
+            "name": "strict",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Fail readiness on degraded external broker",
+              "title": "Strict",
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -7275,6 +7320,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Readiness Check",

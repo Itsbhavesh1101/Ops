@@ -402,6 +402,33 @@ class StubPlanService:
         task.updated_at = datetime.now(UTC)
         return task
 
+    async def get_plan_recommendations(
+        self,
+        tenant_id: str,
+        plan_id: UUID,
+        policy: Any = None,
+        limit: int = 10,
+        **kwargs: Any,
+    ) -> Any:
+        from app.api.v1.planning import PlanRecommendationsResponse
+
+        if (tenant_id, plan_id) not in self.plans:
+            raise PlanNotFoundError(f"Plan {plan_id} not found for tenant {tenant_id}")
+        return PlanRecommendationsResponse(
+            plan_id=plan_id,
+            tenant_id=tenant_id,
+            evaluated_at=datetime.now(UTC),
+            is_authoritative=False,
+            total_tasks=0,
+            ready_tasks_count=0,
+            blocked_tasks_count=0,
+            completed_tasks_count=0,
+            policy=None,
+            policy_applied=False,
+            cpm_diagnostic=None,
+            recommendations=[],
+        )
+
 
 class StubWorkflowService:
     """Deterministic in-memory WorkflowService stub."""

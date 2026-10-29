@@ -17,9 +17,11 @@ Invariants:
 """
 
 import hashlib
+import socket
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import pytest
@@ -38,9 +40,29 @@ from app.integrations.calendar.dtos import SyncChangesResult
 from app.integrations.calendar.webhook import GoogleCalendarWebhookHandler
 
 
+def _is_postgres_available() -> bool:
+    settings = get_settings()
+    db_url = (
+        settings.database_url.get_secret_value()
+        if isinstance(settings.database_url, SecretStr)
+        else str(settings.database_url)
+    )
+    parsed = urlparse(db_url.replace("postgresql+asyncpg://", "http://"))
+    host = parsed.hostname or "localhost"
+    port = parsed.port or 5432
+    try:
+        with socket.create_connection((host, port), timeout=0.5):
+            return True
+    except (OSError, TimeoutError):
+        return False
+
+
 @pytest_asyncio.fixture
 async def sec_db_session() -> AsyncGenerator[AsyncSession, None]:
     """Provide scoped AsyncSession against local PostgreSQL development database."""
+    if not _is_postgres_available():
+        pytest.skip("PostgreSQL integration unavailable")
+
     settings = get_settings()
     db_url = (
         settings.database_url.get_secret_value()
@@ -72,6 +94,9 @@ class DummySyncService:
 @pytest.fixture
 def webhook_client() -> TestClient:
     """Create dedicated test client for calendar webhook endpoint."""
+    if not _is_postgres_available():
+        pytest.skip("PostgreSQL integration unavailable")
+
     app = FastAPI()
     register_api_exception_handlers(app)
 

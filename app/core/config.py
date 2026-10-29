@@ -881,6 +881,16 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "database_echo must be strictly False in production/staging environments"
                 )
+        if self.environment in ("production", "prod"):
+            if self.debug:
+                raise ValueError(
+                    f"debug must be strictly False in {self.environment} environment"
+                )
+            if self.oidc_default_tenant_id:
+                raise ValueError(
+                    f"oidc_default_tenant_id must be None in {self.environment} environment; "
+                    "unmapped identities must fail closed"
+                )
             if any(origin.strip() == "*" for origin in self.cors_allowed_origins):
                 raise ValueError(
                     "Wildcard CORS ('*') is strictly prohibited in production/staging environments"
