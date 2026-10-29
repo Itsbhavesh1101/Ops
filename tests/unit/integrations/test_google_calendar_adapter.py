@@ -18,6 +18,9 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import SecretStr
 
+from app.integrations.calendar.auth import (
+    DeterministicCalendarTokenProvider,
+)
 from app.integrations.calendar.codec import (
     google_calendar_event_id,
     is_legal_google_calendar_event_id,
@@ -609,3 +612,84 @@ def test_webhook_handler_replay_protection() -> None:
     replay_res = handler.handle_webhook_headers(headers)
     assert replay_res.status == "DUPLICATE_REPLAYED"
     assert "Duplicate notification" in replay_res.message
+
+
+# =====================================================================
+# 4. Deterministic Calendar Token Provider & Auth Recovery Tests
+# =====================================================================
+
+@pytest.mark.asyncio
+async def test_deterministic_token_provider_header_injection_and_success(
+    mock_transport: MockGoogleCalendarTransport,
+) -> None:
+    """Verify DeterministicCalendarTokenProvider injects Bearer token and syncs."""
+    settings = GoogleCalendarSettings(
+        enabled=True,
+        client_email="test@school.iam.gserviceaccount.com",
+        calendar_id="primary",
+    )
+    token_provider = DeterministicCalendarTokenProvider(
+        token="ya29.test_deterministic_bearer_token"
+    )
+    client = httpx.AsyncClient(transport=mock_transport)
+    adapter = GoogleCalendarAdapter(
+        settings=settings,
+        http_client=client,
+        token_provider=token_provider,
+    )
+
+    dto = CalendarEventDTO(
+        external_event_id="det-event-101",
+        external_calendar_id="primary",
+        title="Physics Lab Assessment",
+        start_at=datetime.now(UTC) + timedelta(days=2),
+        end_at=datetime.now(UTC) + timedelta(days=2, hours=1),
+    )
+    result = await adapter.create_event(tenant_id="tenant-det-01", event=dto)
+    assert result.status == SyncStatus.SYNCED
+    assert result.etag is not None
+    assert token_provider.access_count >= 1
+
+    # Verify HTTP request was dispatched with Authorization Bearer header
+    api_requests = [
+        r for r in mock_transport.requests_log if "/calendar/v3/" in str(r.url)
+    ]
+    assert len(api_requests) >= 1
+    assert (
+        api_requests[0].headers.get("authorization")
+        == "Bearer ya29.test_deterministic_bearer_token"
+    )
+
+
+@pytest.mark.asyncio
+async def test_deterministic_token_provider_auth_failure_behavior(
+    mock_transport: MockGoogleCalendarTransport,
+) -> None:
+    """Verify that token provider failure results in fail-closed SyncStatus.FAILED."""
+    settings = GoogleCalendarSettings(
+        enabled=True,
+        client_email="test@school.iam.gserviceaccount.com",
+        calendar_id="primary",
+    )
+    failing_provider = DeterministicCalendarTokenProvider(valid=False)
+    client = httpx.AsyncClient(transport=mock_transport)
+    adapter = GoogleCalendarAdapter(
+        settings=settings,
+        http_client=client,
+        token_provider=failing_provider,
+    )
+
+    dto = CalendarEventDTO(
+        external_event_id="det-event-102",
+        external_calendar_id="primary",
+        title="Chemistry Lab Assessment",
+        start_at=datetime.now(UTC) + timedelta(days=2),
+        end_at=datetime.now(UTC) + timedelta(days=2, hours=1),
+    )
+    result = await adapter.create_event(tenant_id="tenant-det-01", event=dto)
+    assert result.status == SyncStatus.FAILED
+    assert "Network exception" in (result.error_message or "")
+    assert "Deterministic token provider is configured as invalid" in (
+        result.error_message or ""
+    )
+

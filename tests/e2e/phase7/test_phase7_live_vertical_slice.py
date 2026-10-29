@@ -52,6 +52,7 @@ from app.db.models.scheduling import (
 )
 from app.events.outbox.models import OutboxEventRecord
 from app.events.schemas import EventEnvelope
+from app.integrations.calendar.auth import DeterministicCalendarTokenProvider
 from app.integrations.calendar.config import GoogleCalendarSettings
 from app.integrations.calendar.dtos import CalendarEventDTO, SyncStatus
 from app.integrations.calendar.google_adapter import GoogleCalendarAdapter
@@ -229,8 +230,15 @@ async def test_phase7_live_vertical_slice(live_db_session: AsyncSession) -> None
         client_email="test@school.iam.gserviceaccount.com",
         calendar_id="primary",
     )
+    token_provider = DeterministicCalendarTokenProvider(
+        token="ya29.synthetic_deterministic_phase7_token"
+    )
     cal_client = httpx.AsyncClient(transport=mock_transport)
-    cal_adapter = GoogleCalendarAdapter(settings=cal_settings, http_client=cal_client)
+    cal_adapter = GoogleCalendarAdapter(
+        settings=cal_settings,
+        http_client=cal_client,
+        token_provider=token_provider,
+    )
 
     dto = CalendarEventDTO(
         external_event_id="mock-event-001",
@@ -242,6 +250,17 @@ async def test_phase7_live_vertical_slice(live_db_session: AsyncSession) -> None
     created_event = await cal_adapter.create_event(tenant_id, dto)
     assert created_event.status == SyncStatus.SYNCED
     assert created_event.etag is not None
+
+    # Verify real Authorization header injection and wire format execution
+    cal_requests = [
+        req for req in mock_transport.posted_requests if "googleapis.com" in str(req.url)
+    ]
+    assert len(cal_requests) >= 1
+    assert (
+        cal_requests[0].headers.get("authorization")
+        == "Bearer ya29.synthetic_deterministic_phase7_token"
+    )
+    assert token_provider.access_count >= 1
 
     # --------------------------------------------------------------------------
     # Step 5: Disruption Normalization, Durable Deduplication & Repair Queue
