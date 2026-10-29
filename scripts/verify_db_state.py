@@ -126,10 +126,10 @@ async def check_audit(tenant_id: str, event_type: str) -> dict[str, Any]:
             "count": len(records),
             "records": [
                 {
-                    "id": str(r.id),
+                    "id": str(r.audit_event_id),
                     "event_type": r.event_type,
-                    "actor_id": r.actor_id,
-                    "action": r.action,
+                    "actor_id": r.actor_principal_id,
+                    "outcome": r.outcome,
                 }
                 for r in records
             ],

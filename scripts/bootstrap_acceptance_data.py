@@ -66,7 +66,7 @@ async def bootstrap_workflow(uow_factory: Any) -> dict[str, Any]:
     # Check if already deployed
     async with uow_factory() as uow:
         repo = WorkflowDefinitionRepository(uow.session)
-        existing = await repo.get_latest_active_definition(TENANT_ID, WORKFLOW_KEY)
+        existing = await repo.get_latest_active_by_key(TENANT_ID, WORKFLOW_KEY)
 
     if existing and existing.is_active and existing.deployment_id:
         definition_id = existing.id
@@ -176,17 +176,17 @@ async def bootstrap_baseline_audit(uow_factory: Any) -> None:
         existing = await uow.session.scalar(stmt)
         if not existing:
             event = AuditEventRecord(
-                id=uuid4(),
+                audit_event_id=uuid4(),
                 tenant_id=TENANT_ID,
                 correlation_id=f"corr-bootstrap-{uuid4().hex[:8]}",
-                actor_id="system-bootstrap",
-                actor_role="admin",
+                actor_principal_id="admin@operations.local",
+                actor_principal_type="HUMAN",
+                authentication_method="OIDC",
                 event_type="SYSTEM_INITIALIZED",
                 resource_type="system",
                 resource_id="e7-operations-engine",
-                action="INITIALIZE",
                 outcome=AuditEventOutcome.SUCCESS.value,
-                timestamp=now,
+                recorded_at=now,
                 details={
                     "environment": "acceptance",
                     "description": "Operations Engine synthetic baseline initialized successfully.",
