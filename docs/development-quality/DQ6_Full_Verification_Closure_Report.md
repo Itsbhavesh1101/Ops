@@ -6,7 +6,7 @@
 **Review Phase:** DQ-6 Final Development Quality & Runtime Acceptance  
 **Status:** COMPLETE  
 **Date:** October 29, 2026  
-**Final Verdict:** `DQ6_FULL_PRODUCT_ACCEPTANCE_COMPLETE`  
+**Final Verdict:** `DQ6_REAL_APPLICATION_ACCEPTANCE_COMPLETE`  
 
 ---
 
@@ -200,8 +200,9 @@ All benchmarks were executed against actual performance test suites in `tests/pe
 | **Scheduling CP-SAT Benchmarks** | `pytest tests/performance/test_scheduler_solver_load.py -k test_academic_scheduler_dataset_benchmarks` | 1 | 1 | 1 | 0 | 0 | **PASSED** |
 | **Context Builder Benchmarks** | `pytest tests/performance/test_plan_generation_load.py -k test_context_builder_performance` | 1 | 1 | 1 | 0 | 0 | **PASSED** |
 | **Frontend Quality (Vitest)** | `npm test` in `ui/operations-ui` (Vitest) | 146 | 146 | 146 | 0 | 0 | **PASSED** |
-| **Playwright Browser E2E Acceptance** | `npm --prefix ui/operations-ui run test:e2e` (Playwright) | 7 | 7 | 7 | 0 | 0 | **PASSED** |
-| **TOTALS** | **All Verification Suites Combined** | **2,400** | **2,382** | **2,376** | **0** | **6** | **100% PASS RATE** |
+| **Frontend Contract & Smoke (Playwright)** | `npm --prefix ui/operations-ui run test:e2e` (Playwright) | 7 | 7 | 7 | 0 | 0 | **PASSED** |
+| **Real App Browser Acceptance (Playwright)** | `npm --prefix ui/operations-ui run test:e2e:real` (Playwright) | 5 | 5 | 5 | 0 | 0 | **PASSED** |
+| **TOTALS** | **All Verification Suites Combined** | **2,405** | **2,387** | **2,381** | **0** | **6** | **100% PASS RATE** |
 
 *Note on Skipped Tests (6 in Unit/Contract/Security):* Verified from actual test execution evidence:
 1. `tests/unit/test_alert_rules.py::test_promtool_rule_syntax_and_promql_eval`: Skipped because `promtool` binary is not installed in the CI runner environment.
@@ -258,6 +259,11 @@ During DQ-6 verification across disposable container infrastructure, five defect
    * *Defect:* Full page reloads (`page.reload()` / `page.goto()`) wiped in-memory authentication state due to strict zero-token storage policies (`expect(sessionStorage.length).toBe(0)`), causing unexpected redirects to `/login`.
    * *Fix:* Realigned browser acceptance test navigation to client-side SPA routing (`Link` components and accessible semantic landmarks) preserving in-memory Bearer token security without storing sensitive credentials in browser web storage.
 
+9. **Real Production Backend Acceptance & Workflow Route Compatibility:**
+   * *Requirement:* PROD-BACKEND-ACCEPTANCE / FR-WF-02 / QA-CI-GATES.
+   * *Defect:* Initial Playwright suite exercised a simulated FastAPI server in `test_server.py` with in-memory dictionaries rather than the actual `app.main:app` backend backed by PostgreSQL 16, Flowable 7.0.0, and RabbitMQ 3.13. Furthermore, frontend client called `/workflow/tasks/${taskId}/action` (singular), while the backend only registered `/tasks/{task_id}/actions` (plural).
+   * *Fix:* Maintained simulated Playwright suite in `e2e/` as UI contract/smoke tests, and established a dedicated real-application browser acceptance suite in `e2e_real/` against `app.main:app`. Added `@router.post("/tasks/{task_id}/action", include_in_schema=False)` alias route in `app/api/v1/workflows.py` ensuring singular/plural route compatibility without OpenAPI contract drift. Created pure Keycloak OIDC emulator (`tests/e2e/browser/oidc_idp_server.py`), direct PostgreSQL persistence verification CLI (`scripts/verify_db_state.py`), and dedicated CI gate `real-application-browser-acceptance`.
+
 ---
 
 ## 10. CANONICAL EXTERNAL BLOCKERS TABLE
@@ -279,7 +285,7 @@ All 25 canonical functional requirements, all 4 live disposable infrastructure s
 
 ```
 ========================================================================================
-FINAL VERDICT: DQ6_FULL_PRODUCT_ACCEPTANCE_COMPLETE
+FINAL VERDICT: DQ6_REAL_APPLICATION_ACCEPTANCE_COMPLETE
 ========================================================================================
 ```
 

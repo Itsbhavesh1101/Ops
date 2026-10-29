@@ -258,7 +258,7 @@ jobs:
           npm --prefix ui/operations-ui run build
 
   browser-acceptance-gates:
-    name: Authenticated Frontend Browser Acceptance Gates (Playwright)
+    name: Frontend Contract & Smoke Acceptance Gates (Playwright)
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -290,7 +290,7 @@ jobs:
         run: |
           npx --prefix ui/operations-ui playwright install --with-deps chromium
 
-      - name: Run Playwright E2E browser acceptance suite
+      - name: Run Playwright contract & smoke acceptance suite
         run: |
           npm --prefix ui/operations-ui run test:e2e
 
@@ -300,5 +300,125 @@ jobs:
         with:
           name: playwright-report
           path: ui/operations-ui/playwright-report/
+
+  real-application-browser-acceptance:
+    name: Real Application Browser Acceptance Gates (PostgreSQL, RabbitMQ, Flowable, FastAPI)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: operations_engine
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d operations_engine"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3.13-management
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      E7_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/operations_engine
+      E7_RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+      FLOWABLE_BASE_URL: http://localhost:8080/flowable-rest/service
+      FLOWABLE_USER: rest-admin
+      FLOWABLE_PASSWORD: test
+      E7_JWT_SECRET_KEY: test_jwt_secret_key_for_ci_minimum_32_chars_long
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install backend dependencies and dev tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Apply Database Migrations (disposable test postgres)
+        run: |
+          alembic upgrade head
+
+      - name: Initialize Flowable Database & Start Engine
+        run: |
+          POSTGRES_CONTAINER=$(docker ps -q --filter "ancestor=postgres:16-alpine")
+          echo "PostgreSQL service container ID: $POSTGRES_CONTAINER"
+          docker rename "$POSTGRES_CONTAINER" e7-postgres-real || true
+          docker exec e7-postgres-real psql -U postgres -c "CREATE DATABASE flowable_db;" || true
+          NETWORK_ID=$(docker inspect e7-postgres-real --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+          echo "Connecting Flowable to Docker network: $NETWORK_ID"
+          docker run -d --name e7-flowable-real --network "$NETWORK_ID" -p 8080:8080 \
+            -e SPRING_DATASOURCE_URL="jdbc:postgresql://postgres:5432/flowable_db" \
+            -e SPRING_DATASOURCE_USERNAME="postgres" \
+            -e SPRING_DATASOURCE_PASSWORD="postgres" \
+            -e SPRING_DATASOURCE_DRIVER_CLASS_NAME="org.postgresql.Driver" \
+            flowable/flowable-rest:7.0.0
+          echo "Waiting for Flowable REST API to be ready..."
+          for i in {1..40}; do
+            if curl -s -u rest-admin:test http://localhost:8080/flowable-rest/service/repository/deployments | grep -q "data"; then
+              echo "Flowable is ready!"
+              break
+            fi
+            echo "Waiting for Flowable ($i)..."
+            sleep 3
+          done
+
+      - name: Bootstrap Synthetic Acceptance Baseline
+        run: |
+          python scripts/bootstrap_acceptance_data.py
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "ui/operations-ui/package-lock.json"
+
+      - name: Install UI dependencies
+        run: |
+          npm --prefix ui/operations-ui ci
+
+      - name: Install Playwright Chromium browser
+        run: |
+          npx --prefix ui/operations-ui playwright install --with-deps chromium
+
+      - name: Run Real Application Playwright E2E browser acceptance suite
+        run: |
+          npm --prefix ui/operations-ui run test:e2e:real
+
+      - name: Upload Playwright real acceptance test results artifact
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-real-report
+          path: ui/operations-ui/playwright-report/
+
+      - name: Stop Flowable Engine
+        if: always()
+        run: |
+          docker rm -f e7-flowable-real || true
+
 
 

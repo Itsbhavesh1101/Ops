@@ -254,6 +254,12 @@ def create_workflow_router(
         )
 
     @router.post(
+        "/tasks/{task_id}/action",
+        response_model=WorkflowTaskResponse,
+        summary="Perform Human Task Action (Singular Route Alias)",
+        include_in_schema=False,
+    )
+    @router.post(
         "/tasks/{task_id}/actions",
         response_model=WorkflowTaskResponse,
         summary="Perform Human Task Action",

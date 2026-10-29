@@ -1,4 +1,4 @@
-"""Disposable E2E Browser Acceptance Server.
+"""Simulated Contract & Smoke Acceptance Server for UI Interaction Gates.
 
 Provides:
 1. Port 8180: Standards-compliant Keycloak OIDC Identity Provider emulator
@@ -9,11 +9,13 @@ Provides:
    - PKCE code-for-token exchange at /realms/operations-engine-demo/protocol/openid-connect/token
    - Session termination at /realms/operations-engine-demo/protocol/openid-connect/logout
 
-2. Port 8088: Real FastAPI Operations Engine backend
+2. Port 8088: Simulated Contract API Backend (UI Smoke Acceptance)
    - Real HTTP Bearer token authentication via RS256 signature verification against JWKS
-   - Endpoints: /auth/me, /goals, /plans, /tasks, /workflow/tasks, /workflows/instances,
+   - Contract endpoints: /auth/me, /goals, /plans, /tasks, /workflow/tasks, /workflows/instances,
      /schedule-jobs, /schedules, /analytics/operations, /audit, /ready, /health
-   - Stateful in-memory persistence with tenant isolation and RBAC checks
+   - In-memory stateful contract fixtures used for fast UI rendering and contract smoke gates.
+   - Note: The actual production application acceptance runs against app/main.py with
+     PostgreSQL 16, Flowable 7.0.0, and RabbitMQ 3.13 in e2e_real/.
 """
 
 import asyncio
