@@ -13,7 +13,7 @@ test.describe("Planning Journey (Planner Persona)", () => {
     // 3. Navigate to Goals and create an operational goal
     await page.getByRole("link", { name: "Goals", exact: true }).click();
     await page.waitForURL("**/goals");
-    await expect(page.getByRole("heading", { name: "Operational Goals" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Operational Goals", exact: true })).toBeVisible();
 
     const createGoalBtn = page.getByRole("button", { name: "Create Goal" });
     await expect(createGoalBtn).toBeVisible();
@@ -40,7 +40,7 @@ test.describe("Planning Journey (Planner Persona)", () => {
     // 4. Navigate to Plans
     await page.getByRole("link", { name: "Plans", exact: true }).click();
     await page.waitForURL("**/plans");
-    await expect(page.getByRole("heading", { name: "Operational Plans" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Operational Plans", exact: true })).toBeVisible();
 
     // 5. Open an operational plan to review tasks and dependencies
     const viewPlanLink = page.getByRole("link", { name: /Grade 10 Semester Examination Operations/i }).first();

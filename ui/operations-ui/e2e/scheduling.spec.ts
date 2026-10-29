@@ -9,7 +9,7 @@ test.describe("Scheduling Journey (Scheduler Persona)", () => {
     // 2. Navigate to Scheduling Jobs
     await page.locator('a[href="/scheduling/jobs"]').click();
     await page.waitForURL("**/scheduling/jobs");
-    await expect(page.getByRole("heading", { name: "Scheduling Jobs" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Scheduling Jobs", exact: true })).toBeVisible();
 
     // 3. Submit a new scheduling solver job
     const runSolverBtn = page.getByRole("button", { name: "Run Scheduler" }).first();
@@ -27,7 +27,7 @@ test.describe("Scheduling Journey (Scheduler Persona)", () => {
     // 5. Navigate to Timetables & Schedules
     await page.getByRole("link", { name: "Timetables & Schedules" }).click();
     await page.waitForURL("**/schedules");
-    await expect(page.getByRole("heading", { name: "Timetables & Schedules" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Timetables & Schedules", exact: true })).toBeVisible();
 
     // 6. Open schedule detail
     const viewScheduleBtn = page.getByRole("link", { name: /View Schedule/i }).first();
