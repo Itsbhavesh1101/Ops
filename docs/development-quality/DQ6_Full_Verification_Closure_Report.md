@@ -15,7 +15,7 @@
 * **Baseline Master Commit SHA:** `cfe81e8d99ae0bb7576d3849d342315027b1ea76` (Independently verified after merging PR #6)
 * **Dedicated Verification Branch:** `quality/dq6-full-verification-acceptance`
 * **Pull Request:** [PR #7: feat(dq6): full verification and evidence-based closure](https://github.com/Itsbhavesh1101/Ops/pull/7)
-* **Verified Remote HEAD SHA:** `3379b67dd99583dfe61398a34a74c4d8e94af3e0`
+* **Verified Remote HEAD SHA:** `2a035456b61d587b2e4e41d2cf37377602d0ad4f`
 * **Frozen Release Candidate Tag:** `phase8-rc-38d080fadab8` at commit `76d2ed9331b66d1cda04ce518727f4484d266e5b`
   * *Integrity Confirmation:* `phase8-rc-38d080fadab8` remains completely untouched and preserved.
 
@@ -243,7 +243,33 @@ All performance benchmarks were executed on disposable CI infrastructure with th
 
 ---
 
-## 9. CANONICAL EXTERNAL BLOCKERS TABLE
+## 9. DEMONSTRATED DEFECT REMEDIATIONS (DQ-6)
+
+During DQ-6 verification and acceptance testing across disposable container infrastructure, the following defects were isolated, remediated, and regression-tested:
+
+1. **Flowable REST Management Timer Wait & Container Teardown (`0af742b`):**
+   * *Requirement:* FR-WF-06 (Flowable Boundary Events & Non-Interrupting Timers).
+   * *Defect:* Indefinite polling timeout when Flowable async job executor had not flushed job entity into management table.
+   * *Fix:* Added resilient retry with exponential fallback and automated container cleanup in CI tear-down fixtures.
+
+2. **Flowable Optimistic Locking & Concurrent Job Acquisition (`50ef8be`):**
+   * *Requirement:* FR-WF-06 (Flowable Boundary Events).
+   * *Defect:* Race condition between Flowable's internal async executor thread and test manual job execution endpoint returning 500 `FlowableOptimisticLockingException`.
+   * *Fix:* Hardened Flowable adapter to gracefully catch optimistic locking conflicts, verify target activity status in historic activity instances, and proceed idempotently.
+
+3. **Institutional Governance Recipient Reference Hardening (`a886714`):**
+   * *Requirement:* FR-INT-01 (E-8 Notification Engagement System Integration / DEC-E8-02).
+   * *Defect:* E2E test utilized plaintext email format (`faculty@school.edu`) which violates DEC-E8-02 strict privacy controls rejecting unverified PII in event payloads.
+   * *Fix:* Updated default recipient references in test fixtures to opaque cohort URNs (`urn:e7:cohort:faculty`).
+
+4. **Notification Trigger Provenance Metadata Propagation (`2a03545`):**
+   * *Requirement:* FR-INT-01 & FR-SC-06 (Schedule Publication & Notification Outbox).
+   * *Defect:* `ScheduleChangedNotificationHandler` failed to populate `source_event_name="schedule.changed"` on `NotificationTrigger`, causing assertion failure in E2E delivery verification.
+   * *Fix:* Explicitly set `source_event_name="schedule.changed"` on `NotificationTrigger` instantiation.
+
+---
+
+## 10. CANONICAL EXTERNAL BLOCKERS TABLE
 
 The 4 canonical external blockers documented across previous engineering phases are preserved:
 
@@ -256,7 +282,7 @@ The 4 canonical external blockers documented across previous engineering phases 
 
 ---
 
-## 10. FINAL CLOSURE VERDICT
+## 11. FINAL CLOSURE VERDICT
 
 All 25 functional requirements, all 4 live disposable infrastructure subsystems, authenticated frontend journeys, security scans, performance benchmarks, and end-to-end operational scenarios have been verified.
 
