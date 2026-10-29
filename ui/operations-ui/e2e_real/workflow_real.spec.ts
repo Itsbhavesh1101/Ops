@@ -19,17 +19,15 @@ test.describe("Real Application Workflow Journey (Approver Persona)", () => {
     await taskItem.click();
 
     const claimButton = page.getByRole("button", { name: "Claim Task" });
-    if (await claimButton.isVisible()) {
-      await claimButton.click();
-      await expect(page.getByText("CLAIMED").first()).toBeVisible({ timeout: 10000 });
-    }
+    await expect(claimButton).toBeVisible({ timeout: 10000 });
+    await claimButton.click();
+    await expect(page.getByText("CLAIMED").first()).toBeVisible({ timeout: 10000 });
 
     // 5. Complete task
     const completeButton = page.getByRole("button", { name: /Submit Approval|Complete Task/i });
-    if (await completeButton.isVisible()) {
-      await completeButton.click();
-      await expect(page.getByText("COMPLETED").first()).toBeVisible({ timeout: 10000 });
-    }
+    await expect(completeButton).toBeVisible({ timeout: 10000 });
+    await completeButton.click();
+    await expect(page.getByText("COMPLETED").first()).toBeVisible({ timeout: 10000 });
 
     // 6. Direct PostgreSQL workflow state verification
     const taskDb = verifyDb("verify-workflow-task", { status: "COMPLETED" });

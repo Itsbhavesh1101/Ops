@@ -29,10 +29,9 @@ test.describe("Real Application Planning Journey (Planner Persona)", () => {
     await expect(page.getByRole("heading", { name: objective })).toBeVisible();
 
     // 3. Synthesize operational plan using SemesterExamPlanner
-    const generateBtn = page.getByRole("button", { name: /Synthesize Plan|Generate Plan/i });
-    if (await generateBtn.isVisible()) {
-      await generateBtn.click();
-    }
+    const generateBtn = page.getByRole("button", { name: "Generate Plan" }).first();
+    await expect(generateBtn).toBeVisible({ timeout: 15000 });
+    await generateBtn.click();
 
     // Lands on Plan Detail Page (/plans/:planId)
     await page.waitForURL(/.*\/plans\/.*/, { timeout: 20000 });

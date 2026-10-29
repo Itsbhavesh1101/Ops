@@ -73,9 +73,10 @@ export default defineConfig({
       timeout: 30000,
       cwd: ".",
       env: {
+        VITE_DEMO_LOCAL_OIDC: "true",
+        VITE_OIDC_PROVIDER: "keycloak",
+        VITE_KEYCLOAK_URL: "http://127.0.0.1:8180",
         VITE_API_BASE_URL: "http://127.0.0.1:8000/api/v1",
-        VITE_OIDC_ISSUER: "http://127.0.0.1:8180/realms/operations-engine-demo",
-        VITE_OIDC_CLIENT_ID: "operations-ui",
         VITE_DEFAULT_TENANT_ID: "tenant-pilot-001",
       },
     },
