@@ -4,7 +4,8 @@ Provides:
 1. Port 8180: Standards-compliant Keycloak OIDC Identity Provider emulator
    - Dynamic discovery at /realms/operations-engine-demo/.well-known/openid-configuration
    - Asymmetric RS256 JWKS at /realms/operations-engine-demo/protocol/openid-connect/certs
-   - Interactive demo login / redirect at /realms/operations-engine-demo/protocol/openid-connect/auth
+   - Interactive demo login / redirect at
+     /realms/operations-engine-demo/protocol/openid-connect/auth
    - PKCE code-for-token exchange at /realms/operations-engine-demo/protocol/openid-connect/token
    - Session termination at /realms/operations-engine-demo/protocol/openid-connect/logout
 
@@ -16,16 +17,16 @@ Provides:
 """
 
 import asyncio
-import json
 import time
 import uuid
 from typing import Any
+
+import jwt
 import uvicorn
 from cryptography.hazmat.primitives.asymmetric import rsa
-from fastapi import FastAPI, Request, Response, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-import jwt
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 # -----------------------------------------------------------------------------
 # 1. Ephemeral Cryptographic Key Pair for Test OIDC Identity Provider
@@ -121,17 +122,49 @@ async def auth_endpoint(
         return RedirectResponse(f"{redirect_uri}?code={code}&state={state}")
 
     # Interactive persona selection screen matching Keycloak demo UI
+    base_auth = (
+        f"/realms/operations-engine-demo/protocol/openid-connect/auth"
+        f"?client_id={client_id}&redirect_uri={redirect_uri}&state={state}"
+    )
     html = f"""
     <!DOCTYPE html>
     <html>
     <head>
       <title>Keycloak Demo Single Sign-On</title>
       <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
-        .card {{ background: #1e293b; border: 1px solid #334155; padding: 2rem; border-radius: 12px; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; }}
+        body {{
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #0f172a;
+          color: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          margin: 0;
+        }}
+        .card {{
+          background: #1e293b;
+          border: 1px solid #334155;
+          padding: 2rem;
+          border-radius: 12px;
+          width: 380px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+          text-align: center;
+        }}
         h1 {{ font-size: 1.25rem; margin-bottom: 0.5rem; }}
         p {{ font-size: 0.85rem; color: #94a3b8; margin-bottom: 1.5rem; }}
-        .btn {{ display: block; width: 100%; padding: 0.75rem; margin-bottom: 0.75rem; border-radius: 8px; border: none; font-weight: 600; cursor: pointer; text-decoration: none; box-sizing: border-box; }}
+        .btn {{
+          display: block;
+          width: 100%;
+          padding: 0.75rem;
+          margin-bottom: 0.75rem;
+          border-radius: 8px;
+          border: none;
+          font-weight: 600;
+          cursor: pointer;
+          text-decoration: none;
+          box-sizing: border-box;
+        }}
         .btn-planner {{ background: #4f46e5; color: white; }}
         .btn-approver {{ background: #059669; color: white; }}
         .btn-scheduler {{ background: #d97706; color: white; }}
@@ -143,10 +176,14 @@ async def auth_endpoint(
       <div class="card">
         <h1>Keycloak Demo Realm</h1>
         <p>Select a synthetic persona to authenticate:</p>
-        <a id="btn-login-planner" class="btn btn-planner" href="/realms/operations-engine-demo/protocol/openid-connect/auth?client_id={client_id}&redirect_uri={redirect_uri}&state={state}&persona=planner">Sign In as Planner</a>
-        <a id="btn-login-approver" class="btn btn-approver" href="/realms/operations-engine-demo/protocol/openid-connect/auth?client_id={client_id}&redirect_uri={redirect_uri}&state={state}&persona=approver">Sign In as Approver</a>
-        <a id="btn-login-scheduler" class="btn btn-scheduler" href="/realms/operations-engine-demo/protocol/openid-connect/auth?client_id={client_id}&redirect_uri={redirect_uri}&state={state}&persona=scheduler">Sign In as Scheduler</a>
-        <a id="btn-login-admin" class="btn btn-admin" href="/realms/operations-engine-demo/protocol/openid-connect/auth?client_id={client_id}&redirect_uri={redirect_uri}&state={state}&persona=admin">Sign In as Admin</a>
+        <a id="btn-login-planner" class="btn btn-planner"
+           href="{base_auth}&persona=planner">Sign In as Planner</a>
+        <a id="btn-login-approver" class="btn btn-approver"
+           href="{base_auth}&persona=approver">Sign In as Approver</a>
+        <a id="btn-login-scheduler" class="btn btn-scheduler"
+           href="{base_auth}&persona=scheduler">Sign In as Scheduler</a>
+        <a id="btn-login-admin" class="btn btn-admin"
+           href="{base_auth}&persona=admin">Sign In as Admin</a>
       </div>
     </body>
     </html>
@@ -269,7 +306,7 @@ async def verify_bearer_token(request: Request) -> dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Token verification failed: {exc}",
-        )
+        ) from exc
 
     roles = payload.get("realm_access", {}).get("roles", [])
     email = payload.get("email")
@@ -421,7 +458,9 @@ def seed_baseline():
         "created_at": now_str,
     }
 
-    record_audit("SYSTEM_INITIALIZED", "system", "e7-engine", {"principal_id": "system"}, {"status": "READY"})
+    record_audit(
+        "SYSTEM_INITIALIZED", "system", "e7-engine", {"principal_id": "system"}, {"status": "READY"}
+    )
 
 
 seed_baseline()
@@ -570,15 +609,19 @@ async def get_plan(plan_id: str, request: Request):
     if not plan or plan["tenant_id"] != tenant:
         raise HTTPException(status_code=404, detail="Plan not found")
     tasks = [t for t in db_tasks.values() if t["plan_id"] == plan_id]
-    deps = [
-        {
-            "id": str(uuid.uuid4()),
-            "predecessor_id": tasks[0]["id"],
-            "successor_id": tasks[1]["id"],
-            "dependency_type": "FINISH_TO_START",
-            "lag_minutes": 0,
-        }
-    ] if len(tasks) >= 2 else []
+    deps = (
+        [
+            {
+                "id": str(uuid.uuid4()),
+                "predecessor_id": tasks[0]["id"],
+                "successor_id": tasks[1]["id"],
+                "dependency_type": "FINISH_TO_START",
+                "lag_minutes": 0,
+            }
+        ]
+        if len(tasks) >= 2
+        else []
+    )
     milestones = [
         {
             "id": str(uuid.uuid4()),
@@ -605,7 +648,7 @@ async def get_plan_tasks(plan_id: str, request: Request):
 
 @backend_app.post("/api/v1/plans/{plan_id}/validate")
 async def validate_plan(plan_id: str, request: Request):
-    principal = await verify_bearer_token(request)
+    _ = await verify_bearer_token(request)
     return {"is_valid": True, "valid": True, "cycles_detected": False, "issues": []}
 
 
@@ -638,7 +681,7 @@ async def approve_plan(plan_id: str, request: Request):
 
 @backend_app.get("/api/v1/plans/{plan_id}/critical-path")
 async def get_critical_path(plan_id: str, request: Request):
-    principal = await verify_bearer_token(request)
+    _ = await verify_bearer_token(request)
     tasks = [t for t in db_tasks.values() if t["plan_id"] == plan_id]
     nodes = {
         t["id"]: {
@@ -687,6 +730,8 @@ async def get_plan_risks(plan_id: str, request: Request):
 async def get_plan_recommendations(plan_id: str, request: Request):
     await verify_bearer_token(request)
     return {"plan_id": plan_id, "recommendations": []}
+
+
 # --- Tasks Endpoints ---
 @backend_app.get("/api/v1/tasks")
 async def list_tasks(request: Request):
@@ -716,7 +761,7 @@ async def update_task(task_id: str, request: Request):
 # --- Resources Endpoints ---
 @backend_app.get("/api/v1/resources")
 async def list_resources(request: Request):
-    principal = await verify_bearer_token(request)
+    _ = await verify_bearer_token(request)
     now_str = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     return [
         {
@@ -754,7 +799,7 @@ async def list_resources(request: Request):
 
 @backend_app.get("/api/v1/resources/availability")
 async def list_resource_availability(request: Request):
-    principal = await verify_bearer_token(request)
+    _ = await verify_bearer_token(request)
     now = time.time()
     return [
         {
@@ -981,7 +1026,9 @@ async def get_analytics(request: Request, goal_id: str | None = None):
         "tenant_id": tenant,
         "plan_progress": {
             "plan_id": first_plan["id"] if first_plan else None,
-            "plan_name": first_plan.get("plan_name", "Grade 10 Semester Examination Operations") if first_plan else None,
+            "plan_name": first_plan.get("plan_name", "Grade 10 Semester Examination Operations")
+            if first_plan
+            else None,
             "total_tasks": total_tasks,
             "completed_tasks": completed_tasks,
             "progress_percentage": round((completed_tasks / total_tasks) * 100, 1),
@@ -1015,7 +1062,9 @@ async def get_analytics(request: Request, goal_id: str | None = None):
                 "resource_type": e["resource_type"],
                 "resource_id": e["resource_id"],
                 "outcome": e.get("outcome", "SUCCESS"),
-                "recorded_at": e.get("recorded_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
+                "recorded_at": e.get(
+                    "recorded_at", time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                ),
                 "correlation_id": e.get("correlation_id", "corr-init"),
             }
             for e in db_audit_events[:10]
@@ -1054,7 +1103,9 @@ async def get_audit_events(
     if not any(r in principal["roles"] for r in ("auditor", "tenant_admin", "admin")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Forbidden: The 'auditor' or 'tenant_admin' role is required to access audit logs.",
+            detail=(
+                "Forbidden: The 'auditor' or 'tenant_admin' role is required to access audit logs."
+            ),
         )
 
     matched = [e for e in db_audit_events if e.get("tenant_id") == tenant]
