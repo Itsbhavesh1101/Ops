@@ -100,12 +100,12 @@
 - Consumes: operator-supplied endpoints and credentials via environment/CLI without persisting them.
 - Produces: redacted JSON evidence matching the four canonical blocker identifiers.
 
-- [ ] Write tests for read-only MySQL enforcement, OIDC discovery/JWKS/issuer validation, AMQPS topology and idempotency handshake, gateway TLS/header/rate-limit/WAF checks, timeout behavior, and redaction.
-- [ ] Observe failures because the documented probes do not exist.
-- [ ] Implement non-destructive probes with bounded timeouts and no secret-bearing output.
-- [ ] Add `--output` evidence files using atomic writes and stable schemas.
-- [ ] Run probe tests, Ruff, and mypy.
-- [ ] Commit as `feat(verification): implement production boundary probes`.
+- [x] Write tests for read-only MySQL enforcement, OIDC discovery/JWKS/issuer validation, AMQPS topology and idempotency handshake, gateway TLS/header/rate-limit/WAF checks, timeout behavior, and redaction.
+- [x] Observe failures because the documented probes do not exist.
+- [x] Implement non-destructive probes with bounded timeouts and no secret-bearing output.
+- [x] Add `--output` evidence files using atomic writes and stable schemas.
+- [x] Run probe tests, Ruff, and mypy.
+- [x] Commit as `feat(verification): implement production boundary probes`.
 
 ### Task 5: Mandatory security and supply-chain gates
 

@@ -126,6 +126,27 @@ def test_runner_keeps_optional_block_visible_without_failing(tmp_path: Path) -> 
     assert report["gates"][0]["status"] == "BLOCKED_PREREQUISITE"
 
 
+def test_runner_keeps_optional_failure_visible_without_failing(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    _write_manifest(
+        manifest,
+        [
+            {
+                "id": "optional-failure",
+                "group": "external",
+                "required": False,
+                "command": [sys.executable, "-c", "raise SystemExit(3)"],
+            }
+        ],
+    )
+
+    report, exit_code = run_manifest(manifest)
+
+    assert exit_code == 0
+    assert report["overall_status"] == "PASS_WITH_OPTIONAL_FAILURES"
+    assert report["gates"][0]["status"] == "FAIL"
+
+
 def test_runner_blocks_required_gate_when_tcp_service_is_unavailable(tmp_path: Path) -> None:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))

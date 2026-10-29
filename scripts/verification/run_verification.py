@@ -154,10 +154,15 @@ def run_manifest(
         for result in results
         if not result["required"] and result["status"] == "BLOCKED_PREREQUISITE"
     ]
+    optional_failures = [
+        result for result in results if not result["required"] and result["status"] == "FAIL"
+    ]
     if required_failures:
         overall_status, exit_code = "FAIL", 1
     elif required_blocks:
         overall_status, exit_code = "BLOCKED_PREREQUISITE", 2
+    elif optional_failures:
+        overall_status, exit_code = "PASS_WITH_OPTIONAL_FAILURES", 0
     elif optional_blocks:
         overall_status, exit_code = "PASS_WITH_OPTIONAL_BLOCKS", 0
     else:

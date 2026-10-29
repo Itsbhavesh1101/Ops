@@ -177,28 +177,28 @@
       "id": "external-mysql",
       "group": "external",
       "required": false,
-      "command": ["{python}", "scripts/verification/verify_mysql_connection.py"],
+      "command": ["{python}", "-m", "scripts.verification.verify_mysql_connection", "--output", "dist/verification/external/mysql.json"],
       "executables": ["{python}"]
     },
     {
       "id": "external-oidc",
       "group": "external",
       "required": false,
-      "command": ["{python}", "scripts/verification/verify_oidc_provider.py"],
+      "command": ["{python}", "-m", "scripts.verification.verify_oidc_provider", "--output", "dist/verification/external/oidc.json"],
       "executables": ["{python}"]
     },
     {
       "id": "external-e8",
       "group": "external",
       "required": false,
-      "command": ["{python}", "scripts/verification/verify_e8_broker.py"],
+      "command": ["{python}", "-m", "scripts.verification.verify_e8_broker", "--output", "dist/verification/external/e8.json"],
       "executables": ["{python}"]
     },
     {
       "id": "external-gateway",
       "group": "external",
       "required": false,
-      "command": ["{python}", "scripts/verification/verify_gateway_ingress.py"],
+      "command": ["{python}", "-m", "scripts.verification.verify_gateway_ingress", "--output", "dist/verification/external/gateway.json"],
       "executables": ["{python}"]
     }
   ]
