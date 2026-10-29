@@ -48,7 +48,7 @@ PERSONAS: dict[str, dict[str, Any]] = {
         "sub": "user_approver_001",
         "email": "approver@operations.local",
         "name": "Demo Approver",
-        "roles": ["approver"],
+        "roles": ["approver", "chairs", "academic_dean"],
         "tenant_id": TENANT_ID,
     },
     "scheduler": {
