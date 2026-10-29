@@ -775,11 +775,17 @@ async def test_live_case_08_sla_breach_flowable_timer(
             await flowable_adapter.trigger_timer_job(jobs_check[0]["id"])
             await asyncio.sleep(0.5)
 
-    # 3. Breach fired: interrupting timer cancelled urgent_task and advanced to escalation_end
-    active_tasks = await flowable_adapter.list_user_tasks(
-        engine_instance_id=inst.engine_instance_id,
-        tenant_id=tenant_id,
-    )
+    # 3. Breach fired: wait for interrupting timer to cancel urgent_task
+    active_tasks: list[Any] = []
+    for _ in range(15):
+        active_tasks = await flowable_adapter.list_user_tasks(
+            engine_instance_id=inst.engine_instance_id,
+            tenant_id=tenant_id,
+        )
+        if len(active_tasks) == 0:
+            break
+        await asyncio.sleep(1.0)
+
     assert len(active_tasks) == 0
 
     history = await flowable_adapter.get_history(
