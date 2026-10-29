@@ -70,7 +70,13 @@ class DefaultTaskEligibilityPolicy(TaskEligibilityPolicyProtocol):
         action_grants: dict[str, frozenset[str]] | None = None,
     ) -> None:
         self._privileged_roles = privileged_roles or frozenset()
-        self._allowed_actions = allowed_actions or frozenset({"APPROVE", "REJECT", "COMPLETE"})
+        self._allowed_actions = allowed_actions or frozenset({
+            "APPROVE",
+            "REJECT",
+            "COMPLETE",
+            "CLAIM",
+            "UNCLAIM",
+        })
         self._action_grants = action_grants or {}
 
     def is_eligible(

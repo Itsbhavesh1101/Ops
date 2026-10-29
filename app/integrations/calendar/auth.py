@@ -353,6 +353,47 @@ class GoogleTokenProvider:
             return self._cached_token
 
 
+class DeterministicCalendarTokenProvider:
+    """Deterministic token provider implementing CalendarTokenProvider for test scenarios.
+
+    Injectable in contract and E2E environments without external credentials while
+    preserving real adapter and transport wire execution and header injection.
+    """
+
+    def __init__(
+        self,
+        token: str = "ya29.synthetic_deterministic_test_token",
+        valid: bool = True,
+    ) -> None:
+        self._token = token
+        self._valid = valid
+        self._access_count = 0
+        self._invalidation_count = 0
+
+    @property
+    def access_count(self) -> int:
+        return self._access_count
+
+    @property
+    def invalidation_count(self) -> int:
+        return self._invalidation_count
+
+    async def get_access_token(self) -> str:
+        if not self._valid:
+            raise GoogleCalendarAuthError(
+                "Deterministic token provider is configured as invalid / expired."
+            )
+        self._access_count += 1
+        return self._token
+
+    def invalidate_cached_token(self) -> None:
+        self._invalidation_count += 1
+        self._valid = False
+
+    def is_token_valid(self) -> bool:
+        return self._valid
+
+
 def create_token_provider(
     settings: GoogleCalendarSettings,
     http_client: httpx.AsyncClient | None = None,
@@ -373,6 +414,7 @@ __all__ = [
     "CalendarTokenProvider",
     "DEFAULT_EXPIRY_SKEW_SECONDS",
     "DEFAULT_TOKEN_LIFETIME_SECONDS",
+    "DeterministicCalendarTokenProvider",
     "GOOGLE_TOKEN_ENDPOINT",
     "GoogleADCTokenProvider",
     "GoogleCalendarAuthError",

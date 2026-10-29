@@ -62,6 +62,14 @@ CANONICAL_ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "workflow:approve",
         "task:read",
     }),
+    "chairs": frozenset({
+        "workflow:approve",
+        "task:read",
+    }),
+    "academic_dean": frozenset({
+        "workflow:approve",
+        "task:read",
+    }),
     "scheduler": frozenset({
         "schedule:solve",
         "schedule:publish",
@@ -217,7 +225,7 @@ class DefaultIdentityResolver:
         if "planner" in username:
             candidate_roles.add("planner")
         elif "approver" in username:
-            candidate_roles.add("approver")
+            candidate_roles.update(["approver", "chairs", "academic_dean"])
         elif "scheduler" in username:
             candidate_roles.update(["scheduler", "operator"])
         elif "admin" in username or "tenant_admin" in username:

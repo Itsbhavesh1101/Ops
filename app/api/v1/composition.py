@@ -15,10 +15,12 @@ Security Invariants:
 - Zero mock or default tenant derivations.
 """
 
+import os
 from collections.abc import AsyncGenerator, Callable
 from typing import Any
 
 from fastapi import APIRouter, Depends
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.analytics.service import OperationsAnalyticsService
@@ -46,6 +48,7 @@ from app.scheduling.policy import (
 from app.scheduling.service import SchedulingService
 from app.task_intelligence.service import PlanService
 from app.workflow.adapters.flowable.adapter import FlowableAdapter
+from app.workflow.adapters.flowable.config import FlowableConfigurationError, FlowableSettings
 from app.workflow.adapters.protocol import WorkflowAdapterProtocol
 from app.workflow.service import WorkflowService
 
@@ -86,7 +89,22 @@ def get_default_workflow_adapter() -> WorkflowAdapterProtocol:
     """Return default workflow adapter for runtime execution."""
     global _default_workflow_adapter
     if _default_workflow_adapter is None:
-        _default_workflow_adapter = FlowableAdapter()
+        try:
+            _default_workflow_adapter = FlowableAdapter()
+        except FlowableConfigurationError:
+            flowable_settings = FlowableSettings(
+                base_url=os.environ.get(
+                    "FLOWABLE_BASE_URL", "http://localhost:8080/flowable-rest/service"
+                ),
+                timeout_seconds=float(os.environ.get("FLOWABLE_TIMEOUT_SECONDS", "10.0")),
+                max_retries=int(os.environ.get("FLOWABLE_MAX_RETRIES", "3")),
+                username=(
+                    os.environ.get("FLOWABLE_USERNAME")
+                    or os.environ.get("FLOWABLE_USER", "rest-admin")
+                ),
+                password=SecretStr(os.environ.get("FLOWABLE_PASSWORD", "test")),
+            )
+            _default_workflow_adapter = FlowableAdapter(settings=flowable_settings)
     return _default_workflow_adapter
 
 

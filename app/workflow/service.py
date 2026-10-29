@@ -115,6 +115,10 @@ class MissingWorkflowKeyError(WorkflowServiceError, ValueError):
     """Raised when plan.approved payload is missing a required non-empty 'workflow_key'."""
 
 
+class WorkflowAdapterOperationUnsupportedError(WorkflowServiceError):
+    """Raised when the configured workflow adapter does not support the requested operation."""
+
+
 class WorkflowService:
     """Application service orchestrating canonical workflow domain lifecycle."""
 
@@ -705,7 +709,83 @@ class WorkflowService:
             engine_task_id = task_record.engine_task_id
             instance_id = task_record.workflow_instance_id
 
-        # 4. Execute completion on Flowable engine
+        now = datetime.now(UTC)
+
+        # 4. Handle CLAIM / UNCLAIM actions
+        if action in (WorkflowTaskAction.CLAIM, WorkflowTaskAction.UNCLAIM):
+            new_assignee = principal.principal_id if action == WorkflowTaskAction.CLAIM else None
+
+            # Explicitly enforce adapter support rather than silent bypass
+            claim_fn = getattr(self._adapter, "claim_user_task", None)
+            if claim_fn is None or not callable(claim_fn):
+                msg = (
+                    f"Workflow adapter '{type(self._adapter).__name__}' does not implement "
+                    f"'claim_user_task' required for action '{action.value}'."
+                )
+                raise WorkflowAdapterOperationUnsupportedError(msg)
+
+            try:
+                await self._adapter.claim_user_task(
+                    engine_task_id=engine_task_id,
+                    assignee=new_assignee,
+                    tenant_id=tenant_id,
+                )
+            except NotImplementedError as exc:
+                msg = (
+                    f"Workflow adapter '{type(self._adapter).__name__}' does not support "
+                    f"action '{action.value}'."
+                )
+                raise WorkflowAdapterOperationUnsupportedError(msg) from exc
+
+            async with self._uow_factory() as uow:
+                task_repo = WorkflowTaskRepository(uow.session)
+                audit_repo = AuditRepository(uow.session)
+
+                if identity is not None and fingerprint is not None:
+                    idempotency_repo = IdempotencyRepository(uow.session)
+                    await idempotency_repo.acquire_or_observe(
+                        identity=identity,
+                        request_fingerprint=fingerprint,
+                    )
+
+                task_record = await task_repo.get_by_id(tenant_id, workflow_task_id)
+                if not task_record:
+                    msg = f"Workflow task '{workflow_task_id}' not found."
+                    raise WorkflowTaskNotFoundError(msg)
+
+                task_record.assignee = new_assignee
+                task_record.action = action.value
+                task_record.action_by = principal.principal_id
+                task_record.action_at = now
+                task_record.updated_at = now
+
+                claim_audit_details: dict[str, Any] = {
+                    "action": action.value,
+                    "engine_task_id": engine_task_id,
+                    "assignee": new_assignee,
+                }
+                if identity is not None:
+                    claim_audit_details["key_digest"] = str(identity.key_digest)
+
+                event_type_name = "claimed" if action == WorkflowTaskAction.CLAIM else "unclaimed"
+                await audit_repo.append(
+                    AuditEventCreate(
+                        tenant_id=tenant_id,
+                        event_type=f"workflow.task.{event_type_name}",
+                        actor_principal_id=principal.principal_id,
+                        actor_principal_type=principal.principal_type.value,
+                        authentication_method=principal.authentication_method.value,
+                        resource_type="workflow_task",
+                        resource_id=str(workflow_task_id),
+                        outcome=AuditEventOutcome.SUCCESS,
+                        details=claim_audit_details,
+                    )
+                )
+                response = WorkflowTaskResponse.model_validate(task_record)
+                await uow.commit()
+                return response
+
+        # 5. Execute completion on Flowable engine
         # Only allowlisted business variables sent to engine (plus non-raw metadata)
         outbound_vars = dict(filtered_action_vars)
         outbound_vars["_action_by"] = principal.principal_id
@@ -719,8 +799,7 @@ class WorkflowService:
             tenant_id=tenant_id,
         )
 
-        # 5. Persist completed state, idempotency marker, and audit in canonical UoW
-        now = datetime.now(UTC)
+        # 6. Persist completed state, idempotency marker, and audit in canonical UoW
         async with self._uow_factory() as uow:
             task_repo = WorkflowTaskRepository(uow.session)
             audit_repo = AuditRepository(uow.session)

@@ -40,6 +40,7 @@ from app.workflow.schemas import (
     WorkflowTaskResponse,
 )
 from app.workflow.service import (
+    WorkflowAdapterOperationUnsupportedError,
     WorkflowDefinitionNotFoundError,
     WorkflowInstanceNotFoundError,
     WorkflowService,
@@ -254,6 +255,12 @@ def create_workflow_router(
         )
 
     @router.post(
+        "/tasks/{task_id}/action",
+        response_model=WorkflowTaskResponse,
+        summary="Perform Human Task Action (Singular Route Alias)",
+        include_in_schema=False,
+    )
+    @router.post(
         "/tasks/{task_id}/actions",
         response_model=WorkflowTaskResponse,
         summary="Perform Human Task Action",
@@ -310,6 +317,12 @@ def create_workflow_router(
             raise ApiError(
                 status_code=409,
                 code="workflow.task_already_completed",
+                message=str(exc),
+            ) from exc
+        except WorkflowAdapterOperationUnsupportedError as exc:
+            raise ApiError(
+                status_code=501,
+                code="workflow.action_unsupported",
                 message=str(exc),
             ) from exc
 

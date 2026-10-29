@@ -501,6 +501,7 @@ class ScheduleChangedNotificationHandler:
             organization_scope_reference=tenant_id,
             trigger=NotificationTrigger(
                 trigger_kind=TriggerKind.SOURCE_BACKED_BUSINESS_CONDITION,
+                source_event_name="schedule.changed",
                 business_condition="SCHEDULE_CHANGE_NOTICE",
                 source_entity_reference=schedule_id,
             ),

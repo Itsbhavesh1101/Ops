@@ -18,6 +18,7 @@ from app.workflow.adapters.flowable.adapter import FlowableAdapter
 from app.workflow.adapters.flowable.config import FlowableSettings
 from app.workflow.adapters.protocol import (
     WorkflowEngineResponseError,
+    WorkflowResourceNotFoundError,
 )
 
 SETTINGS = FlowableSettings(
@@ -291,4 +292,76 @@ async def test_engine_error_wrapping():
             tenant_id="tenant-alpha",
         )
     assert "status 500" in str(exc_info.value)
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_claim_user_task_success():
+    requests_received = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert "/runtime/tasks/task-claim-01" in str(request.url)
+        requests_received.append(request)
+        return httpx.Response(200)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = FlowableAdapter(settings=SETTINGS, client=client)
+
+    # Claim
+    await adapter.claim_user_task(
+        engine_task_id="task-claim-01",
+        assignee="alice",
+        tenant_id="tenant-alpha",
+    )
+    assert len(requests_received) == 1
+    import json
+
+    body1 = json.loads(requests_received[0].content)
+    assert body1 == {"action": "claim", "assignee": "alice"}
+
+    # Unclaim
+    await adapter.claim_user_task(
+        engine_task_id="task-claim-01",
+        assignee=None,
+        tenant_id="tenant-alpha",
+    )
+    assert len(requests_received) == 2
+    body2 = json.loads(requests_received[1].content)
+    assert body2 == {"action": "claim"}
+
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_claim_user_task_not_found_raises_resource_not_found():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, json={"message": "Task not found"})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = FlowableAdapter(settings=SETTINGS, client=client)
+
+    with pytest.raises(WorkflowResourceNotFoundError, match="Engine task 'task-404' not found"):
+        await adapter.claim_user_task(
+            engine_task_id="task-404",
+            assignee="alice",
+            tenant_id="tenant-alpha",
+        )
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_claim_user_task_server_error_raises_engine_response_error():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, json={"message": "Internal error"})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    adapter = FlowableAdapter(settings=SETTINGS, client=client)
+
+    with pytest.raises(WorkflowEngineResponseError, match="status 500"):
+        await adapter.claim_user_task(
+            engine_task_id="task-500",
+            assignee="alice",
+            tenant_id="tenant-alpha",
+        )
     await client.aclose()

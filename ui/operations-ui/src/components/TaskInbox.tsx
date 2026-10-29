@@ -78,6 +78,9 @@ export const TaskInbox: React.FC<TaskInboxProps> = ({ apiClient, tenantId, initi
       setTasks((prev) =>
         prev.map((t) => (t.id === selectedTask.id ? { ...t, status: action === "claim" ? "CLAIMED" : "COMPLETED" } : t))
       );
+      setSelectedTask((prev) =>
+        prev && prev.id === selectedTask.id ? { ...prev, status: action === "claim" ? "CLAIMED" : "COMPLETED" } : prev
+      );
     } catch (err: any) {
       setActionError(err.message || "Failed to submit task action");
       setActionStatus(null);
@@ -172,7 +175,7 @@ export const TaskInbox: React.FC<TaskInboxProps> = ({ apiClient, tenantId, initi
                 }`}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm font-semibold text-slate-900">{task.name}</span>
+                  <span className="text-sm font-semibold text-slate-900">{task.name || (task as any).task_name}</span>
                   {getSlaBadge(task.sla_status)}
                 </div>
                 <p className="text-xs text-slate-600 mb-2.5">{task.description}</p>
@@ -191,7 +194,7 @@ export const TaskInbox: React.FC<TaskInboxProps> = ({ apiClient, tenantId, initi
           {selectedTask ? (
             <div className="p-5 bg-white rounded-xl border border-slate-200/80 flex flex-col gap-4 shadow-2xs">
               <div className="border-b border-slate-100 pb-3">
-                <h4 className="text-sm font-semibold text-slate-900">{selectedTask.name}</h4>
+                <h4 className="text-sm font-semibold text-slate-900">{selectedTask.name || (selectedTask as any).task_name}</h4>
                 <p className="text-xs text-slate-500 font-mono mt-0.5">Task ID: {selectedTask.id}</p>
                 {selectedTask.workflow_instance_id && (
                   <p className="text-xs mt-1">
