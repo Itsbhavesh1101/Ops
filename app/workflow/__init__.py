@@ -25,6 +25,7 @@ from app.workflow.schemas import (
     WorkflowTaskStatus,
 )
 from app.workflow.service import (
+    WorkflowAdapterOperationUnsupportedError,
     WorkflowDefinitionNotFoundError,
     WorkflowInstanceNotFoundError,
     WorkflowService,
@@ -36,6 +37,7 @@ from app.workflow.service import (
 __all__ = [
     "DefaultTaskEligibilityPolicy",
     "TaskEligibilityPolicyProtocol",
+    "WorkflowAdapterOperationUnsupportedError",
     "WorkflowAuthorizationError",
     "WorkflowCallbackPayload",
     "WorkflowDefinitionCreate",

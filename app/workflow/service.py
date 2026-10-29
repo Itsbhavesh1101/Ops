@@ -115,6 +115,10 @@ class MissingWorkflowKeyError(WorkflowServiceError, ValueError):
     """Raised when plan.approved payload is missing a required non-empty 'workflow_key'."""
 
 
+class WorkflowAdapterOperationUnsupportedError(WorkflowServiceError):
+    """Raised when the configured workflow adapter does not support the requested operation."""
+
+
 class WorkflowService:
     """Application service orchestrating canonical workflow domain lifecycle."""
 
@@ -710,12 +714,28 @@ class WorkflowService:
         # 4. Handle CLAIM / UNCLAIM actions
         if action in (WorkflowTaskAction.CLAIM, WorkflowTaskAction.UNCLAIM):
             new_assignee = principal.principal_id if action == WorkflowTaskAction.CLAIM else None
-            if hasattr(self._adapter, "claim_user_task"):
+
+            # Explicitly enforce adapter support rather than silent bypass
+            claim_fn = getattr(self._adapter, "claim_user_task", None)
+            if claim_fn is None or not callable(claim_fn):
+                msg = (
+                    f"Workflow adapter '{type(self._adapter).__name__}' does not implement "
+                    f"'claim_user_task' required for action '{action.value}'."
+                )
+                raise WorkflowAdapterOperationUnsupportedError(msg)
+
+            try:
                 await self._adapter.claim_user_task(
                     engine_task_id=engine_task_id,
                     assignee=new_assignee,
                     tenant_id=tenant_id,
                 )
+            except NotImplementedError as exc:
+                msg = (
+                    f"Workflow adapter '{type(self._adapter).__name__}' does not support "
+                    f"action '{action.value}'."
+                )
+                raise WorkflowAdapterOperationUnsupportedError(msg) from exc
 
             async with self._uow_factory() as uow:
                 task_repo = WorkflowTaskRepository(uow.session)

@@ -31,6 +31,7 @@ from app.workflow.adapters.dto import (
 )
 from app.workflow.adapters.protocol import (
     WorkflowAdapterProtocol,
+    WorkflowEngineConnectionError,
 )
 from app.workflow.artifacts.validator import BpmnValidationError
 from app.workflow.authorization import (
@@ -49,6 +50,7 @@ from app.workflow.schemas import (
     WorkflowTaskStatus,
 )
 from app.workflow.service import (
+    WorkflowAdapterOperationUnsupportedError,
     WorkflowService,
 )
 from app.workflow.variables import (
@@ -832,3 +834,441 @@ async def test_evaluate_sla_triggers_breach_rollback_on_commit_failure(mock_adap
         refetched_success = service._sla_service.get_task_sla(task_id)
         assert refetched_success.breach_fired_at == eval_time
         assert refetched_success.status == SlaStatus.BREACHED
+
+
+# ==============================================================================
+# Human Task Claim / Unclaim & Engine State Consistency Regression Tests
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_perform_task_action_claim_success(workflow_service, mock_adapter):
+    """Verify that authorized actor can claim a pending candidate task, updating Flowable and DB."""
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    task_mapping = WorkflowTaskMappingRecord(
+        id=task_id,
+        workflow_instance_id=inst_id,
+        tenant_id="tenant-1",
+        engine_task_id="engine-task-claim-01",
+        task_definition_key="manager_review",
+        task_name="Manager Review",
+        assignee=None,
+        candidate_roles=["manager"],
+        status=WorkflowTaskStatus.PENDING.value,
+        action=None,
+        action_by=None,
+        action_at=None,
+        due_at=None,
+        variables={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    principal = AuthenticatedPrincipal(
+        principal_id="manager-alice",
+        principal_type=PrincipalType.HUMAN,
+        authentication_method=AuthenticationMethod.OIDC,
+        tenant_id="tenant-1",
+        roles=frozenset({"manager"}),
+    )
+
+    with (
+        patch("app.workflow.service.WorkflowTaskRepository") as mock_task_repo_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_repo_cls,
+    ):
+        mock_task_repo = AsyncMock()
+        mock_task_repo.get_by_id.return_value = task_mapping
+        mock_task_repo_cls.return_value = mock_task_repo
+
+        mock_audit_repo = AsyncMock()
+        mock_audit_repo_cls.return_value = mock_audit_repo
+
+        resp = await workflow_service.perform_task_action(
+            tenant_id="tenant-1",
+            workflow_task_id=task_id,
+            action=WorkflowTaskAction.CLAIM,
+            principal=principal,
+        )
+
+        # 1. Flowable adapter claim_user_task is invoked with the claiming principal
+        mock_adapter.claim_user_task.assert_awaited_once_with(
+            engine_task_id="engine-task-claim-01",
+            assignee="manager-alice",
+            tenant_id="tenant-1",
+        )
+        # 2. Complete was NOT called
+        mock_adapter.complete_user_task.assert_not_awaited()
+
+        # 3. Task state updated to CLAIMED assignee and PENDING status
+        assert resp.assignee == "manager-alice"
+        assert resp.action == "CLAIM"
+        assert resp.status == WorkflowTaskStatus.PENDING
+        assert task_mapping.assignee == "manager-alice"
+
+        # 4. Audit event appended
+        mock_audit_repo.append.assert_awaited_once()
+        audit_call = mock_audit_repo.append.call_args[0][0]
+        assert audit_call.event_type == "workflow.task.claimed"
+        assert audit_call.actor_principal_id == "manager-alice"
+
+
+@pytest.mark.asyncio
+async def test_perform_task_action_unclaim_success(workflow_service, mock_adapter):
+    """Verify that assigned actor can unclaim their task, resetting assignee on Flowable and DB."""
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    task_mapping = WorkflowTaskMappingRecord(
+        id=task_id,
+        workflow_instance_id=inst_id,
+        tenant_id="tenant-1",
+        engine_task_id="engine-task-unclaim-01",
+        task_definition_key="manager_review",
+        task_name="Manager Review",
+        assignee="manager-alice",
+        candidate_roles=["manager"],
+        status=WorkflowTaskStatus.PENDING.value,
+        action="CLAIM",
+        action_by="manager-alice",
+        action_at=datetime.now(UTC),
+        due_at=None,
+        variables={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    principal = AuthenticatedPrincipal(
+        principal_id="manager-alice",
+        principal_type=PrincipalType.HUMAN,
+        authentication_method=AuthenticationMethod.OIDC,
+        tenant_id="tenant-1",
+        roles=frozenset({"manager"}),
+    )
+
+    with (
+        patch("app.workflow.service.WorkflowTaskRepository") as mock_task_repo_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_repo_cls,
+    ):
+        mock_task_repo = AsyncMock()
+        mock_task_repo.get_by_id.return_value = task_mapping
+        mock_task_repo_cls.return_value = mock_task_repo
+
+        mock_audit_repo = AsyncMock()
+        mock_audit_repo_cls.return_value = mock_audit_repo
+
+        resp = await workflow_service.perform_task_action(
+            tenant_id="tenant-1",
+            workflow_task_id=task_id,
+            action=WorkflowTaskAction.UNCLAIM,
+            principal=principal,
+        )
+
+        # 1. Flowable adapter claim_user_task invoked with assignee=None
+        mock_adapter.claim_user_task.assert_awaited_once_with(
+            engine_task_id="engine-task-unclaim-01",
+            assignee=None,
+            tenant_id="tenant-1",
+        )
+        # 2. Database state has assignee cleared
+        assert resp.assignee is None
+        assert resp.action == "UNCLAIM"
+        assert resp.status == WorkflowTaskStatus.PENDING
+        assert task_mapping.assignee is None
+
+        # 3. Audit event appended
+        mock_audit_repo.append.assert_awaited_once()
+        audit_call = mock_audit_repo.append.call_args[0][0]
+        assert audit_call.event_type == "workflow.task.unclaimed"
+
+
+@pytest.mark.asyncio
+async def test_perform_task_action_claim_unsupported_adapter_fails_explicitly(fake_uow_factory):
+    """Verify that if adapter lacks claim_user_task, an explicit typed error is raised."""
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    task_mapping = WorkflowTaskMappingRecord(
+        id=task_id,
+        workflow_instance_id=inst_id,
+        tenant_id="tenant-1",
+        engine_task_id="engine-task-unsupported-01",
+        task_definition_key="manager_review",
+        task_name="Manager Review",
+        assignee=None,
+        candidate_roles=["manager"],
+        status=WorkflowTaskStatus.PENDING.value,
+        action=None,
+        action_by=None,
+        action_at=None,
+        due_at=None,
+        variables={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    principal = AuthenticatedPrincipal(
+        principal_id="manager-alice",
+        principal_type=PrincipalType.HUMAN,
+        authentication_method=AuthenticationMethod.OIDC,
+        tenant_id="tenant-1",
+        roles=frozenset({"manager"}),
+    )
+
+    # 1. Adapter object completely missing claim_user_task
+    bare_adapter = AsyncMock()
+    del bare_adapter.claim_user_task
+
+    service = WorkflowService(
+        uow_factory=fake_uow_factory,
+        adapter=bare_adapter,
+        eligibility_policy=DefaultTaskEligibilityPolicy(),
+        variable_policy=WorkflowVariablePolicy(allowed_keys=PHASE_3A_FIXTURE_ALLOWED_VARIABLES),
+        persistence_mode="memory",
+    )
+
+    with (
+        patch("app.workflow.service.WorkflowTaskRepository") as mock_task_repo_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_repo_cls,
+    ):
+        mock_task_repo = AsyncMock()
+        mock_task_repo.get_by_id.return_value = task_mapping
+        mock_task_repo_cls.return_value = mock_task_repo
+        mock_audit_repo = AsyncMock()
+        mock_audit_repo_cls.return_value = mock_audit_repo
+
+        with pytest.raises(
+            WorkflowAdapterOperationUnsupportedError, match="does not implement 'claim_user_task'"
+        ):
+            await service.perform_task_action(
+                tenant_id="tenant-1",
+                workflow_task_id=task_id,
+                action=WorkflowTaskAction.CLAIM,
+                principal=principal,
+            )
+
+        # Ensure DB assignee was NOT updated and no claim audit was logged
+        assert task_mapping.assignee is None
+        mock_audit_repo.append.assert_not_awaited()
+
+    # 2. Adapter raises NotImplementedError
+    unimplemented_adapter = AsyncMock()
+    unimplemented_adapter.claim_user_task.side_effect = NotImplementedError(
+        "Not supported on this engine"
+    )
+    service2 = WorkflowService(
+        uow_factory=fake_uow_factory,
+        adapter=unimplemented_adapter,
+        eligibility_policy=DefaultTaskEligibilityPolicy(),
+        variable_policy=WorkflowVariablePolicy(allowed_keys=PHASE_3A_FIXTURE_ALLOWED_VARIABLES),
+        persistence_mode="memory",
+    )
+
+    with (
+        patch("app.workflow.service.WorkflowTaskRepository") as mock_task_repo_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_repo_cls,
+    ):
+        mock_task_repo = AsyncMock()
+        mock_task_repo.get_by_id.return_value = task_mapping
+        mock_task_repo_cls.return_value = mock_task_repo
+        mock_audit_repo = AsyncMock()
+        mock_audit_repo_cls.return_value = mock_audit_repo
+
+        with pytest.raises(
+            WorkflowAdapterOperationUnsupportedError, match="does not support action 'CLAIM'"
+        ):
+            await service2.perform_task_action(
+                tenant_id="tenant-1",
+                workflow_task_id=task_id,
+                action=WorkflowTaskAction.CLAIM,
+                principal=principal,
+            )
+
+        assert task_mapping.assignee is None
+        mock_audit_repo.append.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_perform_task_action_claim_unauthorized_fails_closed(workflow_service, mock_adapter):
+    """Verify unauthorized actor cannot claim a task, failing closed before reaching engine."""
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    task_mapping = WorkflowTaskMappingRecord(
+        id=task_id,
+        workflow_instance_id=inst_id,
+        tenant_id="tenant-1",
+        engine_task_id="engine-task-claim-unauth",
+        task_definition_key="manager_review",
+        task_name="Manager Review",
+        assignee=None,
+        candidate_roles=["finance_team"],
+        status=WorkflowTaskStatus.PENDING.value,
+        action=None,
+        action_by=None,
+        action_at=None,
+        due_at=None,
+        variables={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    unauthorized_principal = AuthenticatedPrincipal(
+        principal_id="viewer-eve",
+        principal_type=PrincipalType.HUMAN,
+        authentication_method=AuthenticationMethod.OIDC,
+        tenant_id="tenant-1",
+        roles=frozenset({"viewer"}),
+    )
+
+    with (
+        patch("app.workflow.service.WorkflowTaskRepository") as mock_task_repo_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_repo_cls,
+    ):
+        mock_task_repo = AsyncMock()
+        mock_task_repo.get_by_id.return_value = task_mapping
+        mock_task_repo_cls.return_value = mock_task_repo
+        mock_audit_repo = AsyncMock()
+        mock_audit_repo_cls.return_value = mock_audit_repo
+
+        with pytest.raises(WorkflowTaskUnauthorizedError):
+            await workflow_service.perform_task_action(
+                tenant_id="tenant-1",
+                workflow_task_id=task_id,
+                action=WorkflowTaskAction.CLAIM,
+                principal=unauthorized_principal,
+            )
+
+        # Adapter must never be called
+        mock_adapter.claim_user_task.assert_not_awaited()
+        # Audit records denial
+        mock_audit_repo.append.assert_awaited_once()
+        audit_call = mock_audit_repo.append.call_args[0][0]
+        assert audit_call.event_type == "workflow.task.unauthorized"
+        assert audit_call.outcome == "DENIED"
+
+
+@pytest.mark.asyncio
+async def test_perform_task_action_claim_flowable_failure_preserves_db_consistency(
+    workflow_service, mock_adapter
+):
+    """Verify that if adapter throws an engine error, PostgreSQL state remains unmodified."""
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    task_mapping = WorkflowTaskMappingRecord(
+        id=task_id,
+        workflow_instance_id=inst_id,
+        tenant_id="tenant-1",
+        engine_task_id="engine-task-fail-01",
+        task_definition_key="manager_review",
+        task_name="Manager Review",
+        assignee=None,
+        candidate_roles=["manager"],
+        status=WorkflowTaskStatus.PENDING.value,
+        action=None,
+        action_by=None,
+        action_at=None,
+        due_at=None,
+        variables={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    principal = AuthenticatedPrincipal(
+        principal_id="manager-alice",
+        principal_type=PrincipalType.HUMAN,
+        authentication_method=AuthenticationMethod.OIDC,
+        tenant_id="tenant-1",
+        roles=frozenset({"manager"}),
+    )
+
+    # Engine fails on claim
+    mock_adapter.claim_user_task.side_effect = WorkflowEngineConnectionError(
+        "Flowable cluster unreachable"
+    )
+
+    with (
+        patch("app.workflow.service.WorkflowTaskRepository") as mock_task_repo_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_repo_cls,
+    ):
+        mock_task_repo = AsyncMock()
+        mock_task_repo.get_by_id.return_value = task_mapping
+        mock_task_repo_cls.return_value = mock_task_repo
+        mock_audit_repo = AsyncMock()
+        mock_audit_repo_cls.return_value = mock_audit_repo
+
+        with pytest.raises(WorkflowEngineConnectionError, match="Flowable cluster unreachable"):
+            await workflow_service.perform_task_action(
+                tenant_id="tenant-1",
+                workflow_task_id=task_id,
+                action=WorkflowTaskAction.CLAIM,
+                principal=principal,
+            )
+
+        # Invariant: DB task mapping was NOT updated with assignee or action
+        assert task_mapping.assignee is None
+        assert task_mapping.action is None
+        # Invariant: No successful audit event logged
+        mock_audit_repo.append.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_perform_task_action_claim_then_complete_workflow_state_consistency(
+    workflow_service, mock_adapter
+):
+    """Verify consistency: task claimed by candidate, then completed with APPROVE action."""
+    task_id = uuid.uuid4()
+    inst_id = uuid.uuid4()
+    task_mapping = WorkflowTaskMappingRecord(
+        id=task_id,
+        workflow_instance_id=inst_id,
+        tenant_id="tenant-1",
+        engine_task_id="engine-task-lifecycle-01",
+        task_definition_key="manager_review",
+        task_name="Manager Review",
+        assignee=None,
+        candidate_roles=["manager"],
+        status=WorkflowTaskStatus.PENDING.value,
+        action=None,
+        action_by=None,
+        action_at=None,
+        due_at=None,
+        variables={},
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+    principal = AuthenticatedPrincipal(
+        principal_id="manager-alice",
+        principal_type=PrincipalType.HUMAN,
+        authentication_method=AuthenticationMethod.OIDC,
+        tenant_id="tenant-1",
+        roles=frozenset({"manager"}),
+    )
+
+    with (
+        patch("app.workflow.service.WorkflowTaskRepository") as mock_task_repo_cls,
+        patch("app.workflow.service.AuditRepository") as mock_audit_repo_cls,
+    ):
+        mock_task_repo = AsyncMock()
+        mock_task_repo.get_by_id.return_value = task_mapping
+        mock_task_repo_cls.return_value = mock_task_repo
+        mock_audit_repo = AsyncMock()
+        mock_audit_repo_cls.return_value = mock_audit_repo
+
+        # Step 1: Claim task
+        claim_resp = await workflow_service.perform_task_action(
+            tenant_id="tenant-1",
+            workflow_task_id=task_id,
+            action=WorkflowTaskAction.CLAIM,
+            principal=principal,
+        )
+        assert claim_resp.assignee == "manager-alice"
+        assert claim_resp.status == WorkflowTaskStatus.PENDING
+        mock_adapter.claim_user_task.assert_awaited_once()
+
+        # Step 2: Complete task as the assigned actor
+        with patch.object(workflow_service, "sync_instance_tasks", new=AsyncMock()):
+            complete_resp = await workflow_service.perform_task_action(
+                tenant_id="tenant-1",
+                workflow_task_id=task_id,
+                action=WorkflowTaskAction.APPROVE,
+                principal=principal,
+                variables={"approved": True},
+            )
+        assert complete_resp.status == WorkflowTaskStatus.COMPLETED
+        assert complete_resp.action == "APPROVE"
+        assert complete_resp.action_by == "manager-alice"
+        mock_adapter.complete_user_task.assert_awaited_once()
+

@@ -42,6 +42,7 @@ from app.workflow.schemas import (
     WorkflowTaskStatus,
 )
 from app.workflow.service import (
+    WorkflowAdapterOperationUnsupportedError,
     WorkflowInstanceNotFoundError,
 )
 
@@ -304,3 +305,27 @@ async def test_not_found_error_mapped_to_404(app, mock_service):
     assert resp.status_code == 404
     err_body = resp.json()["error"]
     assert err_body["code"] == "workflow.instance_not_found"
+
+
+@pytest.mark.asyncio
+async def test_task_action_unsupported_adapter_error(app, mock_service):
+    task_id = uuid.uuid4()
+    msg = (
+        "Workflow adapter 'DummyAdapter' does not implement 'claim_user_task' "
+        "required for action 'CLAIM'."
+    )
+    mock_service.perform_task_action.side_effect = WorkflowAdapterOperationUnsupportedError(msg)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post(
+            f"/api/v1/workflows/tasks/{task_id}/actions",
+            headers={"Idempotency-Key": "key-unsupported-1"},
+            json={
+                "action": "CLAIM",
+                "variables": {},
+            },
+        )
+    assert resp.status_code == 501
+    err_body = resp.json()["error"]
+    assert err_body["code"] == "workflow.action_unsupported"
+    assert "does not implement 'claim_user_task'" in err_body["message"]

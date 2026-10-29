@@ -123,15 +123,17 @@ The React 18 TypeScript frontend (`ui/operations-ui/`) was thoroughly verified a
     * Port 8180: Standards-compliant Keycloak OIDC Identity Provider emulator with dynamic discovery, RS256 JWKS asymmetric keys, interactive persona login, and PKCE token exchange.
     * Port 8088: Real FastAPI Operations Engine backend with RS256 JWT signature verification, fail-closed tenant scoping, and RBAC permissions.
     * Port 5173: Real Vite frontend dev server with live API client communication (zero `window.fetch` mocking).
-  * **Tests Executed:** **7 passed (100% pass rate, 15.8s)** across 5 complete user journeys:
-    1. **Planning Journey (`planning.spec.ts`):** Authenticates as authorized planner, opens dashboard, creates operational goal, generates WBS plan, reviews tasks, inspects critical path schedule analysis, verifies derived milestone health ("Preparation Milestone"), reloads and verifies plan details.
-    2. **Workflow Journey (`workflow.spec.ts`):** Authenticates as authorized approver, navigates to Approval Inbox (`/workflows/inbox`), claims human review task, submits task approval with comments, verifies updated `COMPLETED` state and SLA compliance badge.
-    3. **Scheduling Journey (`scheduling.spec.ts`):** Authenticates as authorized scheduler, triggers OR-Tools timetable generation, reviews conflict-free room and session assignments, publishes candidate timetable through confirmation dialog, verifies persisted `PUBLISHED` status.
-    4. **Monitoring Journey (`monitoring.spec.ts`):** Authenticates as auditor/admin, reviews operational analytics telemetry KPIs on `/analytics`, inspects immutable audit records on `/audit`, opens audit event modal, and verifies field redaction.
-    5. **Security & Contract Acceptance (`security.spec.ts`):**
-       - *Route Protection:* Unauthenticated access to protected routes (`/dashboard`, `/goals`, `/plans`, `/workflows/inbox`, `/schedules`, `/analytics`, `/audit`) strictly redirects to `/login`. Direct API calls return HTTP 401.
-       - *RBAC Boundaries:* Planner attempting to access the audit trail is denied with HTTP 403 / "Insufficient permissions to inspect audit trail".
-       - *Tenant Isolation & Session Lifecycle:* Verified tenant context (`tenant-pilot-001`) in account menu; session logout successfully terminates authentication and clears in-memory state; post-logout navigation to protected routes redirects to `/login`.
+  * **Test Suites & Journey Groups:** **7 tests passed (100% pass rate)** across **5 complete user journey groups**:
+    1. **Authentication & Session Lifecycle (`auth_real.spec.ts` — 3 tests):**
+       - Authenticates authorized planner via Keycloak Authorization Code Flow with PKCE.
+       - Enforces RBAC boundaries: planner persona is rejected with HTTP 403 when attempting to access compliance audit logs.
+       - Grants full compliance audit access to administrative auditor persona.
+    2. **Planning Journey (`planning_real.spec.ts` — 1 test):** Authenticates as authorized planner, opens dashboard, creates operational goal, generates WBS plan, reviews tasks, inspects critical path schedule analysis, verifies derived milestone health ("Preparation Milestone"), reloads and verifies plan details in PostgreSQL.
+    3. **Workflow Journey (`workflow_real.spec.ts` — 1 test):** Authenticates as authorized approver, navigates to Approval Inbox (`/workflows/inbox`), claims human review task via live Flowable engine claim API, submits task approval with comments, verifies updated `COMPLETED` state and SLA compliance badge, and confirms persistence in PostgreSQL.
+    4. **Scheduling Journey (`scheduling_real.spec.ts` — 1 test):** Authenticates as authorized scheduler, triggers OR-Tools timetable generation, solves via embedded solver worker, reviews conflict-free room and session assignments, publishes candidate timetable through confirmation dialog, verifies persisted `PUBLISHED` status in PostgreSQL.
+    5. **Monitoring & Governance Journey (`monitoring_real.spec.ts` — 1 test):** Authenticates as auditor/admin, reviews operational analytics telemetry KPIs on `/analytics`, inspects immutable audit records on `/audit`, opens audit event modal, verifies field redaction, and confirms PostgreSQL persistence.
+* **Frontend Contract & Smoke Acceptance (Playwright):**
+  * **Tests Executed:** **7 passed (100% pass rate)** in `ui/operations-ui/e2e/` against simulated API contract server.
 * **Vitest Component Test Suite:**
   * Tests Executed: **146 tests passed** across 19 test files (100% pass rate).
   * Covers: Navigation, Task Inbox, Plan Wizard, BPMN Designer, DMN Editor, SLA Monitoring, Dashboard Analytics, Error Boundaries.
@@ -204,8 +206,8 @@ All benchmarks were executed against actual performance test suites in `tests/pe
 | **Context Builder Benchmarks** | `pytest tests/performance/test_plan_generation_load.py -k test_context_builder_performance` | 1 | 1 | 1 | 0 | 0 | **PASSED** |
 | **Frontend Quality (Vitest)** | `npm test` in `ui/operations-ui` (Vitest) | 146 | 146 | 146 | 0 | 0 | **PASSED** |
 | **Frontend Contract & Smoke (Playwright)** | `npm --prefix ui/operations-ui run test:e2e` (Playwright) | 7 | 7 | 7 | 0 | 0 | **PASSED** |
-| **Real App Browser Acceptance (Playwright)** | `npm --prefix ui/operations-ui run test:e2e:real` (Playwright) | 5 | 5 | 5 | 0 | 0 | **PASSED** |
-| **TOTALS** | **All Verification Suites Combined** | **2,405** | **2,387** | **2,381** | **0** | **6** | **100% PASS RATE** |
+| **Real App Browser Acceptance (Playwright)** | `npm --prefix ui/operations-ui run test:e2e:real` (7 tests across 5 journey groups) | 7 | 7 | 7 | 0 | 0 | **PASSED** |
+| **TOTALS** | **All Verification Suites Combined** | **2,407** | **2,389** | **2,383** | **0** | **6** | **100% PASS RATE** |
 
 *Note on Skipped Tests (6 in Unit/Contract/Security):* Verified from actual test execution evidence:
 1. `tests/unit/test_alert_rules.py::test_promtool_rule_syntax_and_promql_eval`: Skipped because `promtool` binary is not installed in the CI runner environment.
@@ -267,10 +269,10 @@ During DQ-6 verification across disposable container infrastructure, five defect
    * *Defect:* Initial Playwright suite exercised a simulated FastAPI server in `test_server.py` with in-memory dictionaries rather than the actual `app.main:app` backend backed by PostgreSQL 16, Flowable 7.0.0, and RabbitMQ 3.13. Furthermore, frontend client called `/workflow/tasks/${taskId}/action` (singular), while the backend only registered `/tasks/{task_id}/actions` (plural).
    * *Fix:* Maintained simulated Playwright suite in `e2e/` as UI contract/smoke tests, and established a dedicated real-application browser acceptance suite in `e2e_real/` against `app.main:app`. Added `@router.post("/tasks/{task_id}/action", include_in_schema=False)` alias route in `app/api/v1/workflows.py` ensuring singular/plural route compatibility without OpenAPI contract drift. Created pure Keycloak OIDC emulator (`tests/e2e/browser/oidc_idp_server.py`), direct PostgreSQL persistence verification CLI (`scripts/verify_db_state.py`), and dedicated CI gate `real-application-browser-acceptance`.
 
-10. **Human Task Claiming Action and Flowable Assignment (`b71c9ef`, `8499308`):**
+10. **Human Task Claiming Action and Explicit Adapter Support (`b71c9ef`, `8499308`, and closure commit):**
     * *Requirement:* FR-WF-02 / PROD-BACKEND-ACCEPTANCE.
-    * *Defect:* During real browser acceptance, claiming a pending human task returned HTTP 403 `workflow.task_unauthorized` because `DefaultTaskEligibilityPolicy._allowed_actions` defaulted to `{"APPROVE", "REJECT", "COMPLETE"}` without `"CLAIM"` and `"UNCLAIM"`. Additionally, `WorkflowService.perform_task_action` treated all actions as completion on Flowable rather than task assignment, and variable redefinition in the task action handler triggered a Mypy `[no-redef]` failure.
-    * *Fix:* Added `"CLAIM"` and `"UNCLAIM"` to `DefaultTaskEligibilityPolicy._allowed_actions`. Added `claim_user_task` to `WorkflowAdapterProtocol` and `FlowableAdapter` to set the task assignee in Flowable REST without premature completion. Updated `WorkflowService.perform_task_action` to record task assignment in PostgreSQL, emit `workflow.task.claimed` audit events, and properly separate variable typings for static typecheck compliance.
+    * *Defect:* During real browser acceptance, claiming a pending human task returned HTTP 403 `workflow.task_unauthorized` because `DefaultTaskEligibilityPolicy._allowed_actions` defaulted to `{"APPROVE", "REJECT", "COMPLETE"}` without `"CLAIM"` and `"UNCLAIM"`. Additionally, initial claim implementation conditionally checked adapter support using `hasattr()`, which could silently update database state without updating the workflow engine if an adapter lacked claim support.
+    * *Fix:* Added `"CLAIM"` and `"UNCLAIM"` to `DefaultTaskEligibilityPolicy._allowed_actions`. Added `claim_user_task` to `WorkflowAdapterProtocol` and `FlowableAdapter` to set the task assignee in Flowable REST without premature completion. Updated `WorkflowService.perform_task_action` to explicitly fail with `WorkflowAdapterOperationUnsupportedError` if the configured adapter does not support `claim_user_task` or raises `NotImplementedError`, ensuring strict PostgreSQL/Flowable state consistency before database mutation. Added comprehensive regression tests covering successful claim, successful unclaim, unsupported adapter failure, unauthorized task claim, engine failure state preservation, and end-to-end claim-then-complete workflow consistency.
 
 ---
 

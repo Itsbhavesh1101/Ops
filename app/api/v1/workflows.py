@@ -40,6 +40,7 @@ from app.workflow.schemas import (
     WorkflowTaskResponse,
 )
 from app.workflow.service import (
+    WorkflowAdapterOperationUnsupportedError,
     WorkflowDefinitionNotFoundError,
     WorkflowInstanceNotFoundError,
     WorkflowService,
@@ -316,6 +317,12 @@ def create_workflow_router(
             raise ApiError(
                 status_code=409,
                 code="workflow.task_already_completed",
+                message=str(exc),
+            ) from exc
+        except WorkflowAdapterOperationUnsupportedError as exc:
+            raise ApiError(
+                status_code=501,
+                code="workflow.action_unsupported",
                 message=str(exc),
             ) from exc
 
