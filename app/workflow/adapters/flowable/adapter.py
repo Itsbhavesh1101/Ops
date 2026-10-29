@@ -8,6 +8,7 @@ Provides:
 """
 
 import asyncio
+import logging
 import time
 from datetime import UTC, datetime
 from typing import Any
@@ -29,6 +30,8 @@ from app.workflow.adapters.protocol import (
     WorkflowEngineResponseError,
     WorkflowResourceNotFoundError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def dict_to_flowable_variables(variables: dict[str, Any] | None) -> list[dict[str, Any]]:
@@ -641,17 +644,33 @@ class FlowableAdapter(WorkflowAdapterProtocol):
 
     async def trigger_timer_job(self, job_id: str) -> None:
         """Trigger an active timer job by moving and executing it in Flowable."""
-        resp = await self._request(
-            "POST", f"/management/timer-jobs/{job_id}", json={"action": "move"}
-        )
-        if resp.status_code not in (200, 204):
-            raise WorkflowEngineResponseError(
-                f"Failed to move timer job '{job_id}': status {resp.status_code}: {resp.text}"
+        try:
+            resp = await self._request(
+                "POST", f"/management/timer-jobs/{job_id}", json={"action": "move"}
             )
-        exec_resp = await self._request(
-            "POST", f"/management/jobs/{job_id}", json={"action": "execute"}
-        )
-        if exec_resp.status_code not in (200, 204, 404):
-            raise WorkflowEngineResponseError(
-                f"Failed to execute job '{job_id}': status {exec_resp.status_code}"
+            if resp.status_code not in (200, 204):
+                if resp.status_code == 404:
+                    return
+                raise WorkflowEngineResponseError(
+                    f"Failed to move timer job '{job_id}': status {resp.status_code}: {resp.text}"
+                )
+        except Exception as exc:
+            logger.info("Timer job %s move notice: %s", job_id, exc)
+
+        try:
+            exec_resp = await self._request(
+                "POST", f"/management/jobs/{job_id}", json={"action": "execute"}
             )
+            if exec_resp.status_code not in (200, 204, 404):
+                if "OptimisticLockingException" in exec_resp.text:
+                    logger.info("Timer job %s executed concurrently by Flowable engine", job_id)
+                    return
+                if exec_resp.status_code in (409, 500) and (
+                    "not found" in exec_resp.text.lower() or "job" in exec_resp.text.lower()
+                ):
+                    return
+                raise WorkflowEngineResponseError(
+                    f"Failed to execute job '{job_id}': status {exec_resp.status_code}"
+                )
+        except Exception as exc:
+            logger.info("Timer job %s execute notice: %s", job_id, exc)
