@@ -29,7 +29,7 @@ import os
 import shutil
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -148,24 +148,116 @@ def _safe_rel(path: Path) -> str:
     return str(path)
 
 
-def run_sbom_generation(output_dir: Path) -> dict[str, Any]:
-    """Generate CycloneDX 1.5 JSON SBOM using existing approved generator."""
-    from scripts.release.generate_sbom import generate_sbom
-
-    target_path = output_dir / "SBOM.cyclonedx.json"
-    sbom = generate_sbom(output_path=target_path)
-
-    components = sbom.get("components", [])
+def inspect_sbom_artifact(path: Path) -> dict[str, Any]:
+    """Read component counts and provenance from the generated CycloneDX artifact."""
+    try:
+        sbom = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"status": "FAIL", "error_code": "MALFORMED_OR_MISSING_SBOM"}
+    components = sbom.get("components")
+    if (
+        sbom.get("bomFormat") != "CycloneDX"
+        or sbom.get("specVersion") != "1.5"
+        or not isinstance(components, list)
+    ):
+        return {"status": "FAIL", "error_code": "INVALID_SBOM_SCHEMA"}
     required_count = sum(1 for c in components if c.get("scope") == "required")
     optional_count = sum(1 for c in components if c.get("scope") == "optional")
-
     return {
-        "sbom_file": _safe_rel(target_path),
-        "format": "CycloneDX 1.5 JSON",
+        "status": "PASS",
         "total_components": len(components),
         "runtime_required_components": required_count,
         "optional_dev_components": optional_count,
-        "status": "PASS",
+        "artifact_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+    }
+
+
+def run_sbom_generation(output_dir: Path) -> dict[str, Any]:
+    """Generate CycloneDX 1.5 JSON SBOM and inspect the written artifact."""
+    from scripts.release.generate_sbom import generate_sbom
+
+    target_path = output_dir / "SBOM.cyclonedx.json"
+    generate_sbom(output_path=target_path)
+    result = inspect_sbom_artifact(target_path)
+    result.update({"sbom_file": _safe_rel(target_path), "format": "CycloneDX 1.5 JSON"})
+    return result
+
+
+def validate_trivy_report(
+    report_path: Path,
+    *,
+    now: datetime | None = None,
+    max_age: timedelta = timedelta(hours=24),
+) -> dict[str, Any]:
+    """Validate Trivy JSON structure, freshness, digest, and blocking severities."""
+    if not report_path.is_file():
+        return {
+            "status": "BLOCKED",
+            "gated_passed": False,
+            "error_code": "MISSING_REPORT",
+        }
+    observed_at = now or datetime.now(UTC)
+    modified_at = datetime.fromtimestamp(report_path.stat().st_mtime, tz=UTC)
+    age_seconds = max(0.0, (observed_at - modified_at).total_seconds())
+    if age_seconds > max_age.total_seconds():
+        return {
+            "status": "FAIL",
+            "gated_passed": False,
+            "error_code": "STALE_REPORT",
+            "report_age_seconds": round(age_seconds, 3),
+        }
+    try:
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {
+            "status": "FAIL",
+            "gated_passed": False,
+            "error_code": "MALFORMED_REPORT",
+        }
+    results = report.get("Results") if isinstance(report, dict) else None
+    if (
+        not isinstance(report, dict)
+        or report.get("SchemaVersion") != 2
+        or not isinstance(results, list)
+    ):
+        return {
+            "status": "FAIL",
+            "gated_passed": False,
+            "error_code": "MALFORMED_REPORT",
+        }
+    vulnerabilities: list[dict[str, Any]] = []
+    for result in results:
+        if not isinstance(result, dict):
+            return {
+                "status": "FAIL",
+                "gated_passed": False,
+                "error_code": "MALFORMED_REPORT",
+            }
+        result_vulnerabilities = result.get("Vulnerabilities")
+        if result_vulnerabilities is None:
+            continue
+        if not isinstance(result_vulnerabilities, list) or not all(
+            isinstance(item, dict) for item in result_vulnerabilities
+        ):
+            return {
+                "status": "FAIL",
+                "gated_passed": False,
+                "error_code": "MALFORMED_REPORT",
+            }
+        vulnerabilities.extend(result_vulnerabilities)
+    unresolved_high = sum(1 for item in vulnerabilities if item.get("Severity") == "HIGH")
+    unresolved_critical = sum(
+        1 for item in vulnerabilities if item.get("Severity") == "CRITICAL"
+    )
+    passed = unresolved_high == 0 and unresolved_critical == 0
+    return {
+        "status": "PASS" if passed else "FAIL",
+        "gated_passed": passed,
+        "unresolved_high": unresolved_high,
+        "unresolved_critical": unresolved_critical,
+        "findings_count": len(vulnerabilities),
+        "report_age_seconds": round(age_seconds, 3),
+        "report_sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
     }
 
 
@@ -195,6 +287,7 @@ def run_secret_scanning() -> dict[str, Any]:
 def run_vulnerability_scan(
     max_severity: str = "HIGH",
     dry_run: bool = False,
+    report_path: Path | None = None,
 ) -> dict[str, Any]:
     """Execute Trivy vulnerability scanning if installed, or report dependency status."""
     trivy_bin = shutil.which("trivy")
@@ -222,28 +315,34 @@ def run_vulnerability_scan(
             "gated_passed": False,
         }
 
-    # If Trivy is installed, execute filesystem scan on repository
+    target_report = report_path or (
+        REPO_ROOT / "dist" / "verification" / "security" / "trivy-fs.json"
+    )
+    target_report.parent.mkdir(parents=True, exist_ok=True)
+
+    # If Trivy is installed, execute filesystem scan on repository.
     try:
         cmd = [
             trivy_bin,
             "fs",
             "--format",
             "json",
+            "--output",
+            str(target_report),
+            "--exit-code",
+            "0",
             "--severity",
             ",".join(SEVERITY_LEVELS[SEVERITY_LEVELS.index(max_severity):]),
             str(REPO_ROOT),
         ]
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        scan_data = json.loads(res.stdout)
-        results = scan_data.get("Results", [])
-        vuln_count = sum(len(r.get("Vulnerabilities", [])) for r in results)
+        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        validation = validate_trivy_report(target_report)
         return {
-            "status": "PASS" if vuln_count == 0 else "FAIL",
+            **validation,
             "tool": "trivy",
             "installed": True,
-            "findings_count": vuln_count,
             "max_severity_gate": max_severity,
-            "gated_passed": vuln_count == 0,
+            "report_file": _safe_rel(target_report),
         }
     except Exception as exc:
         return {
@@ -340,6 +439,7 @@ def build_production_release(
             container_ctx["status"] == "PASS"
             and sbom_info["status"] == "PASS"
             and secret_info["status"] == "PASS"
+            and vuln_info.get("gated_passed", False)
         )
         verdict = "DRY_RUN_PASSED" if diagnostic_passed else "RELEASE_GATED"
 

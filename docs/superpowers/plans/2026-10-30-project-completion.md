@@ -119,12 +119,12 @@
 - Consumes: Trivy filesystem/container reports, secret scan, SAST, SBOM and findings ledger.
 - Produces: release authorization input that is false when scanning is missing, stale, malformed, or contains unresolved critical/high findings.
 
-- [ ] Add failing tests for missing scanner, stale report, malformed report, and unresolved critical/high findings.
-- [ ] Implement fail-closed parsing and provenance checks.
-- [ ] Add pinned Trivy installation and scan steps to the full-verification workflow.
-- [ ] Generate CycloneDX SBOM and verify component counts from the artifact rather than prose.
-- [ ] Run release/security tests and dry-run packaging.
-- [ ] Commit as `security: enforce production supply-chain gates`.
+- [x] Add failing tests for missing scanner, stale report, malformed report, and unresolved critical/high findings.
+- [x] Implement fail-closed parsing and provenance checks.
+- [x] Add pinned Trivy installation and scan steps to the full-verification workflow.
+- [x] Generate CycloneDX SBOM and verify component counts from the artifact rather than prose.
+- [x] Run release/security tests and dry-run packaging.
+- [x] Commit as `security: enforce production supply-chain gates`.
 
 ### Task 6: Living status evidence and documentation reconciliation
 

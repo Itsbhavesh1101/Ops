@@ -161,7 +161,7 @@
       "id": "trivy-filesystem",
       "group": "security",
       "required": true,
-      "command": ["trivy", "fs", "--severity", "CRITICAL,HIGH", "--exit-code", "1", "."],
+      "command": ["trivy", "fs", "--format", "json", "--output", "dist/verification/security/trivy-fs.json", "--severity", "CRITICAL,HIGH", "--exit-code", "1", "."],
       "executables": ["trivy"],
       "timeout_seconds": 1800
     },

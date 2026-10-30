@@ -86,7 +86,7 @@ def test_run_vulnerability_scan_dry_run() -> None:
 
 
 def test_build_production_release_full_dry_run(tmp_path: Path) -> None:
-    """Verify full end-to-end packaging in dry-run mode produces DRY_RUN_PASSED."""
+    """Verify dry-run packaging remains gated when mandatory scanning is unavailable."""
     manifest = build_production_release(
         version="1.0.0-test",
         allow_uncommitted=True,
@@ -98,7 +98,12 @@ def test_build_production_release_full_dry_run(tmp_path: Path) -> None:
     assert manifest["release_version"] == "1.0.0-test"
     assert manifest["dry_run"] is True
     assert manifest["git"]["frozen_phase_8_rc"] == FROZEN_PHASE_8_RC
-    assert manifest["release_gate"]["verdict"] == "DRY_RUN_PASSED"
+    expected = (
+        "DRY_RUN_PASSED"
+        if manifest["vulnerability_scan"]["gated_passed"]
+        else "RELEASE_GATED"
+    )
+    assert manifest["release_gate"]["verdict"] == expected
     assert manifest["release_gate"]["authorized_for_release"] is False
     assert manifest["release_gate"]["checks"]["working_tree"] in (
         "PASS",
