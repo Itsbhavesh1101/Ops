@@ -1,5 +1,7 @@
 # E-7 Operations Engine — Canonical Documentation Index
 
+> **Current completion and release status:** [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md). The phase labels below index historical delivery baselines and do not authorize production release.
+
 **Document Version:** 1.0.0  
 **Phase:** Phase 8F Production Documentation, API Contracts & Operational Runbooks  
 **Repository:** `F:\operations-engine`  

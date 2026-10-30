@@ -1,5 +1,7 @@
 # IR Infotech E-7 Operations Engine — Complete Project Progress & Architecture Report
 
+> **Historical snapshot:** This report preserves phase-delivery evidence and does not represent the current release decision. The authoritative living status is [`docs/CURRENT_PROJECT_STATUS.md`](CURRENT_PROJECT_STATUS.md).
+
 **System Name:** IR Infotech E-7 Operations Engine  
 **Document Classification:** Authoritative Master Progress, Architectural Audit & State Ledger  
 **Current Baseline Commit:** `5722d1cdd8210942d4f63e41362cec66ccca2101` (Branch: `master`)  

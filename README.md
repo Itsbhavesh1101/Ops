@@ -2,6 +2,8 @@
 
 The **E-7 Operations Engine** is the enterprise orchestration layer designed to unify task intelligence, business workflows, and multi-resource constraint scheduling across institutional work, people, time, and processes.
 
+> **Living project status:** [`docs/CURRENT_PROJECT_STATUS.md`](docs/CURRENT_PROJECT_STATUS.md) is the only current completion and production-authorization summary. Phase reports are retained as historical evidence.
+
 ---
 
 ## Authoritative Documentation Location
@@ -47,13 +49,9 @@ All development must uphold the following core architectural invariants:
 
 ---
 
-## Current Implementation Phase
+## Current Implementation Status
 
-> **Current Status: Phase 0 (Repository Bootstrap & Source-of-Truth Governance)**
-
-### Mandatory Phase Gate Warning
-> [!WARNING]
-> **DO NOT SKIP PHASES.** Implementation must strictly follow the phased sequence established in the *Complete Implementation Plan*. Do not proceed to Phase 0B or Phase 1 until Phase 0A deliverables and governance gates have been formally validated and approved.
+Repository implementation and internal acceptance are in progress. This is not production authorization. Consult [`docs/CURRENT_PROJECT_STATUS.md`](docs/CURRENT_PROJECT_STATUS.md) for generated evidence, unresolved external gates, and the effective release decision.
 
 ---
 

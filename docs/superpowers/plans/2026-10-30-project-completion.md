@@ -141,12 +141,12 @@
 - Consumes: Task 2 report, release manifest, SBOM, Git SHA and requirement matrix.
 - Produces: one current-status document and synchronized generated metrics while preserving frozen historical evidence.
 
-- [ ] Add tests for stale phase labels, contradictory requirement counts, stale test totals, stale SBOM totals, and false release authorization.
-- [ ] Observe failures against current documents.
-- [ ] Implement deterministic status generation with an explicit generated section.
-- [ ] Update living documents to reference the generated status and distinguish internal acceptance from production authorization.
-- [ ] Run documentation-link, OpenAPI, and current-status tests.
-- [ ] Commit as `docs: synchronize current project completion evidence`.
+- [x] Add tests for stale phase labels, contradictory requirement counts, stale test totals, stale SBOM totals, and false release authorization.
+- [x] Observe failures against current documents.
+- [x] Implement deterministic status generation with an explicit generated section.
+- [x] Update living documents to reference the generated status and distinguish internal acceptance from production authorization.
+- [x] Run documentation-link, OpenAPI, and current-status tests.
+- [x] Commit as `docs: synchronize current project completion evidence`.
 
 ### Task 7: Execute complete internal verification and remediate findings
 

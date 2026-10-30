@@ -4,9 +4,9 @@
 **Document ID:** DOC-DQ6-CLOSURE-REPORT-001  
 **Project:** IR Infotech E-7 Operations Engine  
 **Review Phase:** DQ-6 Final Development Quality & Runtime Acceptance  
-**Status:** COMPLETE  
+**Status:** HISTORICAL INTERNAL VERIFICATION RECORD — SUPERSEDED
 **Date:** October 29, 2026  
-**Final Verdict:** `DQ6_REAL_APPLICATION_ACCEPTANCE_COMPLETE`  
+**Final Verdict:** `HISTORICAL_DQ6_ACCEPTANCE_RECORD` — not production authorization. Current evidence: [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md).
 
 ---
 
@@ -295,7 +295,7 @@ All 25 canonical functional requirements, all 4 live disposable infrastructure s
 
 ```
 ========================================================================================
-FINAL VERDICT: DQ6_REAL_APPLICATION_ACCEPTANCE_COMPLETE
+HISTORICAL VERDICT: DQ6 internal acceptance record; see `docs/CURRENT_PROJECT_STATUS.md` for current status.
 ========================================================================================
 ```
 
