@@ -1,5 +1,7 @@
 # E-7 Operations Engine — Final Release Gate Matrix (Stage 8)
 
+> **HISTORICAL GATE RECORD — CURRENT AUTHORIZATION REMAINS CLOSED.** The latest repository run passed all 19 required internal gates, while all four external probes remain `BLOCKED_PREREQUISITE`; enterprise recovery, institutional signatures, clean-clone verification, merge/tag, and release-authority approval are not evidenced. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md). `PRODUCTION_RELEASE_AUTHORIZED = FALSE`.
+
 **Document:** Authoritative Release Gate Verification Matrix & Production Gate Status  
 **System:** IR Infotech E-7 Operations Engine  
 **Project Phase:** Stage 8 (Final Release Readiness & Production Governance)  

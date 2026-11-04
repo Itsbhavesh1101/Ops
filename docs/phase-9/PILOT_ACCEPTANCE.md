@@ -1,5 +1,7 @@
 # Phase 9D — Final Pilot Review, Acceptance & Operational Report
 
+> **HISTORICAL RESTRICTED-PILOT ENGINEERING EVIDENCE.** The `PASS` and `ACCEPT` values below apply only to the recorded restricted engineering pilot; they are not current business-owner acceptance or production authorization. Named business approval, four external production probes, enterprise recovery certification, and release-authority approval remain open. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md). `PRODUCTION_RELEASE_AUTHORIZED = FALSE`.
+
 **Phase**: `9D`  
 **Review Status**: `PASS`  
 **Engineering Pilot Decision**: `ACCEPT`  

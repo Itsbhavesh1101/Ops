@@ -1,5 +1,7 @@
 # E-7 Operations Engine — Final Production Readiness Report (Stage 8)
 
+> **HISTORICAL READINESS ASSESSMENT — NOT A CURRENT RELEASE AUTHORIZATION.** Current evidence shows 19/19 required internal gates passing, 23/25 requirements fully evidenced, 2/25 externally dependent requirements partially evidenced, and 0/4 external production probes passing. Institutional recovery/UAT signatures and release governance remain open. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md). `PRODUCTION_RELEASE_AUTHORIZED = FALSE`.
+
 **Document:** Authoritative Production Readiness Verification & Release Governance Report  
 **System:** IR Infotech E-7 Operations Engine  
 **Project Phase:** Stage 8 (Final Production-Completion Stage)  

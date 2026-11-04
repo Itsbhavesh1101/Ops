@@ -1,5 +1,7 @@
 # Phase 8G: Formal User Acceptance Testing Sign-Off Certificate
 
+> **HISTORICAL ENGINEERING EVIDENCE — NOT INSTITUTIONAL SIGN-OFF.** This certificate records the 2026-10-11 internal engineering UAT only. Current verification has 52/52 role-UAT tests passing, but named institutional users have not signed the acceptance package. Four production boundary probes and enterprise recovery certification remain open. See [`docs/CURRENT_PROJECT_STATUS.md`](../../CURRENT_PROJECT_STATUS.md). `PRODUCTION_RELEASE_AUTHORIZED = FALSE`.
+
 ## 1. Executive Sign-Off Status
 
 | Field | Value |

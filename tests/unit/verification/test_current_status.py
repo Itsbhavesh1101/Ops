@@ -182,3 +182,19 @@ def test_living_documents_point_to_current_status_without_stale_phase_zero() -> 
     assert "../CURRENT_PROJECT_STATUS.md" in index
     assert "Current Status: Phase 0" not in readme
     assert "DQ6_REAL_APPLICATION_ACCEPTANCE_COMPLETE" not in dq6
+
+
+def test_release_and_signoff_documents_are_bounded_as_historical_evidence() -> None:
+    paths = (
+        REPO_ROOT / "docs" / "phase-8" / "uat" / "UAT_SIGNOFF.md",
+        REPO_ROOT / "docs" / "phase-9" / "PILOT_ACCEPTANCE.md",
+        REPO_ROOT / "docs" / "phase-9" / "ROLLOUT_DECISION.md",
+        REPO_ROOT / "docs" / "production" / "FINAL_RELEASE_GATE_MATRIX.md",
+        REPO_ROOT / "docs" / "production" / "FINAL_PRODUCTION_READINESS_REPORT.md",
+    )
+
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        assert "CURRENT_PROJECT_STATUS.md" in text, path
+        assert "HISTORICAL" in text, path
+        assert "PRODUCTION_RELEASE_AUTHORIZED = FALSE" in text, path
