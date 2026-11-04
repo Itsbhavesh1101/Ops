@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { loginAs, verifyDb } from "./helpers";
 
 test.describe("Real Application Scheduling Journey (Scheduler Persona)", () => {
-  test("submits CP-SAT solver job, reviews feasible timetable, publishes schedule, and verifies PostgreSQL persistence", async ({ page }) => {
+  test("submits CP-SAT solver job, reviews feasible timetable, publishes schedule, and verifies PostgreSQL persistence", async ({ page }, testInfo) => {
     // 1. Authenticate as authorized scheduler
     await loginAs(page, "scheduler");
 
@@ -16,6 +16,9 @@ test.describe("Real Application Scheduling Journey (Scheduler Persona)", () => {
     await expect(runSolverBtn).toBeVisible();
     await runSolverBtn.click();
 
+    const scheduleKey = `e2e-schedule-${testInfo.workerIndex}-${Date.now()}`;
+    await page.getByPlaceholder("e.g. sem1-finals-hall-alpha").fill(scheduleKey);
+
     const confirmSolveBtn = page.getByLabel("Run CP-SAT Solver");
     await expect(confirmSolveBtn).toBeVisible();
     await confirmSolveBtn.click();
@@ -23,20 +26,17 @@ test.describe("Real Application Scheduling Journey (Scheduler Persona)", () => {
     // 4. Verify solver completes to FEASIBLE
     await expect(page.getByText(/FEASIBLE/i).first()).toBeVisible({ timeout: 20000 });
 
-    // 5. Navigate to Schedules
-    await page.getByRole("link", { name: "Timetables & Schedules" }).click();
-    await page.waitForURL("**/schedules");
-    await expect(page.getByRole("heading", { name: "Timetables & Schedules" })).toBeVisible();
-
-    // 6. Open schedule detail
-    const viewScheduleBtn = page.getByRole("link", { name: /View Schedule/i }).first();
-    await expect(viewScheduleBtn).toBeVisible();
-    await viewScheduleBtn.click();
+    // 5. Open the timetable produced by this exact job. The schedule list can
+    // contain previously published acceptance schedules from earlier runs.
+    const openTimetableBtn = page.getByRole("link", { name: /Open Timetable/i });
+    await expect(openTimetableBtn).toBeVisible();
+    await openTimetableBtn.click();
 
     await page.waitForURL(/.*\/schedules\/.*/);
+    await expect(page.getByText(scheduleKey, { exact: false }).first()).toBeVisible();
     await expect(page.getByText(/Assignments|Timetable Matrix/i).first()).toBeVisible();
 
-    // 7. Publish schedule
+    // 6. Publish schedule
     const publishBtn = page.getByRole("button", { name: /Publish Schedule/i }).first();
     await expect(publishBtn).toBeVisible();
     await publishBtn.click();
@@ -49,7 +49,7 @@ test.describe("Real Application Scheduling Journey (Scheduler Persona)", () => {
 
     await expect(page.getByText(/PUBLISHED/i).first()).toBeVisible({ timeout: 15000 });
 
-    // 8. Direct PostgreSQL persistence verification
+    // 7. Direct PostgreSQL persistence verification
     const schedDb = verifyDb("verify-schedule", { status: "PUBLISHED" });
     expect(schedDb.success).toBe(true);
     expect(schedDb.count).toBeGreaterThanOrEqual(1);
