@@ -1,6 +1,6 @@
 # Phase 9 — Authoritative Rollout Decision
 
-> **HISTORICAL ENGINEERING DECISION RECORD.** Any internal acceptance below is bounded to its recorded engineering baseline and does not authorize current production rollout. Four external probes, institutional recovery/UAT signatures, clean-clone release verification, merge/tag approval, and canary authorization remain open. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md). `PRODUCTION_RELEASE_AUTHORIZED = FALSE`.
+> **HISTORICAL ENGINEERING DECISION RECORD.** Any internal acceptance below is bounded to its recorded engineering baseline and does not authorize current production rollout. Clean-clone release verification is complete; four external probes, institutional recovery/UAT signatures, independent review, merge/tag approval, and canary authorization remain open. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md). `PRODUCTION_RELEASE_AUTHORIZED = FALSE`.
 
 **Phase**: `9D (Final Milestone)`  
 **Date**: `2026-10-19`  

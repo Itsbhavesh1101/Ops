@@ -197,7 +197,7 @@
 
 - [ ] Execute enterprise multi-node recovery and certify measured RPO/RTO.
 - [ ] Execute role-based institutional UAT and obtain named, dated signatures.
-- [ ] Run final verification from a clean clone at the exact release commit.
+- [x] Run final verification from a clean clone at the exact release commit.
 - [ ] Request final code review and fix all critical/important findings with RED-GREEN tests.
 - [ ] Merge only after explicit authorization; tag the immutable release candidate.
 - [ ] Have the release authority set `PRODUCTION_RELEASE_AUTHORIZED = TRUE` only when every gate is evidenced.

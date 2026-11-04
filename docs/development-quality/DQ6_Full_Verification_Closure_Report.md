@@ -34,7 +34,7 @@ Artifact SHA-256 values from the completed run:
 - `dist/release/SBOM.cyclonedx.json`: `7844FBE113B33955D19AB0D9C5BB1D6182D62E33FA05498AD97591757F261459`
 - `dist/release/release_manifest.json`: `F55C7DC8EBF0EE6D7895292A64A6DB91B8CA79BC384C0C97CDEAFC1A09462F97`
 
-The four remaining production boundary gates are MySQL read-only ERP access, corporate OIDC, E-8 AMQPS topology, and production gateway/TLS/WAF. Their executable probes are implemented and currently report missing operator-supplied configuration as explicit prerequisite blocks. Institutional multi-node recovery evidence, named UAT signatures, final clean-clone verification, merge/tag authorization, and canary deployment also remain governance work. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md) for the living status.
+The four remaining production boundary gates are MySQL read-only ERP access, corporate OIDC, E-8 AMQPS topology, and production gateway/TLS/WAF. Their executable probes are implemented and currently report missing operator-supplied configuration as explicit prerequisite blocks. Final clean-clone verification is complete; institutional multi-node recovery evidence, named UAT signatures, independent review, merge/tag authorization, and canary deployment remain governance work. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md) for the living status.
 
 ---
 

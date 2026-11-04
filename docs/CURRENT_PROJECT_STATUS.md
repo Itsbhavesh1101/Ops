@@ -4,7 +4,7 @@ This is the single living status page. Phase reports and closure reports are his
 
 <!-- BEGIN GENERATED CURRENT STATUS -->
 
-Generated from repository evidence at `2026-11-04T11:12:26.738160+00:00` for Git `2f8bb5749be3177ac4152cbe5f6faaad1adc2ea3`.
+Generated from repository evidence at `2026-11-04T14:28:43.200398+00:00` for Git `be542d5739699fab1302508acd5bf32f206c35fc`.
 
 | Metric | Current evidence |
 |---|---:|
@@ -15,11 +15,11 @@ Generated from repository evidence at `2026-11-04T11:12:26.738160+00:00` for Git
 | Verification manifest status | PASS_WITH_OPTIONAL_BLOCKS |
 | Required verification gates | 19 / 19 passed |
 | External production gates | 0 / 4 passed |
-| Pytest passed | 2406 |
-| Pytest skipped | 23 |
+| Pytest passed | 2429 |
+| Pytest skipped | 5 |
 | CycloneDX components | 76 |
-| Release evidence provenance | UNCOMMITTED_DIAGNOSTIC |
-| Release manifest verdict | UNCOMMITTED_DIAGNOSTIC (DRY_RUN_PASSED) |
+| Release evidence provenance | CURRENT_GIT |
+| Release manifest verdict | DRY_RUN_PASSED |
 | Release manifest authorization claim | FALSE |
 | Effective production authorization | FALSE |
 
@@ -37,8 +37,8 @@ Production authorization is effective only when all 25 canonical requirements, e
 Evidence inputs:
 
 - Requirements: `F:/operations-engine/docs/REQUIREMENTS_TRACEABILITY_MATRIX.md`
-- Verification: `F:/operations-engine/dist/verification/full-verification.json`
-- Release manifest: `F:/operations-engine/dist/release/release_manifest.json`
-- CycloneDX SBOM: `F:/operations-engine/dist/release/SBOM.cyclonedx.json`
+- Verification: `dist/verification/clean-clone-final.json` in the clean release-candidate workspace (SHA-256 `37751AFFD206A01ABA90203476B9D2817A26BC4A9F54BD202B9ED0AF9F2DB8D8`)
+- Release manifest: `dist/release/release_manifest.json` in the same clean release-candidate workspace
+- CycloneDX SBOM: `dist/release/SBOM.cyclonedx.json` in the same clean release-candidate workspace
 
 <!-- END GENERATED CURRENT STATUS -->
