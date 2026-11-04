@@ -5,13 +5,16 @@ import json
 from pathlib import Path
 
 from scripts.verification.probe_common import run_bounded_probe, write_evidence_atomic
+from scripts.verification.verify_e8_broker import BLOCKER_ID as E8_BLOCKER_ID
 from scripts.verification.verify_e8_broker import evaluate_topology
 from scripts.verification.verify_gateway_ingress import evaluate_gateway
+from scripts.verification.verify_mysql_connection import BLOCKER_ID as MYSQL_BLOCKER_ID
 from scripts.verification.verify_mysql_connection import evaluate_grants
 from scripts.verification.verify_oidc_provider import evaluate_metadata
 
 
 def test_mysql_probe_requires_complete_select_only_grants() -> None:
+    assert MYSQL_BLOCKER_ID == "MYSQL_LIVE_READ_VERIFICATION"
     compliant = [
         "GRANT USAGE ON *.* TO `e7_ro_sync`@`%`",
         *[
@@ -51,6 +54,7 @@ def test_oidc_probe_validates_issuer_and_usable_jwks() -> None:
 
 
 def test_e8_probe_requires_secure_durable_idempotent_topology() -> None:
+    assert E8_BLOCKER_ID == "E8_NOTIFICATION_INTEGRATION"
     passing = evaluate_topology(
         scheme="amqps",
         exchange_type="topic",
@@ -104,7 +108,7 @@ def test_bounded_probe_suppresses_credential_bearing_exception_text() -> None:
 
     evidence = asyncio.run(
         run_bounded_probe(
-            "MYSQL_LIVE_READ_VERIFY",
+            "MYSQL_LIVE_READ_VERIFICATION",
             failing_probe(),
             timeout_seconds=1,
             secret_values=["live-production-secret"],
@@ -137,3 +141,22 @@ def test_external_manifest_gates_write_individual_evidence_files() -> None:
     assert all(gate["command"][1] == "-m" for gate in external)
     assert all("--output" in gate["command"] for gate in external)
     assert all(gate["required"] is False for gate in external)
+    assert all(gate.get("required_environment") for gate in external)
+
+
+def test_external_handover_commands_match_probe_cli_contracts() -> None:
+    paths = [
+        Path("docs/production/FINAL_EXTERNAL_DEPENDENCIES.md"),
+        *Path("docs/production/handover").glob("*.md"),
+    ]
+    documentation = "\n".join(path.read_text(encoding="utf-8") for path in paths)
+
+    for module in (
+        "verify_mysql_connection",
+        "verify_oidc_provider",
+        "verify_e8_broker",
+        "verify_gateway_ingress",
+    ):
+        assert f"python -m scripts.verification.{module} --output" in documentation
+    for unsupported_flag in ("--host", "--client-id", "--dsn", "--target-url"):
+        assert unsupported_flag not in documentation

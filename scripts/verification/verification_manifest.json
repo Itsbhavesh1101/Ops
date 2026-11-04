@@ -1,5 +1,44 @@
 {
   "schema_version": "1.0",
+  "requirements_evidence_groups": [
+    "static",
+    "backend",
+    "frontend",
+    "browser",
+    "recovery",
+    "uat",
+    "security",
+    "release"
+  ],
+  "requirements_verified_on_pass": [
+    "FR-TI-01",
+    "FR-TI-02",
+    "FR-TI-03",
+    "FR-TI-04",
+    "FR-TI-05",
+    "FR-TI-06",
+    "FR-TI-07",
+    "FR-TI-08",
+    "FR-TI-09",
+    "FR-WF-01",
+    "FR-WF-02",
+    "FR-WF-03",
+    "FR-WF-04",
+    "FR-WF-05",
+    "FR-WF-06",
+    "FR-WF-07",
+    "FR-SC-01",
+    "FR-SC-02",
+    "FR-SC-03",
+    "FR-SC-04",
+    "FR-SC-05",
+    "FR-SC-06",
+    "FR-INT-03"
+  ],
+  "requirements_partially_verified_on_pass": [
+    "FR-INT-01",
+    "FR-INT-02"
+  ],
   "gates": [
     {
       "id": "python-compile",
@@ -35,6 +74,16 @@
       "required": true,
       "command": ["{python}", "-m", "pytest", "tests/unit", "tests/contract", "tests/security", "tests/ai_eval", "tests/pilot", "-q", "--tb=short"],
       "executables": ["{python}"],
+      "unset_environment": [
+        "E7_RABBITMQ_URL",
+        "FLOWABLE_BASE_URL",
+        "FLOWABLE_MAX_RETRIES",
+        "FLOWABLE_PASSWORD",
+        "FLOWABLE_TIMEOUT_SECONDS",
+        "FLOWABLE_TOKEN",
+        "FLOWABLE_USER",
+        "FLOWABLE_USERNAME"
+      ],
       "timeout_seconds": 1800
     },
     {
@@ -44,7 +93,7 @@
       "command": ["{python}", "-m", "pytest", "tests/integration/postgres", "tests/integration/task_intelligence", "tests/integration/scheduling", "-q", "--tb=short"],
       "executables": ["{python}"],
       "services": [{"name": "postgresql", "host": "127.0.0.1", "port": 5432}],
-      "environment": {"E7_RUN_POSTGRES_INTEGRATION": "1", "E7_RUN_TASK_INTELLIGENCE_INTEGRATION": "1", "E7_RUN_SCHEDULING_INTEGRATION": "1"},
+      "environment": {"E7_RUN_POSTGRES_INTEGRATION": "1", "E7_RUN_TASK_INTELLIGENCE_INTEGRATION": "1", "E7_RUN_SCHEDULING_INTEGRATION": "1", "E7_POSTGRES_INTEGRATION_PORT": "5432", "POSTGRES_PORT": "5432"},
       "timeout_seconds": 1800
     },
     {
@@ -57,7 +106,7 @@
         {"name": "postgresql", "host": "127.0.0.1", "port": 5432},
         {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672}
       ],
-      "environment": {"E7_RUN_RABBITMQ_INTEGRATION": "1", "E7_RUN_WORKER_INTEGRATION": "1"},
+      "environment": {"E7_RUN_RABBITMQ_INTEGRATION": "1", "E7_RUN_WORKER_INTEGRATION": "1", "E7_POSTGRES_INTEGRATION_PORT": "5432", "POSTGRES_PORT": "5432", "RABBITMQ_PORT": "5672", "RABBITMQ_MANAGEMENT_PORT": "15672"},
       "timeout_seconds": 1800
     },
     {
@@ -71,7 +120,24 @@
         {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672},
         {"name": "flowable", "host": "127.0.0.1", "port": 8080}
       ],
-      "environment": {"E7_RUN_WORKFLOW_INTEGRATION": "1", "E7_RUN_PHASE6_E2E": "1", "E7_RUN_PHASE7_E2E": "1"},
+      "environment": {
+        "E7_RUN_WORKFLOW_INTEGRATION": "1",
+        "E7_RUN_PHASE6_E2E": "1",
+        "E7_RUN_PHASE7_E2E": "1",
+        "E7_DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "POSTGRES_HOST": "127.0.0.1",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "operations_engine",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "E7_POSTGRES_INTEGRATION_PORT": "5432",
+        "RABBITMQ_HOST": "127.0.0.1",
+        "RABBITMQ_PORT": "5672",
+        "FLOWABLE_BASE_URL": "http://127.0.0.1:8080/flowable-rest/service",
+        "FLOWABLE_USERNAME": "rest-admin",
+        "FLOWABLE_PASSWORD": "test"
+      },
       "timeout_seconds": 1800
     },
     {
@@ -125,6 +191,21 @@
         {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672},
         {"name": "flowable", "host": "127.0.0.1", "port": 8080}
       ],
+      "environment": {
+        "E7_REAL_API_PORT": "18000",
+        "E7_DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "POSTGRES_HOST": "127.0.0.1",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "operations_engine",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "RABBITMQ_HOST": "127.0.0.1",
+        "RABBITMQ_PORT": "5672",
+        "FLOWABLE_BASE_URL": "http://127.0.0.1:8080/flowable-rest/service",
+        "FLOWABLE_USERNAME": "rest-admin",
+        "FLOWABLE_PASSWORD": "test"
+      },
       "timeout_seconds": 1200
     },
     {
@@ -133,7 +214,22 @@
       "required": true,
       "command": ["{python}", "-m", "pytest", "tests/recovery", "-q", "--tb=short"],
       "executables": ["{python}", "docker"],
-      "environment": {"E7_RUN_RECOVERY": "1"},
+      "services": [
+        {"name": "postgresql", "host": "127.0.0.1", "port": 5432},
+        {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672}
+      ],
+      "environment": {
+        "E7_RUN_RECOVERY": "1",
+        "E7_DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "POSTGRES_HOST": "127.0.0.1",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "operations_engine",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "RABBITMQ_HOST": "127.0.0.1",
+        "RABBITMQ_PORT": "5672"
+      },
       "timeout_seconds": 3600
     },
     {
@@ -147,7 +243,21 @@
         {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672},
         {"name": "flowable", "host": "127.0.0.1", "port": 8080}
       ],
-      "environment": {"E7_RUN_UAT": "1"},
+      "environment": {
+        "E7_RUN_UAT": "1",
+        "E7_DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "POSTGRES_HOST": "127.0.0.1",
+        "POSTGRES_PORT": "5432",
+        "POSTGRES_DB": "operations_engine",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "RABBITMQ_HOST": "127.0.0.1",
+        "RABBITMQ_PORT": "5672",
+        "FLOWABLE_BASE_URL": "http://127.0.0.1:8080/flowable-rest/service",
+        "FLOWABLE_USERNAME": "rest-admin",
+        "FLOWABLE_PASSWORD": "test"
+      },
       "timeout_seconds": 1800
     },
     {
@@ -161,8 +271,8 @@
       "id": "trivy-filesystem",
       "group": "security",
       "required": true,
-      "command": ["trivy", "fs", "--format", "json", "--output", "dist/verification/security/trivy-fs.json", "--severity", "CRITICAL,HIGH", "--exit-code", "1", "."],
-      "executables": ["trivy"],
+      "command": ["{python}", "scripts/verification/run_trivy_scan.py", "--output", "dist/verification/security/trivy-fs.json"],
+      "executables": ["{python}", "trivy"],
       "timeout_seconds": 1800
     },
     {
@@ -178,28 +288,32 @@
       "group": "external",
       "required": false,
       "command": ["{python}", "-m", "scripts.verification.verify_mysql_connection", "--output", "dist/verification/external/mysql.json"],
-      "executables": ["{python}"]
+      "executables": ["{python}"],
+      "required_environment": ["E7_MYSQL_HOST", "E7_MYSQL_USER", "E7_MYSQL_PASSWORD"]
     },
     {
       "id": "external-oidc",
       "group": "external",
       "required": false,
       "command": ["{python}", "-m", "scripts.verification.verify_oidc_provider", "--output", "dist/verification/external/oidc.json"],
-      "executables": ["{python}"]
+      "executables": ["{python}"],
+      "required_environment": ["E7_OIDC_ISSUER"]
     },
     {
       "id": "external-e8",
       "group": "external",
       "required": false,
       "command": ["{python}", "-m", "scripts.verification.verify_e8_broker", "--output", "dist/verification/external/e8.json"],
-      "executables": ["{python}"]
+      "executables": ["{python}"],
+      "required_environment": ["E7_E8_AMQP_URL", "E7_E8_IDEMPOTENCY_HEADER"]
     },
     {
       "id": "external-gateway",
       "group": "external",
       "required": false,
       "command": ["{python}", "-m", "scripts.verification.verify_gateway_ingress", "--output", "dist/verification/external/gateway.json"],
-      "executables": ["{python}"]
+      "executables": ["{python}"],
+      "required_environment": ["E7_PRODUCTION_GATEWAY_URL"]
     }
   ]
 }

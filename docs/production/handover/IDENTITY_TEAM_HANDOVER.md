@@ -175,3 +175,13 @@ Prior to live enterprise deployment, Corporate IT and Security Architecture must
 5. **Configuration-Backed Human User Provisioning:** Interactive human users are mapped via server-controlled JSON configuration (`E7_OIDC_USER_MAPPINGS_JSON`) rather than an internal persistent PostgreSQL user management table. Dynamic user creation or modification requires updating configuration and restarting/reloading the application.
 6. **Revocation Semantics & Operational Procedures:** Revoking user access currently requires disabling the user in Google Workspace (preventing new token issuance) and removing the user entry from `E7_OIDC_USER_MAPPINGS_JSON`. Immediate mid-session invalidation of issued tokens requires implementing a distributed token-denylist cache.
 
+## 10. Executable Closure Evidence
+
+Set `E7_OIDC_ISSUER` to the provisioned corporate issuer and run:
+
+```bash
+python -m scripts.verification.verify_oidc_provider --output dist/verification/external/oidc.json
+```
+
+The report must be `PASS` for issuer equality, HTTPS authorization/token/JWKS endpoints, and at least one usable RSA signing key. This probe does not replace the required corporate-client registration, hosted-domain login, unmapped-user rejection, logout/revocation checks, or named IAM sign-off.
+

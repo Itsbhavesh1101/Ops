@@ -24,9 +24,15 @@ def _write_inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
                 "generated_at": "2026-10-30T00:00:00+00:00",
                 "metrics": {"pytest_passed": 123, "pytest_skipped": 7},
                 "requirements_verified": ["FR-TI-01"],
+                "requirements_partially_verified": ["FR-INT-01"],
                 "gates": [
                     {"id": "backend-core", "required": True, "status": "PASS"},
-                    {"id": "external-e8", "required": False, "status": "FAIL"},
+                    {
+                        "id": "external-e8",
+                        "required": False,
+                        "status": "BLOCKED_PREREQUISITE",
+                        "reason": "Missing environment setting(s): E7_E8_AMQP_URL",
+                    },
                 ],
             }
         ),
@@ -73,6 +79,7 @@ def test_status_uses_current_evidence_metrics_not_stale_document_totals(tmp_path
 
     assert "Canonical requirements | 2" in status
     assert "Verified requirements | 1 / 2" in status
+    assert "Partially verified requirements | 1 / 2" in status
     assert "Pytest passed | 123" in status
     assert "Pytest skipped | 7" in status
     assert "CycloneDX components | 3" in status
@@ -80,7 +87,7 @@ def test_status_uses_current_evidence_metrics_not_stale_document_totals(tmp_path
     assert "2,407" not in status
 
 
-def test_status_refuses_false_release_authorization_when_completion_gates_fail(
+def test_status_refuses_false_release_authorization_when_external_gates_fail(
     tmp_path: Path,
 ) -> None:
     matrix, verification, release, sbom = _write_inputs(tmp_path)
@@ -99,7 +106,12 @@ def test_status_refuses_false_release_authorization_when_completion_gates_fail(
     assert "Release manifest verdict | STALE_EVIDENCE (RELEASE_READY)" in status
     assert "Effective production authorization | FALSE" in status
     assert "External production gates | 0 / 1 passed" in status
-    assert "Repository implementation status | INTERNAL_ACCEPTANCE_IN_PROGRESS" in status
+    assert "external-e8 | BLOCKED_PREREQUISITE" in status
+    assert "Missing environment setting(s): E7_E8_AMQP_URL" in status
+    assert (
+        "Repository implementation status | INTERNAL_ACCEPTANCE_COMPLETE_EXTERNAL_BLOCKED"
+        in status
+    )
 
 
 def test_status_is_deterministic_for_identical_inputs(tmp_path: Path) -> None:
@@ -114,6 +126,38 @@ def test_status_is_deterministic_for_identical_inputs(tmp_path: Path) -> None:
     }
 
     assert build_current_status(**arguments) == build_current_status(**arguments)
+
+
+def test_status_marks_matching_dirty_release_as_diagnostic_only(tmp_path: Path) -> None:
+    matrix, verification, release, sbom = _write_inputs(tmp_path)
+    release.write_text(
+        json.dumps(
+            {
+                "git": {
+                    "head_commit": "abc123",
+                    "working_tree_acknowledged": True,
+                },
+                "release_gate": {
+                    "verdict": "DRY_RUN_PASSED",
+                    "authorized_for_release": False,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status = build_current_status(
+        requirement_matrix=matrix,
+        verification_report=verification,
+        release_manifest=release,
+        sbom_path=sbom,
+        git_sha="abc123",
+        generated_at=datetime(2026, 10, 30, tzinfo=UTC),
+    )
+
+    assert "Release evidence provenance | UNCOMMITTED_DIAGNOSTIC" in status
+    assert "Release manifest verdict | UNCOMMITTED_DIAGNOSTIC (DRY_RUN_PASSED)" in status
+    assert "Effective production authorization | FALSE" in status
 
 
 def test_living_documents_point_to_current_status_without_stale_phase_zero() -> None:

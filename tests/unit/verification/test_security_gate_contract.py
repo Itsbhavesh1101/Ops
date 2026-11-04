@@ -8,9 +8,11 @@ from pathlib import Path
 import yaml
 
 from scripts.release.build_production_release import (
+    TRIVY_SKIP_DIRS,
     inspect_sbom_artifact,
     validate_trivy_report,
 )
+from scripts.verification.run_trivy_scan import build_command
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -168,6 +170,42 @@ def test_full_verification_installs_pinned_trivy_and_runs_security_groups() -> N
     )
 
     assert install["uses"] == "aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241"
-    assert install["with"]["version"] == "v0.68.2"
+    assert install["with"]["version"] == "v0.76.1"
     assert "--group security" in run_step["run"]
     assert "--group release" in run_step["run"]
+
+
+def test_manifest_trivy_scan_excludes_generated_dependency_trees() -> None:
+    manifest = json.loads(
+        (REPO_ROOT / "scripts" / "verification" / "verification_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    manifest_command = next(
+        gate["command"] for gate in manifest["gates"] if gate["id"] == "trivy-filesystem"
+    )
+    assert manifest_command[1] == "scripts/verification/run_trivy_scan.py"
+
+    command = build_command("trivy", Path("scan.json"))
+    assert command[command.index("--scanners") + 1] == "vuln"
+
+    skip_dirs = [
+        command[index + 1]
+        for index, token in enumerate(command[:-1])
+        if token == "--skip-dirs"
+    ]
+    expected_skips = {
+        ".git",
+        ".cache",
+        ".venv",
+        "ui/operations-ui/node_modules",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        "scratch",
+        "screenshots",
+        "ui/operations-ui/test-results",
+        "ui/operations-ui/playwright-report",
+    }
+    assert expected_skips <= set(skip_dirs)
+    assert expected_skips <= set(TRIVY_SKIP_DIRS)

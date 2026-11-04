@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import socket
 import sys
 from pathlib import Path
@@ -82,6 +83,37 @@ def test_runner_resolves_platform_launcher_before_execution(
     assert resolved == [launcher, "run", "test"]
 
 
+def test_runner_unsets_parent_environment_for_isolation_sensitive_gate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("E7_TEST_PARENT_SECRET", "must-not-leak")
+    manifest = tmp_path / "manifest.json"
+    _write_manifest(
+        manifest,
+        [
+            {
+                "id": "isolated",
+                "group": "unit",
+                "required": True,
+                "command": [
+                    sys.executable,
+                    "-c",
+                    (
+                        "import os; "
+                        "raise SystemExit(0 if 'E7_TEST_PARENT_SECRET' not in os.environ else 9)"
+                    ),
+                ],
+                "unset_environment": ["E7_TEST_PARENT_SECRET"],
+            }
+        ],
+    )
+
+    report, exit_code = run_manifest(manifest)
+
+    assert exit_code == 0
+    assert report["gates"][0]["status"] == "PASS"
+
+
 def test_runner_fails_when_required_executable_is_missing(tmp_path: Path) -> None:
     manifest = tmp_path / "manifest.json"
     _write_manifest(
@@ -124,6 +156,33 @@ def test_runner_keeps_optional_block_visible_without_failing(tmp_path: Path) -> 
     assert exit_code == 0
     assert report["overall_status"] == "PASS_WITH_OPTIONAL_BLOCKS"
     assert report["gates"][0]["status"] == "BLOCKED_PREREQUISITE"
+
+
+def test_runner_reports_missing_environment_as_blocked_prerequisite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("E7_REQUIRED_EXTERNAL_SETTING", raising=False)
+    manifest = tmp_path / "manifest.json"
+    _write_manifest(
+        manifest,
+        [
+            {
+                "id": "external-boundary",
+                "group": "external",
+                "required": False,
+                "command": [sys.executable, "-c", "raise SystemExit(99)"],
+                "required_environment": ["E7_REQUIRED_EXTERNAL_SETTING"],
+            }
+        ],
+    )
+
+    report, exit_code = run_manifest(manifest)
+
+    assert exit_code == 0
+    assert report["overall_status"] == "PASS_WITH_OPTIONAL_BLOCKS"
+    gate = report["gates"][0]
+    assert gate["status"] == "BLOCKED_PREREQUISITE"
+    assert gate["reason"] == "Missing environment setting(s): E7_REQUIRED_EXTERNAL_SETTING"
 
 
 def test_runner_keeps_optional_failure_visible_without_failing(tmp_path: Path) -> None:
@@ -229,6 +288,44 @@ def test_runner_filters_groups_without_hiding_requested_gate_results(tmp_path: P
     assert [gate["id"] for gate in report["gates"]] == ["selected"]
 
 
+def test_runner_aggregates_pytest_metrics_and_requirement_evidence(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0",
+                "requirements_evidence_groups": ["backend"],
+                "requirements_verified_on_pass": ["FR-TI-01"],
+                "requirements_partially_verified_on_pass": ["FR-INT-01"],
+                "gates": [
+                    {
+                        "id": "backend-tests",
+                        "group": "backend",
+                        "required": True,
+                        "command": [
+                            sys.executable,
+                            "-c",
+                            "print('12 passed, 3 skipped in 1.00s')",
+                            "pytest",
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report, exit_code = run_manifest(manifest, groups={"backend"})
+
+    assert exit_code == 0
+    assert report["metrics"]["pytest_passed"] == 12
+    assert report["metrics"]["pytest_skipped"] == 3
+    assert report["metrics"]["required_gates_passed"] == 1
+    assert report["metrics"]["required_gates_total"] == 1
+    assert report["requirements_verified"] == ["FR-TI-01"]
+    assert report["requirements_partially_verified"] == ["FR-INT-01"]
+
+
 def test_repository_manifest_defines_every_completion_gate_group() -> None:
     manifest_path = REPO_ROOT / "scripts" / "verification" / "verification_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -246,6 +343,15 @@ def test_repository_manifest_defines_every_completion_gate_group() -> None:
         "uat",
     }
     assert all(isinstance(gate["command"], list) and gate["command"] for gate in manifest["gates"])
+
+    matrix_text = (REPO_ROOT / "docs" / "REQUIREMENTS_TRACEABILITY_MATRIX.md").read_text(
+        encoding="utf-8"
+    )
+    canonical_requirements = set(re.findall(r"^### (FR-[A-Z]+-\d+):", matrix_text, re.MULTILINE))
+    fully_verified = set(manifest["requirements_verified_on_pass"])
+    partially_verified = set(manifest["requirements_partially_verified_on_pass"])
+    assert fully_verified.isdisjoint(partially_verified)
+    assert fully_verified | partially_verified == canonical_requirements
 
 
 def test_repository_manifest_runs_every_frontend_quality_command() -> None:

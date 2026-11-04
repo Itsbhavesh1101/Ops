@@ -3,7 +3,7 @@
 Restores a logical pg_dump backup into a designated disposable target database.
 Adheres to Section 5, 8, 9, 33 rules:
 - Prohibits accidental overwrite of primary development database.
-- Verifies Alembic schema version (0013) and 25 application tables.
+- Verifies the current Alembic schema head and mapped application tables.
 - Verifies entity invariants, row counts, and tenant isolation.
 - Measures restore duration and verification duration.
 """
@@ -15,6 +15,18 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from alembic.config import Config  # noqa: E402
+from alembic.script import ScriptDirectory  # noqa: E402
+
+import app.db.models  # noqa: E402,F401
+from app.db.base import Base, DurableIntegrationBase  # noqa: E402
+
+ALEMBIC_INI = REPO_ROOT / "alembic.ini"
 
 
 def restore_and_verify(
@@ -213,8 +225,11 @@ def restore_and_verify(
             check=False,
         )
 
-    alembic_valid = alembic_rev in ("0013", "0014")
-    tables_valid = app_tables_count in (25, 26)
+    alembic_cfg = Config(str(ALEMBIC_INI))
+    expected_head = ScriptDirectory.from_config(alembic_cfg).get_current_head()
+    expected_tables = set(Base.metadata.tables) | set(DurableIntegrationBase.metadata.tables)
+    alembic_valid = expected_head is not None and alembic_rev == expected_head
+    tables_valid = app_tables_count == len(expected_tables)
     key_tables_valid = all(count >= 0 for count in row_counts.values())
     verification_pass = alembic_valid and tables_valid and key_tables_valid
 
@@ -224,8 +239,10 @@ def restore_and_verify(
         "restore_duration_seconds": round(restore_duration, 3),
         "verification_duration_seconds": round(verify_duration, 3),
         "alembic_head": alembic_rev,
+        "expected_alembic_head": expected_head,
         "alembic_verified": alembic_valid,
         "application_tables_count": app_tables_count,
+        "expected_application_tables_count": len(expected_tables),
         "tables_verified": tables_valid,
         "distinct_tenants_verified": distinct_tenants_count,
         "row_counts": row_counts,

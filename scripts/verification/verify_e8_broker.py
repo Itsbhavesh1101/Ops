@@ -13,6 +13,8 @@ import aio_pika
 
 from scripts.verification.probe_common import finish_cli, run_bounded_probe
 
+BLOCKER_ID = "E8_NOTIFICATION_INTEGRATION"
+
 
 def evaluate_topology(
     *,
@@ -77,7 +79,7 @@ def main(argv: list[str] | None = None) -> int:
     broker_url = os.environ.get("E7_E8_AMQP_URL", "")
     payload = asyncio.run(
         run_bounded_probe(
-            "E8_NOTIFICATION_INTEG",
+            BLOCKER_ID,
             probe_e8(),
             timeout_seconds=args.timeout,
             secret_values=[broker_url],

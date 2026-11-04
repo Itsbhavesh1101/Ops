@@ -1,7 +1,7 @@
 """PostgreSQL Recovery & Disaster Recovery Tests.
 
 Validates:
-1. Logical backup & restore into isolated disposable DB (Alembic 0013, 25 tables, tenant check).
+1. Logical backup & restore into an isolated disposable DB at the repository schema head.
 2. Physical Point-In-Time Recovery (PITR) with continuous WAL archiving on disposable container.
 3. DatabaseManager connection pool recovery via pool_pre_ping without pool poisoning.
 4. Database + Outbox atomicity ensuring zero partial-state commit on error.
@@ -42,8 +42,11 @@ async def test_logical_backup_and_restore_drill(tmp_path: Path) -> None:
         dump_path=dump_file, target_database="e7_recovery_drill_disposable"
     )
     assert restore_result["status"] == "PASS"
-    assert restore_result["alembic_head"] in ("0013", "0014")
-    assert restore_result["application_tables_count"] in (25, 26)
+    assert restore_result["alembic_head"] == restore_result["expected_alembic_head"]
+    assert (
+        restore_result["application_tables_count"]
+        == restore_result["expected_application_tables_count"]
+    )
     assert restore_result["alembic_verified"] is True
     assert restore_result["tables_verified"] is True
     assert "inbox_messages" in restore_result["row_counts"]

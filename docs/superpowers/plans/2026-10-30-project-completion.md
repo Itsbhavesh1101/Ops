@@ -158,11 +158,11 @@
 - Consumes: Tasks 1-6 and fully provisioned local/CI infrastructure.
 - Produces: a fresh full verification report with zero unexplained failures and exact skipped/blocked accounting.
 
-- [ ] Run every manifest group with PostgreSQL, RabbitMQ, Flowable, browser and recovery prerequisites available.
-- [ ] For each product failure, use systematic debugging and add a failing regression test before fixing.
-- [ ] Rerun all groups until zero product failures remain.
-- [ ] Record exact pass/skip/block counts and artifact hashes.
-- [ ] Commit as `test: close full internal verification findings`.
+- [x] Run every manifest group with PostgreSQL, RabbitMQ, Flowable, browser and recovery prerequisites available.
+- [x] For each product failure, use systematic debugging and add a failing regression test before fixing.
+- [x] Rerun all groups until zero product failures remain.
+- [x] Record exact pass/skip/block counts and artifact hashes.
+- [x] Commit as `test: close full internal verification findings`.
 
 ### Task 8: Resolve external production blockers
 

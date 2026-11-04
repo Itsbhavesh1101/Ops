@@ -207,3 +207,13 @@ The following parameters require formal institutional determination by the Enter
 * [ ] Enterprise SIEM log destination (Datadog, Splunk, Elastic, or CloudWatch).
 * [ ] Production Alertmanager routing destinations (PagerDuty escalation policies, Slack channels).
 * [ ] Cloud hosting region and secondary disaster recovery region.
+
+## 9. Executable Gateway Closure Evidence
+
+Set `E7_PRODUCTION_GATEWAY_URL` to the provisioned HTTPS ingress; optionally set the health path, HTTP timeout, and bounded burst count. Run:
+
+```bash
+python -m scripts.verification.verify_gateway_ingress --output dist/verification/external/gateway.json
+```
+
+The report must be `PASS` for HTTPS/TLS 1.3, required security headers, observable rate limiting, WAF rejection, and absence of 5xx responses during the bounded probe. SRE must review and sign the redacted report together with DNS, certificate, WAF/rate-limit configuration, rollback, and monitoring evidence.

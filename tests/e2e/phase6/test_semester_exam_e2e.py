@@ -205,7 +205,11 @@ async def test_live_semester_exam_vertical_slice(
         await uow.session.execute(
             update(OutboxEventRecord)
             .where(OutboxEventRecord.published_at.is_(None))
-            .values(published_at=datetime.now(UTC))
+            .values(
+                published_at=datetime.now(UTC),
+                claimed_at=None,
+                claim_token=None,
+            )
         )
         await uow.commit()
 

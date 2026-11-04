@@ -1,10 +1,12 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, logout } from "./helpers";
 
+const apiOrigin = `http://127.0.0.1:${process.env.E7_REAL_API_PORT || "8000"}`;
+
 test.describe("Real Backend Authentication & Authorization Gates", () => {
   test("authenticates via Keycloak OIDC, validates RS256 JWT signature, and enforces tenant scoping", async ({ page, request }) => {
     // 1. Direct unauthenticated request to actual FastAPI backend must fail closed (HTTP 401)
-    const unauthMe = await request.get("http://127.0.0.1:8000/api/v1/auth/me");
+    const unauthMe = await request.get(`${apiOrigin}/api/v1/auth/me`);
     expect(unauthMe.status()).toBe(401);
 
     // 2. Authenticate planner through real browser PKCE redirect flow

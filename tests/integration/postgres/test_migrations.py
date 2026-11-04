@@ -17,11 +17,12 @@ import asyncpg
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 import app.db.models  # noqa: F401
-from app.db.base import Base
+from app.db.base import Base, DurableIntegrationBase
 from tests.integration.postgres.conftest import (
     ADMIN_PG_URL,
     ALEMBIC_INI,
@@ -73,22 +74,9 @@ async def test_migration_chain_and_empty_database_upgrade() -> None:
             rows = await conn.fetch(table_query)
             tables = {r["table_name"] for r in rows}
 
-            expected_app_tables = {
-                "audit_events",
-                "outbox_events",
-                "inbox_messages",
-                "idempotency_records",
-                "jobs",
-                "goals",
-                "plans",
-                "milestones",
-                "tasks",
-                "task_dependencies",
-                "task_risks",
-                "workflow_definitions",
-                "workflow_instances",
-                "workflow_task_mappings",
-            }
+            expected_app_tables = set(Base.metadata.tables) | set(
+                DurableIntegrationBase.metadata.tables
+            )
             assert expected_app_tables.issubset(tables), (
                 f"Missing application tables: {expected_app_tables - tables}"
             )
@@ -98,9 +86,15 @@ async def test_migration_chain_and_empty_database_upgrade() -> None:
                 f"Unexpected tables found in public schema: {unexpected}"
             )
 
-            # 4. Verify current Alembic revision is exactly '0009'
+            # 4. Verify current Alembic revision matches the repository head.
+            script = ScriptDirectory.from_config(alembic_cfg)
+            expected_head = script.get_current_head()
+            assert expected_head is not None
+            head_revision = script.get_revision(expected_head)
+            previous_revision = head_revision.down_revision
+            assert isinstance(previous_revision, str)
             rev = await conn.fetchval("SELECT version_num FROM alembic_version;")
-            assert rev == "0009", f"Expected revision 0009, got {rev}"
+            assert rev == expected_head, f"Expected revision {expected_head}, got {rev}"
         finally:
             await conn.close()
 
@@ -109,55 +103,35 @@ async def test_migration_chain_and_empty_database_upgrade() -> None:
         conn = await asyncpg.connect(mig_pg_url)
         try:
             rev_after = await conn.fetchval("SELECT version_num FROM alembic_version;")
-            assert rev_after == "0009", f"Head reapplication changed revision: {rev_after}"
+            assert rev_after == expected_head, f"Head reapplication changed revision: {rev_after}"
             rows_after = await conn.fetch(table_query)
             tables_after = {r["table_name"] for r in rows_after}
             assert tables_after == tables, "Head reapplication modified tables"
         finally:
             await conn.close()
 
-        # 6. Verify isolated downgrade 0009 -> 0008
-        await asyncio.to_thread(command.downgrade, alembic_cfg, "0008")
+        # 6. Verify an isolated one-revision downgrade removes the head migration.
+        await asyncio.to_thread(command.downgrade, alembic_cfg, previous_revision)
         conn = await asyncpg.connect(mig_pg_url)
         try:
-            rev_0008 = await conn.fetchval("SELECT version_num FROM alembic_version;")
-            assert rev_0008 == "0008", f"Expected revision 0008 after downgrade, got {rev_0008}"
-            rows_0008 = await conn.fetch(table_query)
-            tables_0008 = {r["table_name"] for r in rows_0008}
-            workflow_tables = {
-                "workflow_definitions",
-                "workflow_instances",
-                "workflow_task_mappings",
-            }
-            assert not (tables_0008 & workflow_tables), (
-                "Workflow tables must be removed at revision 0008"
+            downgraded_revision = await conn.fetchval(
+                "SELECT version_num FROM alembic_version;"
             )
-            phase1_and_2_tables = {
-                "audit_events",
-                "outbox_events",
-                "inbox_messages",
-                "idempotency_records",
-                "jobs",
-                "goals",
-                "plans",
-                "milestones",
-                "tasks",
-                "task_dependencies",
-                "task_risks",
-            }
-            assert phase1_and_2_tables.issubset(tables_0008), (
-                "Phase 1 and 2 canonical tables must remain intact at revision 0008"
-            )
+            assert downgraded_revision == previous_revision
+            downgraded_rows = await conn.fetch(table_query)
+            downgraded_tables = {r["table_name"] for r in downgraded_rows}
+            assert "task_sla_states" not in downgraded_tables
+            assert (expected_app_tables - {"task_sla_states"}).issubset(downgraded_tables)
         finally:
             await conn.close()
 
-        # 7. Verify re-upgrade 0008 -> 0009
-        await asyncio.to_thread(command.upgrade, alembic_cfg, "0009")
+        # 7. Verify re-upgrade to the repository head.
+        await asyncio.to_thread(command.upgrade, alembic_cfg, expected_head)
         conn = await asyncpg.connect(mig_pg_url)
         try:
             rev_restored = await conn.fetchval("SELECT version_num FROM alembic_version;")
-            assert rev_restored == "0009", (
-                f"Expected revision 0009 after re-upgrade, got {rev_restored}"
+            assert rev_restored == expected_head, (
+                f"Expected revision {expected_head} after re-upgrade, got {rev_restored}"
             )
             rows_restored = await conn.fetch(table_query)
             tables_restored = {r["table_name"] for r in rows_restored}
@@ -207,13 +181,17 @@ async def test_live_schema_semantic_agreement(test_engine: AsyncEngine) -> None:
         catalog = await conn.run_sync(_inspect_catalog)
 
     # 1. Table names: all 5 metadata tables must exist in PostgreSQL
-    expected_tables = set(Base.metadata.tables.keys())
+    model_tables = {
+        **Base.metadata.tables,
+        **DurableIntegrationBase.metadata.tables,
+    }
+    expected_tables = set(model_tables)
     assert expected_tables.issubset(catalog["tables"]), (
         f"Missing tables: {expected_tables - catalog['tables']}"
     )
 
     # 2. Primary keys must match exactly
-    for table_name, model_table in Base.metadata.tables.items():
+    for table_name, model_table in model_tables.items():
         model_pk_cols = {c.name for c in model_table.primary_key.columns}
         live_pk_cols = catalog["table_pks"].get(table_name, set())
         assert live_pk_cols == model_pk_cols, (
@@ -221,7 +199,7 @@ async def test_live_schema_semantic_agreement(test_engine: AsyncEngine) -> None:
         )
 
     # 3. Columns and nullability must match
-    for table_name, model_table in Base.metadata.tables.items():
+    for table_name, model_table in model_tables.items():
         live_cols = catalog["table_columns"].get(table_name, {})
         for col in model_table.columns:
             assert col.name in live_cols, (

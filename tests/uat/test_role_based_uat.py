@@ -32,6 +32,7 @@ from app.core.capacity.quotas import (
     TenantQuotaExceededError,
     TenantQuotaManager,
 )
+from app.events.outbox.repository import OutboxRepository
 from app.scheduling.education.evaluator import EducationScheduleEvaluator
 from app.scheduling.education.ortools_compiler import AcademicConstraintCompiler
 from app.scheduling.schemas import ScheduleStatus
@@ -413,7 +414,7 @@ class TestUatWorkflowRuntime:
         )
         assert state.status == SlaStatus.RUNNING
 
-        outbox_mock = AsyncMock()
+        outbox_mock = AsyncMock(spec=OutboxRepository)
         audit_mock = AsyncMock()
 
         # 1. Warning Evaluation (at t0 + 6 minutes)
@@ -426,8 +427,8 @@ class TestUatWorkflowRuntime:
         assert len(triggers) == 1
         assert "WARNING" in triggers[0]
         assert state.status == SlaStatus.WARNING
-        assert outbox_mock.append.call_count == 1
-        warn_event = outbox_mock.append.call_args[0][0]
+        assert outbox_mock.enqueue.call_count == 1
+        warn_event = outbox_mock.enqueue.call_args[0][0]
         assert warn_event.event_type == "workflow.sla.warning"
 
         # 2. Breach Evaluation (at t0 + 12 minutes)
@@ -439,7 +440,8 @@ class TestUatWorkflowRuntime:
         )
         assert len(triggers2) == 1
         assert state.status == SlaStatus.BREACHED
-        breach_event = outbox_mock.append.call_args[0][0]
+        assert outbox_mock.enqueue.call_count == 2
+        breach_event = outbox_mock.enqueue.call_args[0][0]
         assert breach_event.event_type == "workflow.sla.breached"
 
 

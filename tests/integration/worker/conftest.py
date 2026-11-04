@@ -27,6 +27,7 @@ import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -226,7 +227,7 @@ async def _terminate_and_drop_db(conn: asyncpg.Connection, db_name: str) -> None
 
 @pytest_asyncio.fixture(scope="session")
 async def isolated_worker_db() -> AsyncGenerator[str, None]:
-    """Create isolated test database for worker integration tests and migrate to head 0007."""
+    """Create an isolated worker database and migrate it to the repository head."""
     admin_conn = await asyncpg.connect(ADMIN_PG_URL)
     try:
         await _terminate_and_drop_db(admin_conn, WORKER_TEST_DB)
@@ -234,9 +235,11 @@ async def isolated_worker_db() -> AsyncGenerator[str, None]:
     finally:
         await admin_conn.close()
 
-    # Migrate directly to head 0007
+    # Migrate directly to the repository head.
     alembic_cfg = Config(str(ALEMBIC_INI))
     alembic_cfg.set_main_option("sqlalchemy.url", TEST_DB_ASYNC_URL)
+    expected_head = ScriptDirectory.from_config(alembic_cfg).get_current_head()
+    assert expected_head is not None
     await asyncio.to_thread(command.upgrade, alembic_cfg, "head")
 
     # Verify head revision
@@ -246,7 +249,9 @@ async def isolated_worker_db() -> AsyncGenerator[str, None]:
     )
     try:
         rev = await test_conn.fetchval("SELECT version_num FROM alembic_version;")
-        assert rev == "0007", f"Expected alembic_version '0007', got '{rev}'"
+        assert rev == expected_head, (
+            f"Expected alembic_version '{expected_head}', got '{rev}'"
+        )
     finally:
         await test_conn.close()
 

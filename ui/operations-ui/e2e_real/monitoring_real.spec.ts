@@ -23,6 +23,8 @@ test.describe("Real Application Monitoring Journey (Admin Persona)", () => {
 
     // 5. Verify recorded immutable audit actions
     await expect(page.getByRole("table")).toBeVisible({ timeout: 15000 });
+    await page.getByPlaceholder("e.g. task.progress_updated").fill("SYSTEM_INITIALIZED");
+    await page.getByRole("button", { name: "Apply Filters" }).click();
     await expect(page.getByText(/SYSTEM_INITIALIZED/i).first()).toBeVisible();
 
     // 6. Direct PostgreSQL audit event verification

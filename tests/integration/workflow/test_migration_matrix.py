@@ -22,6 +22,10 @@ import asyncpg
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
+
+import app.db.models  # noqa: F401
+from app.db.base import Base, DurableIntegrationBase
 
 T = TypeVar("T")
 
@@ -107,14 +111,13 @@ def test_migration_matrix_isolated_database() -> None:
         alembic_cfg = Config(str(ALEMBIC_INI))
         alembic_cfg.set_main_option("sqlalchemy.url", alembic_db_url)
 
-        from alembic.script import ScriptDirectory
-
         script_dir = ScriptDirectory.from_config(alembic_cfg)
         heads = script_dir.get_heads()
-        assert heads == ["0011"], f"Expected head ['0011'], got {heads}"
+        expected_head = script_dir.get_current_head()
+        assert expected_head is not None
+        assert heads == [expected_head], f"Expected head {[expected_head]}, got {heads}"
         revisions = [rev.revision for rev in script_dir.walk_revisions()]
         assert "0011" in revisions
-        assert not any("0012" in rev for rev in revisions), "Migration 0012 must not exist"
 
         # 1. Empty DB -> 0010
         command.upgrade(alembic_cfg, "0010")
@@ -125,8 +128,8 @@ def test_migration_matrix_isolated_database() -> None:
         assert len(app_tables) == 16
         assert not any(t.startswith("act_") for t in tables)
 
-        # 2. Repeat upgrade head (idempotency)
-        command.upgrade(alembic_cfg, "head")
+        # 2. Repeat upgrade through the Phase 3B boundary (idempotency)
+        command.upgrade(alembic_cfg, "0010")
         tables = _run_async(_async_get_tables(isolated_pg_url))
         assert tables - {"alembic_version"} == expected_16_tables
 
@@ -150,11 +153,21 @@ def test_migration_matrix_isolated_database() -> None:
         assert tables_0009_again == expected_14_tables
         assert len(tables_0009_again) == 14
 
-        # 6. Upgrade 0009 -> 0010 again (head)
-        command.upgrade(alembic_cfg, "head")
+        # 6. Upgrade 0009 -> 0010 again.
+        command.upgrade(alembic_cfg, "0010")
         tables_final = _run_async(_async_get_tables(isolated_pg_url)) - {"alembic_version"}
         assert tables_final == expected_16_tables
         assert len(tables_final) == 16
+
+        # 7. The complete repository chain upgrades cleanly to the current head.
+        command.upgrade(alembic_cfg, "head")
+        tables_at_head = _run_async(_async_get_tables(isolated_pg_url)) - {
+            "alembic_version"
+        }
+        expected_head_tables = set(Base.metadata.tables) | set(
+            DurableIntegrationBase.metadata.tables
+        )
+        assert tables_at_head == expected_head_tables
 
     finally:
         # Tear down isolated database cleanly

@@ -31,6 +31,7 @@ from app.audit.schemas import AuditEventOutcome
 from app.core.config import get_settings
 from app.db.engine import DatabaseManager
 from app.db.models.scheduling import ResourceAvailabilityRecord, ResourceRecord
+from app.db.models.workflow import WorkflowTaskMappingRecord
 from app.db.uow import create_unit_of_work_factory
 from app.resources.schemas import ResourceType
 from app.workflow.adapters.flowable.adapter import FlowableAdapter
@@ -75,14 +76,21 @@ async def bootstrap_workflow(uow_factory: Any) -> dict[str, Any]:
 
     bpmn_xml = bpmn_path.read_text(encoding="utf-8")
 
-    # Check if already deployed
+    # Reuse the canonical database definition, but redeploy it so the bootstrap
+    # also repairs a Flowable engine that has been restarted independently.
     async with uow_factory() as uow:
         repo = WorkflowDefinitionRepository(uow.session)
         existing = await repo.get_latest_active_by_key(TENANT_ID, WORKFLOW_KEY)
+        existing_definition_id = existing.id if existing and existing.is_active else None
 
-    if existing and existing.is_active and existing.deployment_id:
-        definition_id = existing.id
-        deployment_id = existing.deployment_id
+    if existing_definition_id is not None:
+        deployed = await service.deploy_definition(
+            tenant_id=TENANT_ID,
+            definition_id=existing_definition_id,
+            actor_id="system-bootstrap",
+        )
+        definition_id = deployed.id
+        deployment_id = deployed.deployment_id
     else:
         registered = await service.register_definition(
             tenant_id=TENANT_ID,
@@ -102,6 +110,31 @@ async def bootstrap_workflow(uow_factory: Any) -> dict[str, Any]:
 
     # Start a demo workflow instance so that a pending human task exists in the inbox
     active_tasks = await service.list_tasks(tenant_id=TENANT_ID, status="PENDING")
+    live_tasks = []
+    stale_task_ids = []
+    for task in active_tasks:
+        engine_task = await adapter.get_user_task(task.engine_task_id, TENANT_ID)
+        if engine_task is None:
+            stale_task_ids.append(task.id)
+        elif engine_task.assignee is None:
+            live_tasks.append(task)
+
+    if stale_task_ids:
+        async with uow_factory() as uow:
+            stmt = select(WorkflowTaskMappingRecord).where(
+                WorkflowTaskMappingRecord.tenant_id == TENANT_ID,
+                WorkflowTaskMappingRecord.id.in_(stale_task_ids),
+            )
+            stale_records = list((await uow.session.scalars(stmt)).all())
+            for record in stale_records:
+                record.status = "CANCELLED"
+                record.action = "ENGINE_TASK_MISSING"
+                record.action_by = "system-bootstrap"
+                record.action_at = datetime.now(UTC)
+                record.updated_at = datetime.now(UTC)
+            await uow.commit()
+
+    active_tasks = live_tasks
     if not active_tasks:
         instance = await service.start_instance(
             tenant_id=TENANT_ID,
@@ -222,7 +255,8 @@ async def main() -> int:
         inst_id = wf_res["instance_id"]
         print(f"[+] Flowable workflow ready: {wf_key} (instance: {inst_id})")
     except Exception as exc:
-        print(f"[-] Flowable bootstrap warning: {exc} (ignoring if offline)")
+        print(f"[-] Flowable bootstrap failed: {exc}")
+        return 1
 
     try:
         res_count = await bootstrap_resources(uow_factory)

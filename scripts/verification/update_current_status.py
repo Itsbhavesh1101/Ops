@@ -45,6 +45,9 @@ def build_current_status(
     raw_verified_ids = verification.get("requirements_verified")
     verified_values = raw_verified_ids if isinstance(raw_verified_ids, list) else []
     verified_ids = {str(item) for item in verified_values} & requirement_ids
+    raw_partial_ids = verification.get("requirements_partially_verified")
+    partial_values = raw_partial_ids if isinstance(raw_partial_ids, list) else []
+    partial_ids = {str(item) for item in partial_values} & requirement_ids
     raw_gates = verification.get("gates")
     gates: list[dict[str, Any]] = (
         [gate for gate in raw_gates if isinstance(gate, dict)]
@@ -57,6 +60,7 @@ def build_current_status(
         if str(gate.get("id", "")).startswith("external-")
     ]
     external_passed = sum(1 for gate in external_gates if gate.get("status") == "PASS")
+    open_external_gates = [gate for gate in external_gates if gate.get("status") != "PASS"]
     required_gates = [gate for gate in gates if gate.get("required")]
     required_passed = bool(required_gates) and all(
         gate.get("status") == "PASS" for gate in required_gates
@@ -71,14 +75,19 @@ def build_current_status(
     )
     raw_release_git = release.get("git")
     release_git: dict[str, Any] = raw_release_git if isinstance(raw_release_git, dict) else {}
-    release_provenance_current = release_git.get("head_commit") == git_sha
+    release_head_matches = release_git.get("head_commit") == git_sha
+    release_dirty_diagnostic = (
+        release_head_matches and release_git.get("working_tree_acknowledged") is True
+    )
+    release_provenance_current = release_head_matches and not release_dirty_diagnostic
     manifest_authorized = release_gate.get("authorized_for_release") is True
     raw_release_verdict = str(release_gate.get("verdict", "MISSING"))
-    release_verdict = (
-        raw_release_verdict
-        if release_provenance_current
-        else f"STALE_EVIDENCE ({raw_release_verdict})"
-    )
+    if release_provenance_current:
+        release_verdict = raw_release_verdict
+    elif release_dirty_diagnostic:
+        release_verdict = f"UNCOMMITTED_DIAGNOSTIC ({raw_release_verdict})"
+    else:
+        release_verdict = f"STALE_EVIDENCE ({raw_release_verdict})"
     effective_authorized = (
         manifest_authorized
         and release_provenance_current
@@ -88,16 +97,41 @@ def build_current_status(
         and bool(external_gates)
         and external_passed == len(external_gates)
     )
-    repository_status = (
-        "PRODUCTION_READY"
-        if effective_authorized
-        else "INTERNAL_ACCEPTANCE_IN_PROGRESS"
-    )
+    if effective_authorized:
+        repository_status = "PRODUCTION_READY"
+    elif required_passed and external_gates and external_passed < len(external_gates):
+        repository_status = "INTERNAL_ACCEPTANCE_COMPLETE_EXTERNAL_BLOCKED"
+    elif required_passed:
+        repository_status = "INTERNAL_ACCEPTANCE_COMPLETE_EXTERNAL_EVIDENCE_PENDING"
+    else:
+        repository_status = "INTERNAL_ACCEPTANCE_IN_PROGRESS"
 
     required_pass_count = sum(
         1 for gate in required_gates if gate.get("status") == "PASS"
     )
-    release_provenance = "CURRENT_GIT" if release_provenance_current else "STALE_OR_MISSING"
+    if release_provenance_current:
+        release_provenance = "CURRENT_GIT"
+    elif release_dirty_diagnostic:
+        release_provenance = "UNCOMMITTED_DIAGNOSTIC"
+    else:
+        release_provenance = "STALE_OR_MISSING"
+    blocker_lines: list[str] = []
+    if open_external_gates:
+        blocker_lines = [
+            "",
+            "Open production blockers:",
+            "",
+            "| Gate | Status | Required operator input |",
+            "|---|---|---|",
+        ]
+        for gate in open_external_gates:
+            reason = str(gate.get("reason") or "External evidence has not passed.").replace(
+                "|", "\\|"
+            )
+            blocker_lines.append(
+                f"| {gate.get('id', 'external-unknown')} | "
+                f"{gate.get('status', 'MISSING')} | {reason} |"
+            )
     lines = [
         "# E-7 Operations Engine — Current Project Status",
         "",
@@ -118,6 +152,10 @@ def build_current_status(
         f"| Repository implementation status | {repository_status} |",
         f"| Canonical requirements | {len(requirement_ids)} |",
         f"| Verified requirements | {len(verified_ids)} / {len(requirement_ids)} |",
+        (
+            "| Partially verified requirements | "
+            f"{len(partial_ids)} / {len(requirement_ids)} |"
+        ),
         f"| Verification manifest status | {verification.get('overall_status', 'MISSING')} |",
         f"| Required verification gates | {required_pass_count} / {len(required_gates)} passed |",
         f"| External production gates | {external_passed} / {len(external_gates)} passed |",
@@ -128,6 +166,7 @@ def build_current_status(
         f"| Release manifest verdict | {release_verdict} |",
         f"| Release manifest authorization claim | {_bool_label(manifest_authorized)} |",
         f"| Effective production authorization | {_bool_label(effective_authorized)} |",
+        *blocker_lines,
         "",
         (
             "Production authorization is effective only when all 25 canonical requirements, "

@@ -18,7 +18,6 @@ Validates against isolated PostgreSQL:
 """
 
 import asyncio
-import os
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -46,14 +45,9 @@ from app.scheduling.schemas import (
 )
 from app.scheduling.service import SchedulingService
 from app.scheduling.worker import SchedulerWorker
+from tests.integration.scheduling.conftest import SCHEDULING_TEST_DB_URL
 
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = int(
-    os.environ.get("E7_POSTGRES_INTEGRATION_PORT") or os.environ.get("POSTGRES_PORT") or "55432"
-)
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-DATABASE_URL = f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/postgres"
+DATABASE_URL = SCHEDULING_TEST_DB_URL
 
 
 @pytest.fixture
@@ -74,6 +68,7 @@ def make_worker_settings(
     poll_interval_seconds: float = 0.1,
     lease_duration_seconds: float = 60.0,
     shutdown_grace_seconds: float = 1.0,
+    max_concurrent_per_tenant: int = 1,
 ) -> SchedulerSettings:
     """Helper creating explicit SchedulerSettings for tests with zero production defaults."""
     return SchedulerSettings(
@@ -83,6 +78,7 @@ def make_worker_settings(
         solve_timeout_seconds=solve_timeout_seconds,
         lease_duration_seconds=lease_duration_seconds,
         shutdown_grace_seconds=shutdown_grace_seconds,
+        max_concurrent_per_tenant=max_concurrent_per_tenant,
     )
 
 
@@ -357,17 +353,30 @@ async def test_live_multi_worker_concurrent_claim_safety(
 
     worker1 = SchedulerWorker(
         db_manager=db_manager,
-        settings=make_worker_settings(worker_id="worker-alpha", claim_batch_size=2),
+        settings=make_worker_settings(
+            worker_id="worker-alpha",
+            claim_batch_size=2,
+            max_concurrent_per_tenant=4,
+        ),
         service=service,
     )
     worker2 = SchedulerWorker(
         db_manager=db_manager,
-        settings=make_worker_settings(worker_id="worker-beta", claim_batch_size=2),
+        settings=make_worker_settings(
+            worker_id="worker-beta",
+            claim_batch_size=2,
+            max_concurrent_per_tenant=4,
+        ),
         service=service,
     )
 
-    # Run both workers concurrently
+    # Run both workers concurrently. One worker may briefly lock more fairness
+    # candidates than it ultimately claims, so allow the peer's next poll to
+    # collect the remaining REQUESTED jobs after that transaction commits.
     results = await asyncio.gather(worker1.run_once(), worker2.run_once())
+    for index, worker in enumerate((worker1, worker2)):
+        if results[index] == 0:
+            results[index] += await worker.run_once()
     total_processed = sum(results)
     assert total_processed == 4
 

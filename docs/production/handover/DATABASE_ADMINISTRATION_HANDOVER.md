@@ -173,3 +173,13 @@ asyncio.run(check())
 
 * Delivery of service account credentials with verified `SELECT` privileges transitions:  
   `MYSQL_LIVE_READ_VERIFICATION` from `BLOCKED_ON_COMPANY_READ_ONLY_ACCESS` to `PASS`.
+
+## 8. Executable Closure Evidence
+
+Inject `E7_MYSQL_HOST`, `E7_MYSQL_USER`, and `E7_MYSQL_PASSWORD` through the approved secret manager; optionally set `E7_MYSQL_PORT` and `E7_MYSQL_DATABASE`. Run:
+
+```bash
+python -m scripts.verification.verify_mysql_connection --output dist/verification/external/mysql.json
+```
+
+The report must be `PASS`, confirm complete `SELECT` grants on the 11 approved tables, and report no write privileges. The DBA must review and sign the redacted report; credentials must not be committed or copied into the evidence package.

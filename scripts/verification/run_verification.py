@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -13,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+PYTEST_SUMMARY_PATTERN = re.compile(r"(?m)(\d+) passed(?:, (\d+) skipped)?")
 
 
 def _resolve_command(command: list[Any], environment: dict[str, str]) -> list[str]:
@@ -30,6 +32,14 @@ def _redact(text: str, secrets: list[str]) -> str:
 
 
 def _blocked_reason(gate: dict[str, Any], environment: dict[str, str]) -> str | None:
+    missing_environment = [
+        str(name)
+        for name in gate.get("required_environment", [])
+        if not environment.get(str(name), "").strip()
+    ]
+    if missing_environment:
+        return f"Missing environment setting(s): {', '.join(missing_environment)}"
+
     missing = [
         executable
         for executable in gate.get("executables", [])
@@ -77,6 +87,8 @@ def run_manifest(
     for gate in selected:
         started = time.monotonic()
         environment = os.environ.copy()
+        for name in gate.get("unset_environment", []):
+            environment.pop(str(name), None)
         environment.update({str(k): str(v) for k, v in gate.get("environment", {}).items()})
         secret_values = [
             environment.get(str(name), "") for name in gate.get("redact_environment", [])
@@ -168,14 +180,65 @@ def run_manifest(
     else:
         overall_status, exit_code = "PASS", 0
 
+    pytest_passed = 0
+    pytest_skipped = 0
+    for result in results:
+        if "pytest" not in result["command"]:
+            continue
+        summaries = PYTEST_SUMMARY_PATTERN.findall(result["stdout"])
+        if not summaries:
+            continue
+        passed, skipped = summaries[-1]
+        pytest_passed += int(passed)
+        pytest_skipped += int(skipped or 0)
+
+    required_results = [result for result in results if result["required"]]
+    metrics = {
+        "pytest_passed": pytest_passed,
+        "pytest_skipped": pytest_skipped,
+        "required_gates_passed": sum(
+            1 for result in required_results if result["status"] == "PASS"
+        ),
+        "required_gates_total": len(required_results),
+        "optional_gates_blocked": len(optional_blocks),
+        "optional_gates_failed": len(optional_failures),
+    }
+
     report: dict[str, Any] = {
         "schema_version": "1.0",
         "generated_at": datetime.now(UTC).isoformat(),
         "manifest": str(manifest_path),
         "selected_groups": sorted(groups) if groups is not None else None,
         "overall_status": overall_status,
+        "metrics": metrics,
         "gates": results,
     }
+    evidence_groups = {
+        str(group) for group in manifest.get("requirements_evidence_groups", [])
+    }
+    executed_groups = {str(result["group"]) for result in results}
+    evidence_gates = [
+        result
+        for result in required_results
+        if str(result["group"]) in evidence_groups
+    ]
+    requirements_evidenced = (
+        bool(evidence_groups)
+        and evidence_groups <= executed_groups
+        and bool(evidence_gates)
+        and all(result["status"] == "PASS" for result in evidence_gates)
+    )
+    if requirements_evidenced:
+        report["requirements_verified"] = [
+            str(requirement)
+            for requirement in manifest.get("requirements_verified_on_pass", [])
+        ]
+        report["requirements_partially_verified"] = [
+            str(requirement)
+            for requirement in manifest.get(
+                "requirements_partially_verified_on_pass", []
+            )
+        ]
     if output_path is not None:
         _write_json_atomic(output_path, report)
     return report, exit_code

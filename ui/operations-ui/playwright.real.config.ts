@@ -1,7 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const apiPort = process.env.E7_REAL_API_PORT || "8000";
+const apiOrigin = `http://127.0.0.1:${apiPort}`;
+
 export default defineConfig({
   testDir: "./e2e_real",
+  globalSetup: "./e2e_real/global.setup.ts",
   timeout: 60000,
   expect: {
     timeout: 15000,
@@ -39,9 +43,9 @@ export default defineConfig({
     {
       // 2. Real Production FastAPI Operations Engine Backend (app.main:app)
       command: process.platform === "win32"
-        ? ".venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000"
-        : "python -m uvicorn app.main:app --host 127.0.0.1 --port 8000",
-      url: "http://127.0.0.1:8000/api/v1/health",
+        ? `.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port ${apiPort}`
+        : `python -m uvicorn app.main:app --host 127.0.0.1 --port ${apiPort}`,
+      url: `${apiOrigin}/api/v1/health`,
       reuseExistingServer: false,
       timeout: 45000,
       cwd: "../..",
@@ -76,7 +80,7 @@ export default defineConfig({
         VITE_DEMO_LOCAL_OIDC: "true",
         VITE_OIDC_PROVIDER: "keycloak",
         VITE_KEYCLOAK_URL: "http://127.0.0.1:8180",
-        VITE_API_BASE_URL: "http://127.0.0.1:8000/api/v1",
+        VITE_API_BASE_URL: `${apiOrigin}/api/v1`,
         VITE_DEFAULT_TENANT_ID: "tenant-pilot-001",
       },
     },

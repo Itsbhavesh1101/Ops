@@ -68,6 +68,49 @@ def test_manifest_opts_in_recovery_and_uat_only_in_provisioned_runs() -> None:
     assert gates["role-uat"]["environment"]["E7_RUN_UAT"] == "1"
 
 
+def test_live_backend_gates_use_the_declared_postgres_service_port() -> None:
+    manifest = json.loads(
+        (REPO_ROOT / "scripts" / "verification" / "verification_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    gates = {gate["id"]: gate for gate in manifest["gates"]}
+
+    for gate_id in (
+        "backend-postgres-integration",
+        "backend-rabbitmq-integration",
+        "backend-flowable-integration",
+    ):
+        environment = gates[gate_id]["environment"]
+        assert environment["POSTGRES_PORT"] == "5432"
+        assert environment["E7_POSTGRES_INTEGRATION_PORT"] == "5432"
+
+
+def test_infrastructure_gates_use_explicit_canonical_application_endpoints() -> None:
+    manifest = json.loads(
+        (REPO_ROOT / "scripts" / "verification" / "verification_manifest.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    gates = {gate["id"]: gate for gate in manifest["gates"]}
+    expected_database_url = (
+        "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine"
+    )
+
+    for gate_id in (
+        "backend-flowable-integration",
+        "browser-real-application",
+        "recovery-suite",
+        "role-uat",
+    ):
+        environment = gates[gate_id]["environment"]
+        assert environment["E7_DATABASE_URL"] == expected_database_url
+        assert environment["DATABASE_URL"] == expected_database_url
+        assert environment["POSTGRES_HOST"] == "127.0.0.1"
+        assert environment["POSTGRES_PORT"] == "5432"
+        assert environment["POSTGRES_DB"] == "operations_engine"
+
+
 def test_infrastructure_opt_in_hooks_do_not_skip_unrelated_tests() -> None:
     completed = subprocess.run(
         [

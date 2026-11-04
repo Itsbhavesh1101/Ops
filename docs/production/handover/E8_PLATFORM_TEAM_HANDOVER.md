@@ -170,3 +170,13 @@ The E-8 Platform Team is requested to deliver the following 12 items to unblock 
 * Canonical blocker `E8_NOTIFICATION_INTEGRATION` remains `BLOCKED_EXTERNAL`.
 * Delivery of transport confirmation, connection credentials, and successful staging handshake transitions `E8_NOTIFICATION_INTEGRATION` from `BLOCKED_EXTERNAL` to `PASS`.
 
+## 8. Executable Closure Evidence
+
+Inject `E7_E8_AMQP_URL` through the approved secret manager and set `E7_E8_IDEMPOTENCY_HEADER=Idempotency-Key`; optionally set `E7_E8_EXCHANGE`. Run:
+
+```bash
+python -m scripts.verification.verify_e8_broker --output dist/verification/external/e8.json
+```
+
+The report must be `PASS` for AMQPS, durable topic exchange access, publisher confirms, mandatory routing policy, and the canonical idempotency header. The E-8 owner must then sign the redacted topology evidence and staging delivery drill; the broker URL and credentials must not appear in evidence.
+

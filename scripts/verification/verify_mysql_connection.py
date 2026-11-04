@@ -11,6 +11,8 @@ from typing import Any
 from app.integrations.erp.mysql_adapter import MySqlIreduAdapter
 from scripts.verification.probe_common import finish_cli, run_bounded_probe
 
+BLOCKER_ID = "MYSQL_LIVE_READ_VERIFICATION"
+
 
 def evaluate_grants(grants: list[str], *, target_database: str = "iredu") -> dict[str, Any]:
     evaluation = MySqlIreduAdapter.evaluate_grants_least_privilege(
@@ -64,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     secret = os.environ.get("E7_MYSQL_PASSWORD", "")
     payload = asyncio.run(
         run_bounded_probe(
-            "MYSQL_LIVE_READ_VERIFY",
+            BLOCKER_ID,
             probe_mysql(),
             timeout_seconds=args.timeout,
             secret_values=[secret],

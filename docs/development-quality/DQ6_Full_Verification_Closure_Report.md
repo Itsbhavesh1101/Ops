@@ -10,6 +10,34 @@
 
 ---
 
+## CURRENT VERIFICATION ADDENDUM — 2026-11-04
+
+This addendum records the fresh manifest-driven verification performed after the historical DQ-6 record. The historical sections below remain unchanged evidence and do not authorize production release.
+
+| Evidence | Result |
+| :--- | :--- |
+| Manifest verdict | `PASS_WITH_OPTIONAL_BLOCKS` |
+| Required internal gates | **19 / 19 PASS** |
+| Optional external gates | **0 / 4 PASS; 4 BLOCKED_PREREQUISITE; 0 product failures** |
+| Python tests | **2,406 passed; 23 skipped** |
+| Frontend component tests | **146 passed** |
+| Browser acceptance | **14 passed** (7 contract + 7 real-application) |
+| Canonical requirements | **23 / 25 fully evidenced; 2 / 25 partially evidenced** (`FR-INT-01`, `FR-INT-02`) |
+| Static/API contract | Python compilation, Ruff, mypy (273 files), and OpenAPI drift check PASS |
+| Supply-chain gate | Secret scan PASS; Trivy critical/high filesystem gate PASS |
+| Release rehearsal | `DRY_RUN_PASSED`; authorization remains `FALSE` |
+
+Artifact SHA-256 values from the completed run:
+
+- `dist/verification/full-verification.json`: `87B7E67EE6DA3BCBB124C68625A1DA959A4301596C12286911B0FB61EDB550A9`
+- `dist/verification/security/trivy-fs.json`: `9282CE47BBC704AAB7288E460F7B310047CAB9FE69E3CD8C62CC5C1E926B284D`
+- `dist/release/SBOM.cyclonedx.json`: `7844FBE113B33955D19AB0D9C5BB1D6182D62E33FA05498AD97591757F261459`
+- `dist/release/release_manifest.json`: `F55C7DC8EBF0EE6D7895292A64A6DB91B8CA79BC384C0C97CDEAFC1A09462F97`
+
+The four remaining production boundary gates are MySQL read-only ERP access, corporate OIDC, E-8 AMQPS topology, and production gateway/TLS/WAF. Their executable probes are implemented and currently report missing operator-supplied configuration as explicit prerequisite blocks. Institutional multi-node recovery evidence, named UAT signatures, final clean-clone verification, merge/tag authorization, and canary deployment also remain governance work. See [`docs/CURRENT_PROJECT_STATUS.md`](../CURRENT_PROJECT_STATUS.md) for the living status.
+
+---
+
 ## 1. BASELINE SHA AND BRANCH INFORMATION
 
 * **Baseline Master Commit SHA:** `cfe81e8d99ae0bb7576d3849d342315027b1ea76` (Independently verified after merging PR #6)

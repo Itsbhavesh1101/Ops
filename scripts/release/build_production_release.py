@@ -47,6 +47,19 @@ PINNED_BASE_IMAGE = (
 )
 
 SEVERITY_LEVELS = ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+TRIVY_SKIP_DIRS = (
+    ".git",
+    ".cache",
+    ".venv",
+    "ui/operations-ui/node_modules",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    "scratch",
+    "screenshots",
+    "ui/operations-ui/test-results",
+    "ui/operations-ui/playwright-report",
+)
 
 
 def get_git_info() -> dict[str, Any]:
@@ -329,13 +342,17 @@ def run_vulnerability_scan(
             "json",
             "--output",
             str(target_report),
+            "--scanners",
+            "vuln",
             "--exit-code",
             "0",
             "--severity",
             ",".join(SEVERITY_LEVELS[SEVERITY_LEVELS.index(max_severity):]),
-            str(REPO_ROOT),
         ]
-        subprocess.run(cmd, capture_output=True, text=True, check=True)
+        for directory in TRIVY_SKIP_DIRS:
+            cmd.extend(("--skip-dirs", directory))
+        cmd.append(".")
+        subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, check=True)
         validation = validate_trivy_report(target_report)
         return {
             **validation,
@@ -377,6 +394,11 @@ def build_production_release(
                 "Working tree has uncommitted modifications. "
                 "Production release requires a clean working tree. "
                 "To run diagnostic checks against uncommitted code, specify --allow-uncommitted."
+            )
+        if not dry_run:
+            raise RuntimeError(
+                "Production release cannot be authorized from a dirty working tree. "
+                "--allow-uncommitted is restricted to diagnostic dry runs."
             )
         working_tree_status = "SKIPPED_ACKNOWLEDGED_DIRTY"
     else:

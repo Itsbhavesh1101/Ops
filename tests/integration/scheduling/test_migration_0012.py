@@ -24,6 +24,9 @@ import pytest
 from alembic import command
 from alembic.config import Config
 
+import app.db.models  # noqa: F401
+from app.db.base import Base, DurableIntegrationBase
+
 T = TypeVar("T")
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -172,17 +175,18 @@ def test_migration_0012_live_matrix() -> None:
         tables_base = _run_async(_async_get_tables(isolated_pg_url)) - {"alembic_version"}
         assert len(tables_base) == 0
 
-        # 6. Upgrade base -> head (which is 0012)
+        # 6. Upgrade base -> the repository's current head.
         command.upgrade(alembic_cfg, "head")
         tables_head = _run_async(_async_get_tables(isolated_pg_url)) - {"alembic_version"}
-        assert tables_head == all_24_tables
-        assert len(tables_head) == 24
+        expected_head_tables = set(Base.metadata.tables) | set(
+            DurableIntegrationBase.metadata.tables
+        )
+        assert tables_head == expected_head_tables
 
         # 7. Repeat head (idempotency)
         command.upgrade(alembic_cfg, "head")
         tables_head_repeat = _run_async(_async_get_tables(isolated_pg_url)) - {"alembic_version"}
-        assert tables_head_repeat == all_24_tables
-        assert len(tables_head_repeat) == 24
+        assert tables_head_repeat == expected_head_tables
 
         # 8. Structural checks on calendar_links
         cal_cols = _run_async(_async_get_columns(isolated_pg_url, "calendar_links"))

@@ -23,27 +23,29 @@ Full enterprise production deployment remains strictly gated on four external in
 
 ---
 
+## 1.1 Current Executable Evidence (2026-11-04)
+
+The repository now provides one non-secret, bounded probe for each blocker. The latest full verification report records all four as `BLOCKED_PREREQUISITE` because no production endpoints or credentials were supplied; this is an external dependency state, not an internal product-test failure.
+
+| Blocker | Probe | Current evidence | Required operator settings |
+|:---|:---|:---|:---|
+| `MYSQL_LIVE_READ_VERIFICATION` | `python -m scripts.verification.verify_mysql_connection --output dist/verification/external/mysql.json` | `BLOCKED_PREREQUISITE` | `E7_MYSQL_HOST`, `E7_MYSQL_USER`, `E7_MYSQL_PASSWORD` |
+| `PRODUCTION_COMPANY_OIDC` | `python -m scripts.verification.verify_oidc_provider --output dist/verification/external/oidc.json` | `BLOCKED_PREREQUISITE` | `E7_OIDC_ISSUER` |
+| `E8_NOTIFICATION_INTEGRATION` | `python -m scripts.verification.verify_e8_broker --output dist/verification/external/e8.json` | `BLOCKED_PREREQUISITE` | `E7_E8_AMQP_URL`, `E7_E8_IDEMPOTENCY_HEADER=Idempotency-Key` |
+| `PRODUCTION_GATEWAY` | `python -m scripts.verification.verify_gateway_ingress --output dist/verification/external/gateway.json` | `BLOCKED_PREREQUISITE` | `E7_PRODUCTION_GATEWAY_URL` |
+
+Operators must inject secrets through the approved secret manager or process environment. Credentials and token-bearing URLs must never be placed in shell history, committed `.env` files, probe output, or review comments. After provisioning, run `python scripts/verification/run_verification.py --group external --output dist/verification/external-verification.json`; all four gates must be `PASS`, and the redacted evidence package must be reviewed and signed by the owning teams.
+
+---
+
 ## 2. Deep-Dive: The Four Canonical External Blockers
 
-```
-┌───────────────────────────────────────────────────────────────────────────────────────┐
-│                               EXTERNAL INTEGRATION BOUNDARIES                         │
-├──────────────────────────┬─────────────────────────────┬──────────────────────────────┤
-│ Boundary Key             │ Responsible Owning Team     │ Mandatory Deliverable Scope  │
-├──────────────────────────┼─────────────────────────────┼──────────────────────────────┤
-│ MYSQL_LIVE_READ_VERIFY   │ Institutional DBA Team      │ Dedicated e7_ro_sync account │
-│                          │                             │ SELECT on strictly 11 tables │
-├──────────────────────────┼─────────────────────────────┼──────────────────────────────┤
-│ PRODUCTION_COMPANY_OIDC  │ Corporate IT / IAM Team     │ Google Workspace Client ID   │
-│                          │                             │ Hosted Domain (hd) Policy    │
-├──────────────────────────┼─────────────────────────────┼──────────────────────────────┤
-│ E8_NOTIFICATION_INTEG    │ E-8 Platform Team           │ AMQP broker DSN, virtual host│
-│                          │                             │ e8.notifications queue setup │
-├──────────────────────────┼─────────────────────────────┼──────────────────────────────┤
-│ PRODUCTION_GATEWAY       │ Cloud Infrastructure / SRE  │ Layer 7 Ingress, TLS 1.3,    │
-│                          │                             │ DNS, OWASP WAF, Rate Limits  │
-└──────────────────────────┴─────────────────────────────┴──────────────────────────────┘
-```
+| Boundary key | Responsible owning team | Mandatory deliverable scope |
+|:---|:---|:---|
+| `MYSQL_LIVE_READ_VERIFICATION` | Institutional DBA Team | Dedicated `e7_ro_sync` account with `SELECT` on exactly 11 tables |
+| `PRODUCTION_COMPANY_OIDC` | Corporate IT / IAM Team | Corporate client registration and hosted-domain policy |
+| `E8_NOTIFICATION_INTEGRATION` | E-8 Platform Team | AMQPS credentials, durable topic exchange, routing, and idempotency contract |
+| `PRODUCTION_GATEWAY` | Cloud Infrastructure / SRE | Layer-7 ingress, TLS 1.3, DNS, security headers, WAF, and rate limits |
 
 ---
 
@@ -78,9 +80,9 @@ The E-7 Operations Engine requires a dedicated read-only service account (illust
    - **Student PII Minimization:** Zero student personal data (names, emails, phone numbers, home addresses) is stored in E-7. Enrollment headcounts are queried strictly as anonymous aggregates (`COUNT(ss.id)`).
    - **Staff Data Minimization:** Staff synchronization projects strictly operational metadata (`id`, `name`, `surname`, `department`, `designation`). Salary, banking, and tax data are excluded at the query projection layer.
 5. **Verification Protocol:**
-   Once DBA provisions credentials, run the non-destructive verification probe:
+   Once DBA provisions credentials through the approved secret manager, set `E7_MYSQL_HOST`, `E7_MYSQL_USER`, `E7_MYSQL_PASSWORD`, and optional `E7_MYSQL_DATABASE`, then run the non-destructive verification probe:
    ```bash
-   python scripts/verification/verify_mysql_connection.py --host <mysql_host> --user e7_ro_sync
+   python -m scripts.verification.verify_mysql_connection --output dist/verification/external/mysql.json
    ```
 
 ---
@@ -104,9 +106,9 @@ The E-7 Operations Engine implements OpenID Connect (OIDC) Core 1.0 with RS256 s
 4. **IAM Security Architecture Review:**
    - The custom Google ID-token implicit authentication flow has **not** been silently approved for production. Live Google Workspace authentication requires formal Corporate IAM security review, risk assessment, and provisioning of the enterprise OAuth Web Client ID and hosted domain restrictions prior to enterprise routing.
 5. **Verification Protocol:**
-   Once Client ID is issued, inject into `.env.production` (`GOOGLE_OIDC_CLIENT_IDS=["<client_id>"]`) and execute automated token validation probe:
+   Once the corporate issuer is provisioned, supply `E7_OIDC_ISSUER` and execute the discovery, issuer, HTTPS endpoint, and JWKS validation probe. Client registration and hosted-domain login remain separate IAM/UAT evidence:
    ```bash
-   python scripts/verification/verify_oidc_provider.py --client-id <client_id>
+   python -m scripts.verification.verify_oidc_provider --output dist/verification/external/oidc.json
    ```
 
 ---
@@ -139,9 +141,9 @@ The E-7 Operations Engine formulates and buffers outbound alerts in PostgreSQL t
 4. **At-Least-Once Delivery & Consumer Idempotency:**
    - Outbox dispatcher ensures at-least-once delivery. E-8 notification consumers must enforce idempotency using the canonical `command_id` (with `correlation_reference` and `causation_reference` provided for end-to-end tracing and causal provenance). `notification_id` and `correlation_id` do not exist in the canonical contract.
 5. **Verification Protocol:**
-   Execute live broker outbox integration drill:
+   Supply the secret-bearing `E7_E8_AMQP_URL` and set `E7_E8_IDEMPOTENCY_HEADER=Idempotency-Key`, then execute the passive topology probe:
    ```bash
-   python scripts/verification/verify_e8_broker.py --dsn <amqps_dsn>
+   python -m scripts.verification.verify_e8_broker --output dist/verification/external/e8.json
    ```
 
 ---
@@ -167,9 +169,9 @@ The E-7 application requires enterprise Layer 7 reverse proxy ingress:
 6. **Private VPC Peering:**
    - Secure private subnet routing to FastAPI backend (port 8000). Direct public internet access to FastAPI or PostgreSQL is strictly prohibited.
 7. **Verification Protocol:**
-   Execute edge security probe:
+   Supply `E7_PRODUCTION_GATEWAY_URL` and execute the bounded read-only edge security probe:
    ```bash
-   python scripts/verification/verify_gateway_ingress.py --target-url https://operations.corp.irinfotech.internal
+   python -m scripts.verification.verify_gateway_ingress --output dist/verification/external/gateway.json
    ```
 
 ---

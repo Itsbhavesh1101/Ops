@@ -13,7 +13,6 @@ Covers:
   (no fake success), reconciliation
 """
 
-import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
@@ -57,14 +56,9 @@ from app.scheduling.states import (
     ScheduleJobStatus,
     ScheduleLifecycleStatus,
 )
+from tests.integration.scheduling.conftest import SCHEDULING_TEST_DB_URL
 
-POSTGRES_HOST = os.environ.get("POSTGRES_HOST", "localhost")
-POSTGRES_PORT = int(
-    os.environ.get("E7_POSTGRES_INTEGRATION_PORT") or os.environ.get("POSTGRES_PORT") or "55432"
-)
-POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
-POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
-DATABASE_URL = f"postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/postgres"
+DATABASE_URL = SCHEDULING_TEST_DB_URL
 
 
 @pytest.fixture
