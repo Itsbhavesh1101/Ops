@@ -17,6 +17,7 @@ import httpx
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from app.events.publishers.config import RabbitMqPublisherSettings
 from app.integrations.engagement.config import NotificationSettings
 from app.integrations.engagement.dispatcher import (
     AmqpNotificationDispatcher,
@@ -1073,6 +1074,11 @@ async def test_worker_runtime_registers_notification_consumer_when_enabled() -> 
 
     await run_worker(
         stop_event=stop_event,
+        publisher_settings=RabbitMqPublisherSettings(
+            rabbitmq_url=SecretStr("amqp://guest:guest@localhost:5672/"),
+            rabbitmq_exchange_name="e7.test.events",
+            _env_file=None,
+        ),
         notification_settings=notif_settings,
         notification_worker_factory=FakeNotificationWorker,
         database_manager_factory=lambda s: mock_db,

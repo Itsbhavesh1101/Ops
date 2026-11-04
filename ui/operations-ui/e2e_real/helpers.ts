@@ -1,5 +1,5 @@
 import { Page, expect } from "@playwright/test";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import * as path from "path";
 
 export type Persona = "planner" | "approver" | "scheduler" | "admin";
@@ -58,17 +58,12 @@ export interface DbVerifyResult {
  */
 export function verifyDb(command: string, args: Record<string, string>): DbVerifyResult {
   const repoRoot = path.resolve(process.cwd(), process.cwd().endsWith("operations-ui") ? "../.." : ".");
-  const isWindows = process.platform === "win32";
-  const pythonCmd = isWindows ? ".venv\\Scripts\\python.exe" : "python";
-
-  const argPairs = Object.entries(args)
-    .map(([k, v]) => `--${k} "${v}"`)
-    .join(" ");
-
-  const fullCmd = `${pythonCmd} scripts/verify_db_state.py ${command} ${argPairs}`;
+  const pythonCmd = process.env.E7_PYTHON_EXECUTABLE
+    || (process.platform === "win32" ? ".venv\\Scripts\\python.exe" : "python");
+  const argPairs = Object.entries(args).flatMap(([k, v]) => [`--${k}`, v]);
 
   try {
-    const stdout = execSync(fullCmd, {
+    const stdout = execFileSync(pythonCmd, ["scripts/verify_db_state.py", command, ...argPairs], {
       cwd: repoRoot,
       encoding: "utf-8",
       env: {

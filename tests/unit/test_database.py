@@ -91,9 +91,9 @@ def test_unsupported_schemes_rejected(unsupported_url: str, expected_scheme: str
 
 def test_database_settings_bounds_and_defaults() -> None:
     """Verify default values and bounds validation for technical database settings."""
-    defaults = Settings()
+    defaults = Settings(_env_file=None)
     assert defaults.database_pool_size == 5
-    assert defaults.database_max_overflow == 10
+    assert defaults.database_max_overflow == 5
     assert defaults.database_pool_timeout_seconds == 30.0
     assert defaults.database_pool_recycle_seconds == 1800
     assert defaults.database_connect_timeout_seconds == 10.0

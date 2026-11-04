@@ -74,6 +74,11 @@
       "required": true,
       "command": ["{python}", "-m", "pytest", "tests/unit", "tests/contract", "tests/security", "tests/ai_eval", "tests/pilot", "-q", "--tb=short"],
       "executables": ["{python}"],
+      "services": [{"name": "postgresql", "host": "127.0.0.1", "port": 5432}],
+      "environment": {
+        "E7_DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine",
+        "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/operations_engine"
+      },
       "unset_environment": [
         "E7_RABBITMQ_URL",
         "FLOWABLE_BASE_URL",
@@ -106,7 +111,7 @@
         {"name": "postgresql", "host": "127.0.0.1", "port": 5432},
         {"name": "rabbitmq", "host": "127.0.0.1", "port": 5672}
       ],
-      "environment": {"E7_RUN_RABBITMQ_INTEGRATION": "1", "E7_RUN_WORKER_INTEGRATION": "1", "E7_POSTGRES_INTEGRATION_PORT": "5432", "POSTGRES_PORT": "5432", "RABBITMQ_PORT": "5672", "RABBITMQ_MANAGEMENT_PORT": "15672"},
+      "environment": {"E7_RUN_RABBITMQ_INTEGRATION": "1", "E7_RUN_WORKER_INTEGRATION": "1", "E7_POSTGRES_INTEGRATION_PORT": "5432", "POSTGRES_PORT": "5432", "RABBITMQ_PORT": "5672", "RABBITMQ_MANAGEMENT_PORT": "15672", "COMPOSE_PROJECT_NAME": "operations-engine"},
       "timeout_seconds": 1800
     },
     {

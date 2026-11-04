@@ -87,6 +87,8 @@ def run_manifest(
     for gate in selected:
         started = time.monotonic()
         environment = os.environ.copy()
+        environment.setdefault("E7_PYTHON_EXECUTABLE", sys.executable)
+        environment.setdefault("PYTHONUTF8", "1")
         for name in gate.get("unset_environment", []):
             environment.pop(str(name), None)
         environment.update({str(k): str(v) for k, v in gate.get("environment", {}).items()})

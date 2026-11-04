@@ -150,6 +150,7 @@ def docker_env() -> dict[str, str]:
     env["POSTGRES_PORT"] = str(POSTGRES_PORT)
     env["RABBITMQ_PORT"] = str(RABBITMQ_PORT)
     env["RABBITMQ_MANAGEMENT_PORT"] = str(RABBITMQ_MANAGEMENT_PORT)
+    env["COMPOSE_PROJECT_NAME"] = "operations-engine"
     return env
 
 

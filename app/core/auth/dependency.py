@@ -80,8 +80,14 @@ class HttpAuthenticator:
                     "Google Workspace / Cloud Identity OIDC is strictly required."
                 )
             self._oidc_verifier = OidcVerifier.from_settings(self._settings)
-        else:
+        elif self._settings.google_oidc_client_ids:
             self._oidc_verifier = GoogleOidcVerifier.from_settings(self._settings)
+        else:
+            # Service API keys are an independent authentication boundary. Do not
+            # make machine-to-machine authentication depend on optional interactive
+            # OIDC configuration; initialize the Google verifier only if a bearer
+            # token is actually presented.
+            self._oidc_verifier = None
 
         self._credential_store: ServiceApiKeyCredentialStore
         self._resolver: DefaultIdentityResolver
@@ -245,7 +251,16 @@ class HttpAuthenticator:
                 )
             raw_token = parts[1].strip()
             try:
+                if self._oidc_verifier is None:
+                    self._oidc_verifier = GoogleOidcVerifier.from_settings(self._settings)
                 verified_oidc = await self._oidc_verifier.verify_id_token(raw_token)
+            except ValueError as exc:
+                logger.error("oidc_configuration_unavailable", error=str(exc))
+                raise ApiError(
+                    status_code=503,
+                    code="auth.oidc_unavailable",
+                    message="OIDC authentication is not configured for this service.",
+                ) from exc
             except (OidcVerificationError, GoogleOidcVerificationError) as exc:
                 logger.warning("oidc_verification_failed", error=str(exc))
                 raise ApiError(

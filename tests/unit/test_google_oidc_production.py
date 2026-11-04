@@ -45,6 +45,7 @@ from app.core.auth.models import (
     VerifiedOidcIdentity,
 )
 from app.core.auth.resolvers import DefaultIdentityResolver
+from app.core.auth.service_api_key import InMemoryServiceApiKeyCredentialStore
 from app.core.config import Settings
 
 DEFAULT_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
@@ -462,6 +463,38 @@ def test_http_authenticator_rejects_demo_provider_in_production() -> None:
 
     with pytest.raises(ValueError, match="prohibits demonstration identity provider"):
         HttpAuthenticator(settings=settings)
+
+
+def test_service_key_authenticator_does_not_require_oidc_client_configuration() -> None:
+    """Service credentials remain usable when the independent OIDC boundary is absent."""
+    settings = Settings(
+        _env_file=None,
+        database_url=None,
+        google_oidc_client_ids=[],
+    )
+
+    authenticator = HttpAuthenticator(
+        settings=settings,
+        credential_store=InMemoryServiceApiKeyCredentialStore(),
+    )
+
+    assert authenticator.credential_store is not None
+
+    app = FastAPI()
+    register_api_exception_handlers(app)
+
+    @app.get("/protected")
+    async def protected(
+        principal: AuthenticatedPrincipal = Depends(authenticator.authenticate),
+    ) -> dict[str, str]:
+        return {"principal_id": principal.principal_id}
+
+    response = TestClient(app).get(
+        "/protected",
+        headers={"Authorization": "Bearer synthetically-unconfigured-token"},
+    )
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "auth.oidc_unavailable"
 
 
 # =============================================================================

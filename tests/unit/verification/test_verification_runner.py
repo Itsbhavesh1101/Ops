@@ -69,6 +69,34 @@ def test_runner_resolves_python_token_to_active_interpreter(tmp_path: Path) -> N
     assert "active interpreter" in report["gates"][0]["stdout"]
 
 
+def test_runner_exports_active_interpreter_to_nested_tooling(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    _write_manifest(
+        manifest,
+        [
+            {
+                "id": "nested-python",
+                "group": "unit",
+                "required": True,
+                "command": [
+                    "{python}",
+                    "-c",
+                    (
+                        "import os, sys; "
+                        "raise SystemExit(0 if os.environ.get('E7_PYTHON_EXECUTABLE') "
+                        "== sys.executable else 9)"
+                    ),
+                ],
+            }
+        ],
+    )
+
+    report, exit_code = run_manifest(manifest)
+
+    assert exit_code == 0
+    assert report["gates"][0]["status"] == "PASS"
+
+
 def test_runner_resolves_platform_launcher_before_execution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

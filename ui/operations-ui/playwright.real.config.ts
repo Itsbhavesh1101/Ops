@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 const apiPort = process.env.E7_REAL_API_PORT || "8000";
 const apiOrigin = `http://127.0.0.1:${apiPort}`;
+const pythonExecutable = process.env.E7_PYTHON_EXECUTABLE
+  || (process.platform === "win32" ? ".venv\\Scripts\\python.exe" : "python");
+const pythonCommand = JSON.stringify(pythonExecutable);
 
 export default defineConfig({
   testDir: "./e2e_real",
@@ -32,9 +35,7 @@ export default defineConfig({
   webServer: [
     {
       // 1. Standalone Keycloak Demo OIDC Identity Provider Emulator
-      command: process.platform === "win32"
-        ? ".venv\\Scripts\\python.exe tests/e2e/browser/oidc_idp_server.py"
-        : "python tests/e2e/browser/oidc_idp_server.py",
+      command: `${pythonCommand} tests/e2e/browser/oidc_idp_server.py`,
       url: "http://127.0.0.1:8180/ready",
       reuseExistingServer: false,
       timeout: 30000,
@@ -42,9 +43,7 @@ export default defineConfig({
     },
     {
       // 2. Real Production FastAPI Operations Engine Backend (app.main:app)
-      command: process.platform === "win32"
-        ? `.venv\\Scripts\\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port ${apiPort}`
-        : `python -m uvicorn app.main:app --host 127.0.0.1 --port ${apiPort}`,
+      command: `${pythonCommand} -m uvicorn app.main:app --host 127.0.0.1 --port ${apiPort}`,
       url: `${apiOrigin}/api/v1/health`,
       reuseExistingServer: false,
       timeout: 45000,

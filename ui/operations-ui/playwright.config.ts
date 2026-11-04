@@ -1,5 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const pythonExecutable = process.env.E7_PYTHON_EXECUTABLE
+  || (process.platform === "win32" ? ".venv\\Scripts\\python.exe" : "python");
+const pythonCommand = JSON.stringify(pythonExecutable);
+
 export default defineConfig({
   testDir: "./e2e",
   timeout: 45000,
@@ -27,9 +31,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: process.platform === "win32"
-        ? ".venv\\Scripts\\python.exe tests/e2e/browser/test_server.py"
-        : "python tests/e2e/browser/test_server.py",
+      command: `${pythonCommand} tests/e2e/browser/test_server.py`,
       url: "http://127.0.0.1:8088/ready",
       reuseExistingServer: false,
       timeout: 30000,
